@@ -1,0 +1,5 @@
+# pnpm build-script approvals (postinstall scripts that are allowed to run).
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
