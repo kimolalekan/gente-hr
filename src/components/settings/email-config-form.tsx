@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { CheckCircle2, KeyRound, Loader2, Mail, Save } from "lucide-react";
+import {
+  CheckCircle2,
+  KeyRound,
+  Loader2,
+  Mail,
+  Save,
+  Send,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -113,7 +121,24 @@ export const PROVIDERS: ProviderDef[] = [
       },
     ],
   },
+  {
+    value: "console",
+    label: "Console — development logging",
+    description: "Logs emails instead of sending through a provider.",
+    credentials: [],
+  },
 ];
+
+/** Wire shape of GET/PUT /api/settings/email (credentials are masked on GET). */
+export interface EmailSettings {
+  provider: string;
+  credentials: Record<string, string>;
+  senderName: string;
+  senderEmail: string;
+  replyTo: string | null;
+  tracking: boolean;
+  batchLimit: number;
+}
 
 const TEMPLATES = [
   { id: "otp", name: "OTP verification", channel: "Both" },
@@ -133,18 +158,24 @@ function emptyCredentials(): Record<string, Record<string, string>> {
   );
 }
 
-export function EmailConfigForm() {
+export function EmailConfigForm({ initial }: { initial: EmailSettings }) {
   const [values, setValues] = useState({
-    provider: "resend",
-    senderName: "Gente HR",
-    senderEmail: "noreply@gente.dev",
-    replyTo: "people@gente.dev",
-    tracking: true,
-    batchLimit: "200",
+    provider: initial.provider,
+    senderName: initial.senderName,
+    senderEmail: initial.senderEmail,
+    replyTo: initial.replyTo ?? "",
+    tracking: initial.tracking,
+    batchLimit: String(initial.batchLimit),
   });
   const [credentials, setCredentials] = useState(emptyCredentials);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
 
   const provider =
     PROVIDERS.find((item) => item.value === values.provider) ?? PROVIDERS[0];
@@ -163,15 +194,70 @@ export function EmailConfigForm() {
         },
       }));
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
-    // Simulate a request; wire to a settings API route later.
-    window.setTimeout(() => {
-      setSaving(false);
+    setSaved(false);
+    setError(null);
+    try {
+      const response = await fetch("/api/settings/email", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: values.provider,
+          // Only fields the user actually typed are sent — masked values from
+          // the API must never be written back over the real credentials.
+          credentials: credentials[values.provider],
+          senderName: values.senderName,
+          senderEmail: values.senderEmail,
+          replyTo: values.replyTo,
+          tracking: values.tracking,
+          batchLimit: Number(values.batchLimit),
+        }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.ok) {
+        throw new Error(body?.error ?? "Failed to save configuration");
+      }
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
-    }, 600);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save configuration",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sendTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const response = await fetch("/api/settings/email/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.ok) {
+        throw new Error(body?.error ?? "Test email failed");
+      }
+      setTestResult({
+        kind: "success",
+        message: `Test email sent to ${body.data.to}`,
+      });
+    } catch (testError) {
+      setTestResult({
+        kind: "error",
+        message:
+          testError instanceof Error ? testError.message : "Test email failed",
+      });
+    } finally {
+      setTesting(false);
+    }
   };
 
   return (
@@ -231,41 +317,45 @@ export function EmailConfigForm() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-background/50 p-4">
-        <h3 className="flex items-center gap-1.5 text-sm font-medium">
-          <KeyRound className="size-4 text-primary" />
-          {provider.label.split(" — ")[0]} credentials
-        </h3>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Stored encrypted; never exposed after saving.
-        </p>
-        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {provider.credentials.map((field) => (
-            <div key={field.key} className="space-y-1.5">
-              <Label htmlFor={`cred-${field.key}`}>
-                {field.label}
-                {field.required && (
-                  <span className="ml-1 text-destructive" aria-hidden="true">
-                    *
-                  </span>
+      {provider.credentials.length > 0 && (
+        <div className="rounded-lg border border-border bg-background/50 p-4">
+          <h3 className="flex items-center gap-1.5 text-sm font-medium">
+            <KeyRound className="size-4 text-primary" />
+            {provider.label.split(" — ")[0]} credentials
+          </h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Stored encrypted; never exposed after saving.
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {provider.credentials.map((field) => (
+              <div key={field.key} className="space-y-1.5">
+                <Label htmlFor={`cred-${field.key}`}>
+                  {field.label}
+                  {field.required && (
+                    <span className="ml-1 text-destructive" aria-hidden="true">
+                      *
+                    </span>
+                  )}
+                </Label>
+                <Input
+                  id={`cred-${field.key}`}
+                  type={field.type ?? "text"}
+                  value={credentials[values.provider][field.key]}
+                  onChange={updateCredential(field)}
+                  placeholder={
+                    initial.credentials[field.key] ?? field.placeholder
+                  }
+                  required={field.required}
+                  autoComplete="off"
+                />
+                {field.hint && (
+                  <p className="text-xs text-muted-foreground">{field.hint}</p>
                 )}
-              </Label>
-              <Input
-                id={`cred-${field.key}`}
-                type={field.type ?? "text"}
-                value={credentials[values.provider][field.key]}
-                onChange={updateCredential(field)}
-                placeholder={field.placeholder}
-                required={field.required}
-                autoComplete="off"
-              />
-              {field.hint && (
-                <p className="text-xs text-muted-foreground">{field.hint}</p>
-              )}
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex items-center justify-between rounded-lg border border-border bg-background/50 p-4">
         <div>
@@ -306,7 +396,7 @@ export function EmailConfigForm() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={saving}>
           {saving ? (
             <Loader2 className="size-4 animate-spin" />
@@ -315,10 +405,45 @@ export function EmailConfigForm() {
           )}
           Save configuration
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={sendTest}
+          disabled={testing}
+        >
+          {testing ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Send className="size-4" />
+          )}
+          Send test email
+        </Button>
         {saved && (
           <span className="flex items-center gap-1.5 text-sm text-success">
             <CheckCircle2 className="size-4" />
             Saved
+          </span>
+        )}
+        {error && (
+          <span className="flex items-center gap-1.5 text-sm text-destructive">
+            <XCircle className="size-4" />
+            {error}
+          </span>
+        )}
+        {testResult && (
+          <span
+            className={
+              testResult.kind === "success"
+                ? "flex items-center gap-1.5 text-sm text-success"
+                : "flex items-center gap-1.5 text-sm text-destructive"
+            }
+          >
+            {testResult.kind === "success" ? (
+              <CheckCircle2 className="size-4" />
+            ) : (
+              <XCircle className="size-4" />
+            )}
+            {testResult.message}
           </span>
         )}
       </div>

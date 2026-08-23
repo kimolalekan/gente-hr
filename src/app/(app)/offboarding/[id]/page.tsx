@@ -1,13 +1,8 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import {
-  ArrowLeft,
-  CalendarX2,
-  FileText,
-  MessageSquareText,
-  Paperclip,
-} from "lucide-react";
+import { notFound, redirect } from "next/navigation";
+import { ArrowLeft, CalendarX2, MessageSquareText } from "lucide-react";
 import { Checklist } from "@/components/hr/checklist";
+import { OffboardingActions } from "@/components/hr/offboarding-actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,25 +13,65 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getCurrentUser } from "@/lib/server/auth";
+import { apiGet, ApiClientError } from "@/lib/server/api-client";
 import {
   EXIT_REASON_LABELS,
   formatDate,
-  getEmployeeById,
-  getOffboarding,
+  type ExitReason,
+  type OffboardingChecklistItem,
 } from "@/lib/hr-data";
 
 export const metadata = { title: "Offboarding" };
+
+interface OffboardingDetailRow {
+  id: string;
+  employeeId: string;
+  reason: string;
+  lastWorkingDay: string;
+  status: string;
+  exitInterviewNotes: string | null;
+  notes: string | null;
+  createdAt: string;
+  checklist: Array<{
+    id: string;
+    name: string;
+    done: boolean;
+    sortOrder: number;
+  }>;
+  employee: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+}
 
 export default async function OffboardingDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-  const offboarding = getOffboarding(id);
-  if (!offboarding) notFound();
+  // Exit processes are an HR/admin workspace.
+  const user = await getCurrentUser();
+  if (user?.role === "member") redirect("/");
 
-  const employee = getEmployeeById(offboarding.employeeId);
+  const { id } = await params;
+
+  let row: OffboardingDetailRow;
+  try {
+    row = await apiGet<OffboardingDetailRow>(`/api/offboarding/${id}`);
+  } catch (error) {
+    if (error instanceof ApiClientError && error.status === 404) notFound();
+    throw error;
+  }
+
+  const employee = row.employee;
+  const reason = row.reason as ExitReason;
+  const checklist: OffboardingChecklistItem[] = row.checklist.map((item) => ({
+    id: item.id,
+    name: item.name,
+    done: item.done,
+  }));
 
   return (
     <>
@@ -51,25 +86,33 @@ export default async function OffboardingDetailPage({
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
-              Exit — {employee?.name ?? offboarding.id}
+              Exit — {employee?.name ?? row.id}
             </h1>
-            <Badge
-              variant={
-                offboarding.status === "completed" ? "success" : "warning"
-              }
-            >
-              {offboarding.status}
+            <Badge variant={row.status === "completed" ? "success" : "warning"}>
+              {row.status}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {EXIT_REASON_LABELS[offboarding.reason]} · last working day{" "}
-            {formatDate(offboarding.lastWorkingDay)}
+            {EXIT_REASON_LABELS[reason] ?? row.reason} · last working day{" "}
+            {formatDate(row.lastWorkingDay)}
           </p>
         </div>
         {employee && (
-          <Link href={`/employees/${employee.id}`}>
-            <Button variant="outline">View employee profile</Button>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <OffboardingActions
+              offboarding={{
+                id: row.id,
+                status: row.status,
+                reason: row.reason,
+                lastWorkingDay: row.lastWorkingDay,
+                notes: row.notes,
+                exitInterviewNotes: row.exitInterviewNotes,
+              }}
+            />
+            <Link href={`/employees/${employee.id}`}>
+              <Button variant="outline">View employee profile</Button>
+            </Link>
+          </div>
         )}
       </div>
 
@@ -84,8 +127,9 @@ export default async function OffboardingDetailPage({
             </CardHeader>
             <CardContent>
               <Checklist
-                items={offboarding.checklist}
+                items={checklist}
                 label="Offboarding checklist"
+                offboardingId={row.id}
               />
             </CardContent>
           </Card>
@@ -111,32 +155,24 @@ export default async function OffboardingDetailPage({
               )}
               <div className="flex items-center gap-2 text-muted-foreground">
                 <CalendarX2 className="size-4 shrink-0" />
-                Last working day: {formatDate(offboarding.lastWorkingDay)}
-              </div>
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/50 px-3 py-2.5">
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <FileText className="size-4 shrink-0" />
-                  Termination letter
-                </span>
-                {offboarding.terminationLetter ? (
-                  <span className="flex min-w-0 items-center gap-1.5 font-medium">
-                    <Paperclip className="size-3.5 shrink-0 text-primary" />
-                    <span className="truncate">
-                      {offboarding.terminationLetter}
-                    </span>
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">Not attached</span>
-                )}
+                Last working day: {formatDate(row.lastWorkingDay)}
               </div>
               <div className="rounded-lg border border-border bg-background/50 p-3">
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <MessageSquareText className="size-3.5" /> Exit notes
                 </p>
                 <p className="mt-1 text-sm">
-                  {offboarding.notes ?? "No notes recorded."}
+                  {row.notes ?? "No notes recorded."}
                 </p>
               </div>
+              {row.exitInterviewNotes && (
+                <div className="rounded-lg border border-border bg-background/50 p-3">
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MessageSquareText className="size-3.5" /> Exit interview
+                  </p>
+                  <p className="mt-1 text-sm">{row.exitInterviewNotes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

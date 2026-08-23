@@ -1,13 +1,19 @@
 import {
   BarChart3,
+  CalendarDays,
+  Clock,
   FileDown,
   FileText,
-  PieChart,
+  Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { ActionButton } from "@/components/hr/action-button";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/hr/page-header";
+import { DateRangePicker } from "@/components/hr/date-range-picker";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -15,34 +21,123 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { REPORTS } from "@/lib/hr-data";
+import { apiGet } from "@/lib/server/api-client";
+import { getCurrentUser } from "@/lib/server/auth";
+import { formatCurrency } from "@/lib/hr-data";
+import { parseRange } from "@/lib/report-dates";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Reports" };
 
+export const dynamic = "force-dynamic";
+
+interface ReportSummary {
+  id: string;
+  title: string;
+  description: string;
+  metric: string;
+}
+
+interface ReportMetrics {
+  employees: number;
+  onLeaveToday: number;
+  pendingLeave: number;
+  payrollTotal: number;
+  departments: number;
+}
+
 const ICONS: Record<string, LucideIcon> = {
-  rep_001: BarChart3,
-  rep_002: PieChart,
-  rep_003: BarChart3,
-  rep_004: FileText,
-  rep_005: PieChart,
-  rep_006: BarChart3,
+  employees: Users,
+  leave: CalendarDays,
+  attendance: Clock,
+  payroll: Wallet,
 };
 
-export default function ReportsPage() {
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>;
+}) {
+  // Reports are org-wide analytics — not visible to employees.
+  const user = await getCurrentUser();
+  if (user?.role === "member") redirect("/");
+
+  const { from: fromParam, to: toParam } = await searchParams;
+  const { from, to } = parseRange(fromParam, toParam);
+  const rangeParams = `from=${from}&to=${to}`;
+
+  const { reports, metrics } = await apiGet<{
+    reports: ReportSummary[];
+    metrics: ReportMetrics;
+  }>("/api/reports");
+
+  const metricCards = [
+    {
+      label: "Employees",
+      value: metrics.employees.toLocaleString("en-US"),
+      icon: Users,
+    },
+    {
+      label: "On leave today",
+      value: String(metrics.onLeaveToday),
+      icon: CalendarDays,
+    },
+    {
+      label: "Pending leave",
+      value: String(metrics.pendingLeave),
+      icon: Clock,
+    },
+    {
+      label: "Payroll total",
+      value: formatCurrency(metrics.payrollTotal),
+      icon: Wallet,
+    },
+    {
+      label: "Departments",
+      value: String(metrics.departments),
+      icon: BarChart3,
+    },
+  ];
+
   return (
     <>
       <PageHeader
         title="Reports"
         description="Generate and schedule workforce analytics."
       >
-        <ActionButton variant="outline" doneLabel="Exported">
-          <FileDown />
-          Export all
-        </ActionButton>
+        <div className="flex flex-wrap items-center gap-3">
+          <DateRangePicker from={from} to={to} />
+          <Link
+            href={`/api/reports/export-all?format=csv&${rangeParams}`}
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            <FileDown />
+            Export all
+          </Link>
+        </div>
       </PageHeader>
 
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+        {metricCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Card key={card.label}>
+              <CardContent className="space-y-2 p-4">
+                <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon className="size-4" />
+                </span>
+                <div>
+                  <p className="text-2xl font-bold">{card.value}</p>
+                  <p className="text-xs text-muted-foreground">{card.label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {REPORTS.map((report) => {
+        {reports.map((report) => {
           const Icon = ICONS[report.id] ?? BarChart3;
           return (
             <Card key={report.id} className="flex flex-col">
@@ -55,19 +150,37 @@ export default function ReportsPage() {
                     {report.metric}
                   </Badge>
                 </div>
-                <CardTitle className="pt-2">{report.title}</CardTitle>
+                <CardTitle className="pt-2">
+                  <Link
+                    href={`/reports/${report.id}`}
+                    className="transition-colors hover:text-primary"
+                  >
+                    {report.title}
+                  </Link>
+                </CardTitle>
                 <CardDescription>{report.description}</CardDescription>
               </CardHeader>
-              <CardContent className="mt-auto">
-                <ActionButton
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  doneLabel="Queued"
+              <CardContent className="mt-auto flex gap-2">
+                <Link
+                  href={`/reports/${report.id}?${rangeParams}`}
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "flex-1",
+                  )}
+                >
+                  <FileText />
+                  View report
+                </Link>
+                <Link
+                  href={`/api/reports/${report.id}/export?format=csv&${rangeParams}`}
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "flex-1",
+                  )}
                 >
                   <FileDown />
-                  Generate
-                </ActionButton>
+                  Export CSV
+                </Link>
               </CardContent>
             </Card>
           );

@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { Building2 } from "lucide-react";
 import { PageHeader } from "@/components/hr/page-header";
-import { InviteUserModal } from "@/components/settings/invite-user-modal";
+import {
+  InviteUserModal,
+  UserStatusToggle,
+} from "@/components/settings/invite-user-modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -12,35 +13,30 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { apiGet, type Paginated } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
-import { EMPLOYEES } from "@/lib/hr-data";
 
 export const metadata = { title: "User management" };
 
-/** Company admins — they have access to every organization. */
-const ADMIN_USERS = [
-  {
-    name: "Ada Admin",
-    email: "admin@gente.dev",
-    status: "active" as const,
-    lastSignIn: "2026-08-19T13:20:00",
-  },
-  {
-    name: "Grace Hopper",
-    email: "grace.hopper@gente.dev",
-    status: "active" as const,
-    lastSignIn: "2026-08-18T11:02:00",
-  },
-  {
-    name: "Linus Berg",
-    email: "linus.berg@gente.dev",
-    status: "inactive" as const,
-    lastSignIn: "—",
-  },
-];
+export const dynamic = "force-dynamic";
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  status: "active" | "inactive";
+  superAdmin: boolean;
+  createdAt: string;
+  tenants: { tenantId: string; name: string }[];
+}
 
 export default async function UsersSettingsPage() {
   const user = await getCurrentUser();
+  const data = await apiGet<Paginated<AdminUser>>("/api/users", {
+    page: 1,
+    pageSize: 100,
+  });
+  const users = data.items;
 
   return (
     <>
@@ -48,17 +44,15 @@ export default async function UsersSettingsPage() {
         title="Users"
         description="Company admins — they have access to every organization."
       >
-        <InviteUserModal
-          existingEmails={ADMIN_USERS.map((entry) => entry.email)}
-        />
+        <InviteUserModal existingEmails={users.map((entry) => entry.email)} />
       </PageHeader>
 
       <Card>
         <CardHeader>
           <CardTitle>Admin users</CardTitle>
           <CardDescription>
-            {ADMIN_USERS.length} accounts · all with access to every
-            organization
+            {users.length} {users.length === 1 ? "account" : "accounts"} · all
+            with access to every organization
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -69,23 +63,20 @@ export default async function UsersSettingsPage() {
                   <th className="py-2.5 pr-4 font-medium">User</th>
                   <th className="px-4 py-2.5 font-medium">Organizations</th>
                   <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
-                    Last sign-in
+                    Created
                   </th>
                   <th className="px-4 py-2.5 font-medium">Status</th>
                   <th className="py-2.5 pl-4 text-right font-medium">
-                    Profile
+                    Actions
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {ADMIN_USERS.map((entry) => {
-                  const employee = EMPLOYEES.find(
-                    (item) => item.email === entry.email,
-                  );
+                {users.map((entry) => {
                   const isSelf = user?.email === entry.email;
                   return (
                     <tr
-                      key={entry.email}
+                      key={entry.id}
                       className="border-b border-border last:border-0"
                     >
                       <td className="py-3 pr-4">
@@ -109,16 +100,19 @@ export default async function UsersSettingsPage() {
                       <td className="px-4 py-3">
                         <Badge variant="secondary">
                           <Building2 className="size-3.5" />
-                          All orgs
+                          {entry.tenants.length === 0
+                            ? "No orgs"
+                            : entry.tenants[0].name}
+                          {entry.tenants.length > 1 &&
+                            ` +${entry.tenants.length - 1}`}
                         </Badge>
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                        {entry.lastSignIn === "—"
-                          ? "—"
-                          : new Date(entry.lastSignIn).toLocaleDateString(
-                              "en-US",
-                              { month: "short", day: "numeric" },
-                            )}
+                        {new Date(entry.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
                       </td>
                       <td className="px-4 py-3">
                         <Badge
@@ -130,16 +124,11 @@ export default async function UsersSettingsPage() {
                         </Badge>
                       </td>
                       <td className="py-3 pl-4 text-right">
-                        {employee ? (
-                          <Link href={`/employees/${employee.id}`}>
-                            <Button variant="outline" size="sm">
-                              View profile
-                            </Button>
-                          </Link>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            —
-                          </span>
+                        {!isSelf && (
+                          <UserStatusToggle
+                            userId={entry.id}
+                            status={entry.status}
+                          />
                         )}
                       </td>
                     </tr>

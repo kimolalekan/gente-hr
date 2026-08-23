@@ -1,25 +1,43 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { ArrowLeft, Banknote, Receipt, Users, Wallet } from 'lucide-react';
-import { Avatar } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft, Banknote, Receipt, Users, Wallet } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import {
-  formatCurrency,
-  formatDate,
-  getEmployeeById,
-  getPayrollEntries,
-  PAYROLL_RUNS,
-} from '@/lib/hr-data';
+} from "@/components/ui/card";
+import { formatCurrency, formatDate } from "@/lib/hr-data";
+import { getCurrentUser } from "@/lib/server/auth";
+import { apiGet } from "@/lib/server/api-client";
 
-export const metadata = { title: 'Payroll run' };
+export const metadata = { title: "Payroll run" };
+
+/** Payroll run detail from `GET /api/payroll/runs/[id]`. */
+interface RunDetail {
+  id: string;
+  period: string;
+  processedAt: string;
+  total: number;
+  employees: number;
+  status: string;
+  createdAt: string;
+  entries: Array<{
+    id: string;
+    employeeId: string;
+    employeeName: string | null;
+    department: string | null;
+    gross: number;
+    deductions: number;
+    net: number;
+    status: string;
+  }>;
+  totals: { gross: number; deductions: number; net: number };
+}
 
 export default async function PayrollRunPage({
   params,
@@ -27,25 +45,26 @@ export default async function PayrollRunPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const run = PAYROLL_RUNS.find((item) => item.id === id);
+
+  // Runs are an admin/HR surface; the API only serves those roles.
+  const user = await getCurrentUser();
+  if (!user || user.role === "member") notFound();
+
+  const run = await apiGet<RunDetail>(`/api/payroll/runs/${id}`).catch(
+    () => null,
+  );
   if (!run) notFound();
 
-  const entries = getPayrollEntries(run.id);
-  const grossTotal = entries.reduce((sum, entry) => sum + entry.gross, 0);
-  const deductionsTotal = entries.reduce((sum, entry) => sum + entry.deductions, 0);
-  const netTotal = entries.reduce((sum, entry) => sum + entry.net, 0);
-
-  const byDepartment = entries.reduce<Record<string, { employees: number; gross: number }>>(
-    (acc, entry) => {
-      const employee = getEmployeeById(entry.employeeId);
-      const department = employee?.department ?? 'Unknown';
-      acc[department] = acc[department] ?? { employees: 0, gross: 0 };
-      acc[department].employees += 1;
-      acc[department].gross += entry.gross;
-      return acc;
-    },
-    {},
-  );
+  const { entries, totals } = run;
+  const byDepartment = entries.reduce<
+    Record<string, { employees: number; gross: number }>
+  >((acc, entry) => {
+    const department = entry.department ?? "Unknown";
+    acc[department] = acc[department] ?? { employees: 0, gross: 0 };
+    acc[department].employees += 1;
+    acc[department].gross += entry.gross;
+    return acc;
+  }, {});
 
   return (
     <>
@@ -62,14 +81,19 @@ export default async function PayrollRunPage({
             <h1 className="text-2xl font-bold tracking-tight">{run.period}</h1>
             <Badge
               variant={
-                run.status === 'completed' ? 'success' : run.status === 'processing' ? 'info' : 'warning'
+                run.status === "completed"
+                  ? "success"
+                  : run.status === "processing"
+                    ? "info"
+                    : "warning"
               }
             >
               {run.status}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Processed {formatDate(run.processedAt)} · {run.employees} employees
+            Processed {formatDate(run.processedAt.slice(0, 10))} ·{" "}
+            {run.employees} employees
           </p>
         </div>
       </div>
@@ -80,7 +104,9 @@ export default async function PayrollRunPage({
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <Wallet className="size-4" /> Gross
             </p>
-            <p className="mt-1 text-2xl font-bold">{formatCurrency(grossTotal)}</p>
+            <p className="mt-1 text-2xl font-bold">
+              {formatCurrency(totals.gross)}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -88,7 +114,9 @@ export default async function PayrollRunPage({
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <Receipt className="size-4" /> Deductions
             </p>
-            <p className="mt-1 text-2xl font-bold">−{formatCurrency(deductionsTotal)}</p>
+            <p className="mt-1 text-2xl font-bold">
+              −{formatCurrency(totals.deductions)}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -96,7 +124,9 @@ export default async function PayrollRunPage({
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <Banknote className="size-4" /> Net
             </p>
-            <p className="mt-1 text-2xl font-bold text-success">{formatCurrency(netTotal)}</p>
+            <p className="mt-1 text-2xl font-bold text-success">
+              {formatCurrency(totals.net)}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -113,7 +143,9 @@ export default async function PayrollRunPage({
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Employee payments</CardTitle>
-            <CardDescription>Gross, deductions and net per employee.</CardDescription>
+            <CardDescription>
+              Gross, deductions and net per employee.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -125,47 +157,57 @@ export default async function PayrollRunPage({
                     <th className="px-4 py-2.5 font-medium">Deductions</th>
                     <th className="px-4 py-2.5 font-medium">Net</th>
                     <th className="px-4 py-2.5 font-medium">Status</th>
-                    <th className="py-2.5 pl-4 text-right font-medium">Details</th>
+                    <th className="py-2.5 pl-4 text-right font-medium">
+                      Details
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry) => {
-                    const employee = getEmployeeById(entry.employeeId);
-                    return (
-                      <tr key={entry.employeeId} className="border-b border-border last:border-0">
-                        <td className="py-3 pr-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar name={employee?.name ?? '—'} size="sm" />
-                            <div className="min-w-0">
-                              <p className="truncate font-medium">{employee?.name ?? '—'}</p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {employee?.department ?? ''}
-                              </p>
-                            </div>
+                  {entries.map((entry) => (
+                    <tr
+                      key={entry.id}
+                      className="border-b border-border last:border-0"
+                    >
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar name={entry.employeeName ?? "—"} size="sm" />
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">
+                              {entry.employeeName ?? "—"}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {entry.department ?? ""}
+                            </p>
                           </div>
-                        </td>
-                        <td className="px-4 py-3">{formatCurrency(entry.gross)}</td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {formatCurrency(entry.deductions)}
-                        </td>
-                        <td className="px-4 py-3 font-medium">{formatCurrency(entry.net)}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant={entry.status === 'paid' ? 'success' : 'warning'}>
-                            {entry.status}
-                          </Badge>
-                        </td>
-                        <td className="py-3 pl-4 text-right">
-                          {employee && (
-                            <Link href={`/employees/${employee.id}`}>
-                              <Button variant="outline" size="sm">
-                                View details
-                              </Button>
-                            </Link>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {formatCurrency(entry.gross)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatCurrency(entry.deductions)}
+                      </td>
+                      <td className="px-4 py-3 font-medium">
+                        {formatCurrency(entry.net)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant={
+                            entry.status === "paid" ? "success" : "warning"
+                          }
+                        >
+                          {entry.status}
+                        </Badge>
+                      </td>
+                      <td className="py-3 pl-4 text-right">
+                        <Link href={`/employees/${entry.employeeId}`}>
+                          <Button variant="outline" size="sm">
+                            View details
+                          </Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -181,7 +223,7 @@ export default async function PayrollRunPage({
             {Object.entries(byDepartment)
               .sort(([, a], [, b]) => b.gross - a.gross)
               .map(([department, info]) => {
-                const pct = Math.round((info.gross / grossTotal) * 100);
+                const pct = Math.round((info.gross / totals.gross) * 100);
                 return (
                   <Link
                     key={department}
@@ -195,7 +237,10 @@ export default async function PayrollRunPage({
                       </span>
                     </div>
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${pct}%` }}
+                      />
                     </div>
                   </Link>
                 );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -42,7 +42,7 @@ import {
 } from "@/lib/theme-config";
 import { cn } from "@/lib/utils";
 
-const TIMEZONES = [
+export const TIMEZONES = [
   "UTC",
   "Europe/London",
   "Europe/Berlin",
@@ -98,6 +98,22 @@ export function SetupWizard() {
 
   const emailProvider =
     PROVIDERS.find((item) => item.value === provider) ?? PROVIDERS[0];
+
+  /* ------------------------- first-run status -------------------------- */
+
+  // When the workspace is already configured, send visitors straight to login.
+  useEffect(() => {
+    fetch("/api/setup/status")
+      .then((response) => response.json())
+      .then((body) => {
+        if (body?.ok && body.data?.configured) {
+          window.location.replace("/login");
+        }
+      })
+      .catch(() => {
+        // No DB yet — keep showing the wizard.
+      });
+  }, []);
 
   /* ----------------------------- step actions ----------------------------- */
 
@@ -184,7 +200,7 @@ export function SetupWizard() {
 
   /* --------------------------------- done --------------------------------- */
 
-  const handleCreate = (event: FormEvent) => {
+  const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
     const message = validateStep(0) ?? validateStep(1) ?? validateStep(2);
     if (message) {
@@ -200,11 +216,54 @@ export function SetupWizard() {
     }
     setBusy(true);
     setError(null);
-    // Simulate provisioning the tenant; wire to a setup API later.
-    window.setTimeout(() => {
-      setBusy(false);
+    try {
+      const response = await fetch("/api/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organization: {
+            name: orgName.trim(),
+            website: website.trim() || undefined,
+            timezone,
+            currency,
+            logoUrl: logoUrl ?? undefined,
+          },
+          admin: { email: adminEmail.trim().toLowerCase() },
+          email: {
+            provider,
+            credentials: credentials[provider],
+            senderName: senderName.trim(),
+            senderEmail: senderEmail.trim().toLowerCase(),
+          },
+          theme: {
+            themeId: draft.themeId,
+            mode: draft.mode ?? "system",
+            ...(draft.custom ? { custom: draft.custom } : {}),
+          },
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (!body?.ok) {
+        const apiMessage = body?.error ?? "Could not provision the workspace";
+        setError(apiMessage);
+        setStep(
+          apiMessage.includes("Organization") || apiMessage.includes("name")
+            ? 0
+            : apiMessage.includes("admin")
+              ? 1
+              : 2,
+        );
+        return;
+      }
       setDone(true);
-    }, 1100);
+    } catch {
+      setError("Network error — check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const themeName =

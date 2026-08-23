@@ -3,10 +3,19 @@
 import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { AUDIT_CATEGORY_LABELS, type AuditLog } from "@/lib/hr-data";
+import { AUDIT_CATEGORY_LABELS } from "@/lib/hr-data";
+
+export interface AuditLogItem {
+  id: string;
+  actorName: string | null;
+  action: string;
+  target: string | null;
+  category: string;
+  createdAt: string;
+}
 
 const CATEGORY_VARIANT: Record<
-  AuditLog["category"],
+  string,
   "default" | "info" | "secondary" | "warning" | "success"
 > = {
   auth: "info",
@@ -15,9 +24,13 @@ const CATEGORY_VARIANT: Record<
   employee: "default",
   email: "success",
   settings: "warning",
+  onboarding: "info",
+  offboarding: "secondary",
+  attendance: "secondary",
+  performance: "default",
 };
 
-export function AuditLogTable({ logs }: { logs: AuditLog[] }) {
+export function AuditLogTable({ logs }: { logs: AuditLogItem[] }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
@@ -42,21 +55,25 @@ export function AuditLogTable({ logs }: { logs: AuditLog[] }) {
               <Fragment key={log.id}>
                 <tr className="border-b border-border last:border-0">
                   <td className="whitespace-nowrap py-3 pr-4 font-mono text-xs text-muted-foreground">
-                    {new Date(log.time).toLocaleString("en-US", {
+                    {new Date(log.createdAt).toLocaleString("en-US", {
                       month: "short",
                       day: "numeric",
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                   </td>
-                  <td className="px-4 py-3">{log.actor}</td>
+                  <td className="px-4 py-3">{log.actorName ?? "—"}</td>
                   <td className="px-4 py-3">{log.action}</td>
                   <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                    {log.target}
+                    {log.target ?? "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant={CATEGORY_VARIANT[log.category]}>
-                      {AUDIT_CATEGORY_LABELS[log.category]}
+                    <Badge
+                      variant={CATEGORY_VARIANT[log.category] ?? "secondary"}
+                    >
+                      {AUDIT_CATEGORY_LABELS[
+                        log.category as keyof typeof AUDIT_CATEGORY_LABELS
+                      ] ?? log.category}
                     </Badge>
                   </td>
                   <td className="py-3 pl-4 text-right">
@@ -88,11 +105,13 @@ export function AuditLogTable({ logs }: { logs: AuditLog[] }) {
                         </div>
                         <div>
                           <dt className="text-muted-foreground">Timestamp</dt>
-                          <dd>{new Date(log.time).toLocaleString("en-US")}</dd>
+                          <dd>
+                            {new Date(log.createdAt).toLocaleString("en-US")}
+                          </dd>
                         </div>
                         <div>
                           <dt className="text-muted-foreground">Actor</dt>
-                          <dd>{log.actor}</dd>
+                          <dd>{log.actorName ?? "—"}</dd>
                         </div>
                         <div>
                           <dt className="text-muted-foreground">Action</dt>
@@ -100,7 +119,7 @@ export function AuditLogTable({ logs }: { logs: AuditLog[] }) {
                         </div>
                         <div className="sm:col-span-2">
                           <dt className="text-muted-foreground">Target</dt>
-                          <dd>{log.target}</dd>
+                          <dd>{log.target ?? "—"}</dd>
                         </div>
                       </dl>
                     </td>

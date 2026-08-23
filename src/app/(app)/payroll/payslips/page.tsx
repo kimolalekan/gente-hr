@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Banknote, CalendarDays, FileText } from "lucide-react";
-import { ActionButton } from "@/components/hr/action-button";
+import { DateRangePicker } from "@/components/hr/date-range-picker";
 import { PageHeader } from "@/components/hr/page-header";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -12,24 +12,67 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency, getEmployeeById, getPayslips } from "@/lib/hr-data";
+import { formatCurrency } from "@/lib/hr-data";
+import { parseRange } from "@/lib/report-dates";
+import { getCurrentUser } from "@/lib/server/auth";
+import { apiGet, type Paginated } from "@/lib/server/api-client";
 
 export const metadata = { title: "Payslips" };
 
-export default function PayslipsPage() {
-  const payslips = getPayslips("August 2026");
+/** Payslip row from `GET /api/payroll/payslips` (member-scoped for members). */
+interface PayslipRow {
+  id: string;
+  employeeId: string;
+  employeeName: string | null;
+  period: string;
+  basic: number;
+  hra: number;
+  allowances: number;
+  bonus: number;
+  tax: number;
+  pension: number;
+  insurance: number;
+  loanEmi: number;
+  gross: number;
+  net: number;
+  status: string;
+  generatedAt: string;
+  createdAt: string;
+}
+
+export default async function PayslipsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>;
+}) {
+  const user = await getCurrentUser();
+  const isMember = user?.role === "member";
+
+  const { from: fromParam, to: toParam } = await searchParams;
+  const { from, to } = parseRange(fromParam, toParam);
+
+  const data = await apiGet<Paginated<PayslipRow>>("/api/payroll/payslips", {
+    from,
+    to,
+  });
+  const payslips = data.items;
+
+  // Newest period first (the API orders by generatedAt).
+  const currentPeriod = payslips[0]?.period ?? null;
   const netTotal = payslips.reduce((sum, payslip) => sum + payslip.net, 0);
+  const periodLabel = currentPeriod ?? "—";
 
   return (
     <>
       <PageHeader
-        title="Payslips"
-        description="Monthly payslips for all employees."
+        title={isMember ? "My payslips" : "Payslips"}
+        description={
+          isMember
+            ? "Your monthly payslips."
+            : "Monthly payslips for all employees."
+        }
       >
-        <ActionButton doneLabel="Generating">
-          <FileText />
-          Generate month
-        </ActionButton>
+        <DateRangePicker from={from} to={to} />
       </PageHeader>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -38,7 +81,7 @@ export default function PayslipsPage() {
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <CalendarDays className="size-4" /> Period
             </p>
-            <p className="mt-1 text-2xl font-bold">August 2026</p>
+            <p className="mt-1 text-2xl font-bold">{periodLabel}</p>
           </CardContent>
         </Card>
         <Card>
@@ -63,9 +106,9 @@ export default function PayslipsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>August 2026 payslips</CardTitle>
+          <CardTitle>Payslips</CardTitle>
           <CardDescription>
-            Earnings and deductions per employee.
+            Earnings and deductions per employee in the selected date range.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -89,7 +132,6 @@ export default function PayslipsPage() {
               </thead>
               <tbody>
                 {payslips.map((payslip) => {
-                  const employee = getEmployeeById(payslip.employeeId);
                   const deductions =
                     payslip.tax +
                     payslip.pension +
@@ -102,13 +144,16 @@ export default function PayslipsPage() {
                     >
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-3">
-                          <Avatar name={employee?.name ?? "—"} size="sm" />
+                          <Avatar
+                            name={payslip.employeeName ?? "—"}
+                            size="sm"
+                          />
                           <div className="min-w-0">
                             <p className="truncate font-medium">
-                              {employee?.name ?? "—"}
+                              {payslip.employeeName ?? "—"}
                             </p>
                             <p className="truncate text-xs text-muted-foreground">
-                              {employee?.department ?? ""}
+                              {payslip.period}
                             </p>
                           </div>
                         </div>

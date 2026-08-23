@@ -11,11 +11,36 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { EMPLOYEES } from "@/lib/hr-data";
 
 /* ------------------------------------------------------------------ */
 /* Shared dashboard building blocks (server components).               */
 /* ------------------------------------------------------------------ */
+
+/** Summary metrics from `GET /api/reports`. */
+export interface DashboardMetrics {
+  employees: number;
+  onLeaveToday: number;
+  pendingLeave: number;
+  payrollTotal: number;
+  departments: number;
+}
+
+/** One day from `GET /api/attendance/week-trend`. */
+export interface AttendanceTrendDay {
+  date: string;
+  day: string;
+  presentPct: number;
+}
+
+/** Employee list row (shape of `GET /api/employees` items). */
+export interface RecentEmployee {
+  id: string;
+  name: string;
+  email: string;
+  role: string | null;
+  department: string | null;
+  status: string;
+}
 
 export interface Stat {
   label: string;
@@ -79,17 +104,7 @@ export function DashboardHeader({
   );
 }
 
-const ATTENDANCE = [
-  { day: "Mon", value: 42 },
-  { day: "Tue", value: 64 },
-  { day: "Wed", value: 50 },
-  { day: "Thu", value: 78, today: true },
-  { day: "Fri", value: 58 },
-  { day: "Sat", value: 30 },
-  { day: "Sun", value: 22 },
-];
-
-export function AttendanceChart() {
+export function AttendanceChart({ days }: { days: AttendanceTrendDay[] }) {
   return (
     <Card className="lg:col-span-2">
       <CardHeader>
@@ -105,40 +120,50 @@ export function AttendanceChart() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex h-40 items-end justify-between gap-2">
-          {ATTENDANCE.map((bar) => (
-            <div
-              key={bar.day}
-              className="flex flex-1 flex-col items-center gap-2"
-            >
+        {days.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No attendance data for this week yet.
+          </p>
+        ) : (
+          <div className="flex h-40 items-end justify-between gap-2">
+            {days.map((bar, index) => (
               <div
-                className={
-                  bar.today
-                    ? "w-full max-w-10 rounded-md bg-primary"
-                    : "w-full max-w-10 rounded-md bg-primary/20"
-                }
-                style={{ height: `${bar.value}%` }}
-                title={`${bar.value} people`}
-              />
-              <span
-                className={
-                  bar.today
-                    ? "text-xs font-medium text-primary"
-                    : "text-xs text-muted-foreground"
-                }
+                key={bar.date}
+                className="flex flex-1 flex-col items-center gap-2"
               >
-                {bar.day}
-              </span>
-            </div>
-          ))}
-        </div>
+                <div
+                  className={
+                    index === days.length - 1
+                      ? "w-full max-w-10 rounded-md bg-primary"
+                      : "w-full max-w-10 rounded-md bg-primary/20"
+                  }
+                  style={{ height: `${Math.max(4, bar.presentPct)}%` }}
+                  title={`${bar.presentPct}% present`}
+                />
+                <span
+                  className={
+                    index === days.length - 1
+                      ? "text-xs font-medium text-primary"
+                      : "text-xs text-muted-foreground"
+                  }
+                >
+                  {bar.day}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-export function RecentEmployeesTable() {
-  const recent = EMPLOYEES.slice(0, 5);
+export function RecentEmployeesTable({
+  employees,
+}: {
+  employees: RecentEmployee[];
+}) {
+  const recent = employees.slice(0, 5);
   return (
     <Card>
       <CardHeader>
@@ -170,6 +195,16 @@ export function RecentEmployeesTable() {
               </tr>
             </thead>
             <tbody>
+              {recent.length === 0 && (
+                <tr className="border-b border-border last:border-0">
+                  <td
+                    colSpan={5}
+                    className="py-6 text-center text-sm text-muted-foreground"
+                  >
+                    No employees yet.
+                  </td>
+                </tr>
+              )}
               {recent.map((employee) => (
                 <tr
                   key={employee.id}

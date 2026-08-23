@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bell,
   CalendarCheck,
@@ -13,11 +13,7 @@ import {
   Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  NOTIFICATIONS,
-  NOTIFICATION_TYPE_LABELS,
-  type AppNotification,
-} from "@/lib/hr-data";
+import { NOTIFICATION_TYPE_LABELS, type AppNotification } from "@/lib/hr-data";
 import { cn } from "@/lib/utils";
 
 const TYPE_ICONS: Record<AppNotification["type"], typeof Bell> = {
@@ -28,6 +24,29 @@ const TYPE_ICONS: Record<AppNotification["type"], typeof Bell> = {
   performance: Star,
   system: Bell,
 };
+
+/** Raw row shape from `GET /api/notifications`. */
+interface NotificationRow {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  href: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
+function toAppNotification(row: NotificationRow): AppNotification {
+  return {
+    id: row.id,
+    type: row.type as AppNotification["type"],
+    title: row.title,
+    body: row.body ?? "",
+    time: row.createdAt,
+    read: row.read,
+    href: row.href ?? undefined,
+  };
+}
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -107,17 +126,63 @@ function NotificationRow({
 }
 
 export function NotificationCenter() {
-  const [items, setItems] = useState(NOTIFICATIONS);
+  const [items, setItems] = useState<AppNotification[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const unread = items.filter((item) => !item.read).length;
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [listResponse, countResponse] = await Promise.all([
+          fetch("/api/notifications?pageSize=50"),
+          fetch("/api/notifications/unread-count"),
+        ]);
+        if (cancelled) return;
+        const list = (await listResponse.json()) as {
+          ok: boolean;
+          data?: { items?: NotificationRow[] };
+        };
+        if (list.ok && list.data?.items) {
+          setItems(list.data.items.map(toAppNotification));
+        }
+        const count = (await countResponse.json()) as {
+          ok: boolean;
+          data?: { count?: number };
+        };
+        if (count.ok && typeof count.data?.count === "number") {
+          setUnread(count.data.count);
+        }
+      } catch {
+        // Fetch/parse failure: leave the list empty rather than crash.
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const markAllRead = () => {
     setItems((current) => current.map((item) => ({ ...item, read: true })));
+    setUnread(0);
+    void fetch("/api/notifications/read-all", { method: "POST" }).catch(
+      () => {},
+    );
   };
 
   const markRead = (id: string) => {
+    const target = items.find((item) => item.id === id);
+    if (target && !target.read) {
+      setUnread((current) => Math.max(0, current - 1));
+    }
     setItems((current) =>
       current.map((item) => (item.id === id ? { ...item, read: true } : item)),
+    );
+    void fetch(`/api/notifications/${id}/read`, { method: "PATCH" }).catch(
+      () => {},
     );
   };
 
@@ -125,7 +190,11 @@ export function NotificationCenter() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {unread > 0 ? `${unread} unread` : "All caught up"}
+          {loading
+            ? "Loading…"
+            : unread > 0
+              ? `${unread} unread`
+              : "All caught up"}
         </p>
         <Button
           variant="outline"
@@ -138,15 +207,25 @@ export function NotificationCenter() {
         </Button>
       </div>
 
-      <div className="divide-y divide-border rounded-xl border border-border bg-card">
-        {items.map((notification) => (
-          <NotificationRow
-            key={notification.id}
-            notification={notification}
-            onOpen={markRead}
-          />
-        ))}
-      </div>
+      {loading ? (
+        <p className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+          Loading notifications…
+        </p>
+      ) : items.length === 0 ? (
+        <p className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+          No notifications yet.
+        </p>
+      ) : (
+        <div className="divide-y divide-border rounded-xl border border-border bg-card">
+          {items.map((notification) => (
+            <NotificationRow
+              key={notification.id}
+              notification={notification}
+              onOpen={markRead}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

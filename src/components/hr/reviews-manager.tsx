@@ -1,8 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { CalendarPlus, CheckCircle2, Loader2, Play, Send } from "lucide-react";
+import {
+  CalendarPlus,
+  CheckCircle2,
+  Loader2,
+  Play,
+  Send,
+  Star,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,14 +25,8 @@ import { DatePicker } from "@/components/ui/datepicker";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import {
-  createReview,
-  formatDate,
-  getEmployeeById,
-  type Employee,
-  type PerformanceReview,
-  type PerformanceTemplate,
-} from "@/lib/hr-data";
+import { Textarea } from "@/components/ui/textarea";
+import { formatDate } from "@/lib/hr-data";
 
 function addDays(iso: string, days: number): string {
   const date = new Date(`${iso}T00:00:00`);
@@ -36,21 +38,59 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Review row as returned by `GET /api/performance/reviews`. */
+interface ReviewItem {
+  id: string;
+  employeeId: string;
+  employeeName: string | null;
+  templateId: string;
+  deadline: string | null;
+  deadlineExtended: number;
+  overall: number | null;
+  status: string;
+}
+
+/** Row returned by `POST /api/performance/reviews`. */
+interface ApiReviewRow {
+  id?: string;
+  employeeId?: string;
+  templateId?: string;
+  deadline?: string | null;
+  deadlineExtended?: number;
+  overall?: number | null;
+  status?: string;
+}
+
+function toReviewItem(
+  row: ApiReviewRow,
+  fallback: { employeeId: string; templateId: string; deadline: string },
+): ReviewItem {
+  return {
+    id: row.id ?? `rev_${Date.now().toString(36)}`,
+    employeeId: row.employeeId ?? fallback.employeeId,
+    employeeName: null,
+    templateId: row.templateId ?? fallback.templateId,
+    deadline: row.deadline ?? fallback.deadline,
+    deadlineExtended: row.deadlineExtended ?? 0,
+    overall: row.overall ?? null,
+    status: row.status ?? "draft",
+  };
+}
+
 /**
  * Reviews list with "Start review" (template + employee + deadline → email
- * invite) and deadline extension for HR/Admin. Demo state is local.
+ * invite) and deadline extension for HR/Admin. Writes go to the reviews API:
+ * `POST /api/performance/reviews` and `PATCH /api/performance/reviews/[id]/deadline`.
  */
 export function ReviewsManager({
   reviews,
   employees,
   templates,
-  reviewer,
   canManage,
 }: {
-  reviews: PerformanceReview[];
-  employees: Employee[];
-  templates: PerformanceTemplate[];
-  reviewer: string;
+  reviews: ReviewItem[];
+  employees: { id: string; name: string; role: string | null }[];
+  templates: { id: string; name: string; active: boolean }[];
   canManage: boolean;
 }) {
   const [items, setItems] = useState(reviews);
@@ -60,7 +100,7 @@ export function ReviewsManager({
   const [deadline, setDeadline] = useState(() => addDays(todayIso(), 14));
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
-  const [sentEmail, setSentEmail] = useState("");
+  const [sentName, setSentName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const activeTemplates = templates.filter((template) => template.active);
@@ -74,7 +114,7 @@ export function ReviewsManager({
     setOpen(true);
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!templateId) {
       setError("Choose a template.");
@@ -88,36 +128,84 @@ export function ReviewsManager({
       setError("The deadline must be in the future.");
       return;
     }
-    const employee = getEmployeeById(employeeId);
-    const review = createReview({
-      employeeId,
-      templateId,
-      deadline,
-      reviewer,
-    });
-    setItems((current) => [review, ...current]);
-    setSentEmail(employee?.email ?? "");
     setBusy(true);
-    // Simulate sending the invite email to the employee.
-    window.setTimeout(() => {
-      setBusy(false);
+    setError(null);
+    let apiError: string | null = null;
+    const employee = employees.find((item) => item.id === employeeId);
+    try {
+      const response = await fetch("/api/performance/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId, employeeId, deadline }),
+      });
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        data?: ApiReviewRow;
+      } | null;
+      if (!body?.ok) {
+        apiError = body?.error ?? "Could not start the review";
+        throw new Error(apiError);
+      }
+      setItems((current) => [
+        toReviewItem(body.data ?? {}, { employeeId, templateId, deadline }),
+        ...current,
+      ]);
+      setSentName(employee?.name ?? employeeId);
       setSent(true);
-    }, 800);
+    } catch {
+      if (apiError) setError(apiError);
+      else setError("Could not start the review. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const extendDeadline = (id: string) => {
-    setItems((current) =>
-      current.map((review) =>
-        review.id === id
-          ? {
-              ...review,
-              deadline: addDays(review.deadline, 7),
-              deadlineExtended: (review.deadlineExtended ?? 0) + 1,
-            }
-          : review,
-      ),
-    );
+  const extendDeadline = async (id: string) => {
+    let apiError: string | null = null;
+    try {
+      const response = await fetch(
+        `/api/performance/reviews/${encodeURIComponent(id)}/deadline`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ extraDays: 7 }),
+        },
+      );
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        data?: { deadline?: string | null; deadlineExtended?: number };
+      } | null;
+      if (!body?.ok) {
+        apiError = body?.error ?? "Could not extend the deadline";
+        throw new Error(apiError);
+      }
+      setItems((current) =>
+        current.map((review) =>
+          review.id === id
+            ? {
+                ...review,
+                deadline:
+                  body.data?.deadline ??
+                  (review.deadline
+                    ? addDays(review.deadline, 7)
+                    : review.deadline),
+                deadlineExtended:
+                  body.data?.deadlineExtended ??
+                  (review.deadlineExtended ?? 0) + 1,
+              }
+            : review,
+        ),
+      );
+    } catch {
+      if (apiError) setError(apiError);
+    }
   };
+
+  const employeeName = (review: ReviewItem) =>
+    review.employeeName ??
+    employees.find((item) => item.id === review.employeeId)?.name;
 
   return (
     <Card>
@@ -156,10 +244,13 @@ export function ReviewsManager({
             </thead>
             <tbody>
               {items.map((review) => {
-                const employee = getEmployeeById(review.employeeId);
                 const template = templates.find(
                   (item) => item.id === review.templateId,
                 );
+                const name = employeeName(review);
+                const role = employees.find(
+                  (item) => item.id === review.employeeId,
+                )?.role;
                 return (
                   <tr
                     key={review.id}
@@ -167,14 +258,14 @@ export function ReviewsManager({
                   >
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-3">
-                        <Avatar name={employee?.name ?? "—"} size="sm" />
+                        <Avatar name={name ?? "—"} size="sm" />
                         <div className="min-w-0">
-                          <p className="truncate font-medium">
-                            {employee?.name ?? "—"}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {employee?.role ?? ""}
-                          </p>
+                          <p className="truncate font-medium">{name ?? "—"}</p>
+                          {role && (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {role}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -184,11 +275,13 @@ export function ReviewsManager({
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">
-                          {formatDate(review.deadline)}
+                          {review.deadline
+                            ? formatDate(review.deadline.slice(0, 10))
+                            : "—"}
                         </span>
                         {(review.deadlineExtended ?? 0) > 0 && (
                           <Badge variant="outline" className="text-[10px]">
-                            +{(review.deadlineExtended ?? 0)} ext
+                            +{review.deadlineExtended ?? 0} ext
                           </Badge>
                         )}
                         {canManage && review.status === "draft" && (
@@ -205,11 +298,15 @@ export function ReviewsManager({
                       </div>
                     </td>
                     <td className="hidden px-4 py-3 font-medium lg:table-cell">
-                      {review.overall > 0 ? `${review.overall.toFixed(1)} / 5` : "—"}
+                      {(review.overall ?? 0) > 0
+                        ? `${review.overall?.toFixed(1)} / 5`
+                        : "—"}
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        variant={review.status === "submitted" ? "success" : "warning"}
+                        variant={
+                          review.status === "submitted" ? "success" : "warning"
+                        }
                       >
                         {review.status}
                       </Badge>
@@ -234,9 +331,7 @@ export function ReviewsManager({
         onClose={() => setOpen(false)}
         title={sent ? "Review started" : "Start a review"}
         description={
-          sent
-            ? undefined
-            : "Choose a template, the employee and a deadline."
+          sent ? undefined : "Choose a template, the employee and a deadline."
         }
         footer={
           sent ? (
@@ -265,11 +360,12 @@ export function ReviewsManager({
               <p className="font-semibold">Review started</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 An email invitation was sent to{" "}
-                <span className="font-medium text-foreground">{sentEmail}</span>{" "}
+                <span className="font-medium text-foreground">{sentName}</span>{" "}
                 to complete the review by{" "}
                 <span className="font-medium text-foreground">
                   {formatDate(deadline)}
-                </span>.
+                </span>
+                .
               </p>
             </div>
           </div>
@@ -301,7 +397,7 @@ export function ReviewsManager({
                 <option value="">Select an employee…</option>
                 {employees.map((employee) => (
                   <option key={employee.id} value={employee.id}>
-                    {employee.name} — {employee.role}
+                    {employee.name} — {employee.role ?? ""}
                   </option>
                 ))}
               </Select>
@@ -320,5 +416,205 @@ export function ReviewsManager({
         )}
       </Modal>
     </Card>
+  );
+}
+
+/**
+ * Rating + feedback submitter shown on the review detail page.
+ * - Member (`canManage=false`): submits their self-review via
+ *   `PATCH /api/performance/reviews/[id]`.
+ * - Manager (`canManage=true`): submits the manager rating via
+ *   `PATCH /api/performance/reviews/[id]/manager`.
+ */
+export function ReviewFeedbackButton({
+  reviewId,
+  canManage,
+  rating,
+  strengths,
+  growth,
+  submitted,
+}: {
+  reviewId: string;
+  canManage: boolean;
+  rating: number | null;
+  strengths: string | null;
+  growth: string | null;
+  submitted: boolean;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [strengthsValue, setStrengthsValue] = useState("");
+  const [growthValue, setGrowthValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const openModal = () => {
+    setValue(rating != null ? String(rating) : "");
+    setStrengthsValue(strengths ?? "");
+    setGrowthValue(growth ?? "");
+    setSaved(false);
+    setError(null);
+    setOpen(true);
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 5) {
+      setError("Choose a rating between 1 and 5.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    let apiError: string | null = null;
+    try {
+      const response = await fetch(
+        canManage
+          ? `/api/performance/reviews/${encodeURIComponent(reviewId)}/manager`
+          : `/api/performance/reviews/${encodeURIComponent(reviewId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            canManage
+              ? {
+                  managerRating: parsed,
+                  strengths: strengthsValue.trim() || undefined,
+                  growth: growthValue.trim() || undefined,
+                }
+              : {
+                  selfRating: parsed,
+                  strengths: strengthsValue.trim() || undefined,
+                  growth: growthValue.trim() || undefined,
+                },
+          ),
+        },
+      );
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (!body?.ok) {
+        apiError = body?.error ?? "Could not submit feedback";
+        throw new Error(apiError);
+      }
+      setSaved(true);
+      // Re-fetch the detail page so ratings/status reflect the save.
+      router.refresh();
+      window.setTimeout(() => setOpen(false), 1000);
+    } catch {
+      if (apiError) setError(apiError);
+      else setError("Could not submit feedback. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Button variant={submitted ? "outline" : "default"} onClick={openModal}>
+        <Star className="size-4" />
+        {canManage
+          ? submitted
+            ? "Edit review"
+            : "Submit feedback"
+          : "Submit self-review"}
+      </Button>
+
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={
+          saved
+            ? "Feedback saved"
+            : canManage
+              ? "Manager feedback"
+              : "Self-review"
+        }
+        description={
+          saved ? undefined : "Rate 1–5 and add feedback for this review."
+        }
+        footer={
+          saved ? (
+            <Button onClick={() => setOpen(false)}>Done</Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={busy}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" form="review-feedback-form" disabled={busy}>
+                {busy ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="size-4" />
+                )}
+                {busy ? "Saving…" : "Save feedback"}
+              </Button>
+            </>
+          )
+        }
+      >
+        {saved ? (
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <CheckCircle2 className="size-10 text-success" />
+            <div>
+              <p className="font-semibold">Feedback saved</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                The review has been updated.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <form
+            id="review-feedback-form"
+            onSubmit={submit}
+            className="space-y-4"
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="review-rating">Rating</Label>
+              <Select
+                id="review-rating"
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+                placeholder="Select a rating…"
+              >
+                {[1, 2, 3, 4, 5].map((number) => (
+                  <option key={number} value={String(number)}>
+                    {number} / 5
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="review-strengths">Strengths</Label>
+              <Textarea
+                id="review-strengths"
+                value={strengthsValue}
+                onChange={(event) => setStrengthsValue(event.target.value)}
+                placeholder="What went well?"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="review-growth">Areas of growth</Label>
+              <Textarea
+                id="review-growth"
+                value={growthValue}
+                onChange={(event) => setGrowthValue(event.target.value)}
+                placeholder="Where to focus next?"
+                rows={3}
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </form>
+        )}
+      </Modal>
+    </>
   );
 }

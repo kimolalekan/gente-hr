@@ -5,13 +5,13 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   Building2,
-  CreditCard,
   FileClock,
   Mail,
   Palette,
   Settings2,
   UserCog,
   Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,9 +26,9 @@ const ITEMS: Array<{ href: string; label: string; icon: LucideIcon }> = [
     label: "Employee Config",
     icon: UserCog,
   },
+  { href: "/settings/payroll", label: "Payroll", icon: Wallet },
   { href: "/settings/audit-logs", label: "Audit Logs", icon: FileClock },
   { href: "/settings/email", label: "Email", icon: Mail },
-  { href: "/settings/billing", label: "Billing", icon: CreditCard },
   { href: "/settings/notifications", label: "Notifications", icon: Bell },
 ];
 

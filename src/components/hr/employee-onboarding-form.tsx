@@ -3,11 +3,12 @@
 import { useState, type FormEvent, type InputHTMLAttributes } from "react";
 import { CheckCircle2, FileUp, Loader2, Paperclip, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CountryFlag } from "@/components/ui/country-flag";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { COUNTRY_NAMES, getStatesFor } from "@/lib/regions";
+import { COUNTRY_NAMES, REGIONS, getStatesFor } from "@/lib/regions";
 
 function Section({
   title,
@@ -24,7 +25,7 @@ function Section({
         <h2 className="text-sm font-semibold">{title}</h2>
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>
     </section>
   );
 }
@@ -71,42 +72,102 @@ const INITIAL = {
   ecEmail: "",
   ecPhone: "",
   taxId: "",
-  insProvider: "",
-  insId: "",
-  insContactName: "",
-  insContactEmail: "",
+  pensionProvider: "",
+  pensionId: "",
 };
 
 /**
  * Self-service onboarding form — reached from the invite email link. The
  * employee fills in passport, signed offer letter, bank, government ID,
- * emergency contact, tax and health insurance, then submits.
+ * emergency contact, tax and pension, then submits to
+ * `PUT /api/onboarding/complete` (authorized by the signed invite token).
+ * Health coverage is company-managed and set by HR/admin instead.
  */
 export function EmployeeOnboardingForm({
   initialName,
   initialEmail,
+  initialToken,
 }: {
   initialName?: string;
   initialEmail?: string;
+  initialToken?: string;
 }) {
   const [values, setValues] = useState(INITIAL);
   const [passportPhoto, setPassportPhoto] = useState<string>();
   const [signedOffer, setSignedOffer] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const update =
     (key: keyof typeof INITIAL) => (event: { target: { value: string } }) =>
       setValues((current) => ({ ...current, [key]: event.target.value }));
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    // The invite token comes from the signed completion link (query param).
+    const token =
+      initialToken ??
+      (typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("token")
+        : null);
+    if (!token) {
+      setError(
+        "This link is missing its invite token — use the link from the invite email.",
+      );
+      return;
+    }
     setSaving(true);
-    // Simulate submitting to the onboarding record; wire to an API later.
-    window.setTimeout(() => {
-      setSaving(false);
+    setError(null);
+    try {
+      const response = await fetch("/api/onboarding/complete", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token,
+          phone: values.phone,
+          address: values.address,
+          state: values.state,
+          country: values.country,
+          bankDetails: {
+            bankName: values.bankName,
+            accountNumber: values.accountNumber,
+            accountName: values.accountName,
+            swift: values.swift,
+            routing: values.routing,
+          },
+          governmentId: {
+            idName: values.idName,
+            idValue: values.idValue,
+          },
+          emergencyContact: {
+            name: values.ecName,
+            email: values.ecEmail,
+            phone: values.ecPhone,
+          },
+          pension: {
+            provider: values.pensionProvider,
+            id: values.pensionId,
+          },
+          taxId: values.taxId,
+          passportPhoto,
+          signedOfferLetter: signedOffer,
+        }),
+      });
+      const body = await response.json();
+      if (!body?.ok) {
+        throw new Error(body?.error ?? `Request failed (${response.status})`);
+      }
       setSubmitted(true);
-    }, 900);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to submit your details — please try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (submitted) {
@@ -173,6 +234,10 @@ export function EmployeeOnboardingForm({
             }
             placeholder="Select a country…"
             searchPlaceholder="Search countries…"
+            renderOption={(option) => {
+              const region = REGIONS.find((item) => item.name === option.value);
+              return region ? <CountryFlag code={region.iso2} /> : null;
+            }}
           >
             {COUNTRY_NAMES.map((name) => (
               <option key={name} value={name}>
@@ -311,9 +376,9 @@ export function EmployeeOnboardingForm({
           />
           <Field
             id="routing"
-            label="Routing number"
+            label="Routing"
             optional
-            placeholder="e.g. 021000021"
+            placeholder="Routing number, e.g. 021000021"
             value={values.routing}
             onChange={update("routing")}
           />
@@ -366,48 +431,30 @@ export function EmployeeOnboardingForm({
         />
       </Section>
 
-      <Section title="Tax" description="Tax document or tax ID.">
+      <Section title="Tax ID" description="Tax ID or number.">
         <Field
           id="tax-id"
-          label="Tax ID / document"
-          placeholder="e.g. TIN number or document reference"
+          label="Tax ID / Number"
+          placeholder="e.g. TIN number"
           value={values.taxId}
           onChange={update("taxId")}
         />
       </Section>
 
-      <Section
-        title="Health insurance"
-        description="Provider details or policy file."
-      >
+      <Section title="Pension" description="Retirement savings provider.">
         <Field
-          id="ins-provider"
+          id="pension-provider"
           label="Provider name"
-          placeholder="e.g. Bupa"
-          value={values.insProvider}
-          onChange={update("insProvider")}
+          placeholder="e.g. Stanbic IBTC Pension"
+          value={values.pensionProvider}
+          onChange={update("pensionProvider")}
         />
         <Field
-          id="ins-id"
-          label="Insurance ID"
-          placeholder="e.g. Policy number"
-          value={values.insId}
-          onChange={update("insId")}
-        />
-        <Field
-          id="ins-contact-name"
-          label="Contact name"
-          placeholder="e.g. Alex Smith"
-          value={values.insContactName}
-          onChange={update("insContactName")}
-        />
-        <Field
-          id="ins-contact-email"
-          label="Contact email"
-          type="email"
-          placeholder="alex@bupa.com"
-          value={values.insContactEmail}
-          onChange={update("insContactEmail")}
+          id="pension-id"
+          label="Pension ID"
+          placeholder="e.g. RSA number"
+          value={values.pensionId}
+          onChange={update("pensionId")}
         />
       </Section>
 
@@ -421,6 +468,7 @@ export function EmployeeOnboardingForm({
           {saving ? "Submitting…" : "Submit details"}
         </Button>
       </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </form>
   );
 }

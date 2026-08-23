@@ -37,6 +37,24 @@ interface Option {
   search?: string;
 }
 
+/** Stringify option children — React arrays join with commas, which we don't want. */
+function optionLabel(children: React.ReactNode, value: unknown): string {
+  if (children === undefined || children === null) return String(value);
+  if (typeof children === "string" || typeof children === "number") {
+    return String(children);
+  }
+  if (Array.isArray(children)) {
+    return children
+      .map((child) =>
+        typeof child === "string" || typeof child === "number"
+          ? String(child)
+          : "",
+      )
+      .join("");
+  }
+  return String(children);
+}
+
 /**
  * Searchable combobox-style select. Keeps the native `<select>` API
  * (`value` + `onChange({ target: { value } })`, `<option>` children) so
@@ -69,7 +87,7 @@ export function Select({
         const search = props["data-search"];
         result.push({
           value: String(props.value),
-          label: String(props.children ?? props.value),
+          label: optionLabel(props.children, props.value),
           search: typeof search === "string" && search ? search : undefined,
         });
       }

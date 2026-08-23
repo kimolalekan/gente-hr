@@ -1,46 +1,55 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
-import { Building2, Pencil, Plus, Save, Search } from "lucide-react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { Building2, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
-import type { Department, Employee } from "@/lib/hr-data";
 
 const PAGE_SIZE = 8;
 
+/** API department row — the list endpoint adds an employee headcount. */
+interface DepartmentRow {
+  id: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  employees?: number;
+}
+
 interface DepartmentsManagerProps {
-  departments: Department[];
-  employees: Employee[];
+  departments: DepartmentRow[];
 }
 
 /**
- * Departments list: search, pagination, add, edit and disable/enable. Demo
- * state is local — wire to the `departments` table (Drizzle) later.
+ * Departments list: search, pagination, add, edit, disable/enable and delete.
+ * All mutations go to `/api/departments` and the list is refetched afterwards.
  */
-export function DepartmentsManager({
-  departments,
-  employees,
-}: DepartmentsManagerProps) {
-  const [list, setList] = useState<Department[]>(departments);
+export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
+  const [list, setList] = useState<DepartmentRow[]>(departments);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<Department | null>(null);
+  const [editing, setEditing] = useState<DepartmentRow | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const counts = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const employee of employees) {
-      map.set(employee.department, (map.get(employee.department) ?? 0) + 1);
+  const refresh = useCallback(async () => {
+    const response = await fetch("/api/departments?pageSize=500", {
+      cache: "no-store",
+    });
+    const body = await response.json();
+    if (!body?.ok) {
+      throw new Error(body?.error ?? `Request failed (${response.status})`);
     }
-    return map;
-  }, [employees]);
+    setList(body.data.items ?? []);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -48,7 +57,7 @@ export function DepartmentsManager({
     return list.filter(
       (department) =>
         department.name.toLowerCase().includes(q) ||
-        department.description.toLowerCase().includes(q),
+        (department.description ?? "").toLowerCase().includes(q),
     );
   }, [list, query]);
 
@@ -59,16 +68,6 @@ export function DepartmentsManager({
     safePage * PAGE_SIZE,
   );
 
-  const toggleActive = (id: string) => {
-    setList((current) =>
-      current.map((department) =>
-        department.id === id
-          ? { ...department, active: !department.active }
-          : department,
-      ),
-    );
-  };
-
   const openAddModal = () => {
     setEditing(null);
     setName("");
@@ -77,55 +76,93 @@ export function DepartmentsManager({
     setModalOpen(true);
   };
 
-  const openEditModal = (department: Department) => {
+  const openEditModal = (department: DepartmentRow) => {
     setEditing(department);
     setName(department.name);
-    setDescription(department.description);
+    setDescription(department.description ?? "");
     setError(null);
     setModalOpen(true);
   };
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
       setError("A department name is required.");
       return;
     }
-    if (
-      list.some(
-        (department) =>
-          department.id !== editing?.id &&
-          department.name.toLowerCase() === trimmed.toLowerCase(),
-      )
-    ) {
-      setError("A department with that name already exists.");
-      return;
-    }
-    if (editing) {
-      setList((current) =>
-        current.map((department) =>
-          department.id === editing.id
-            ? {
-                ...department,
-                name: trimmed,
-                description: description.trim(),
-              }
-            : department,
-        ),
-      );
-    } else {
-      setList((current) => [
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        editing ? `/api/departments/${editing.id}` : "/api/departments",
         {
-          id: `dept_${Date.now().toString(36)}`,
-          name: trimmed,
-          description: description.trim(),
-          active: true,
+          method: editing ? "PATCH" : "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: trimmed,
+            description: description.trim(),
+          }),
         },
-        ...current,
-      ]);
+      );
+      const body = await response.json();
+      if (!body?.ok) {
+        throw new Error(body?.error ?? `Request failed (${response.status})`);
+      }
+      setModalOpen(false);
+      setEditing(null);
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to save department.",
+      );
+    } finally {
+      setSaving(false);
     }
-    setModalOpen(false);
+  };
+
+  const toggleActive = async (department: DepartmentRow) => {
+    setBusyId(department.id);
+    setError(null);
+    try {
+      const response = await fetch(`/api/departments/${department.id}/status`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ active: !department.active }),
+      });
+      const body = await response.json();
+      if (!body?.ok) {
+        throw new Error(body?.error ?? `Request failed (${response.status})`);
+      }
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update department.",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const remove = async (department: DepartmentRow) => {
+    setBusyId(department.id);
+    setError(null);
+    try {
+      const response = await fetch(`/api/departments/${department.id}`, {
+        method: "DELETE",
+      });
+      const body = await response.json();
+      if (!body?.ok) {
+        throw new Error(body?.error ?? `Request failed (${response.status})`);
+      }
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to delete department.",
+      );
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -150,6 +187,12 @@ export function DepartmentsManager({
         </Button>
       </div>
 
+      {error && !modalOpen && (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+
       <div className="overflow-hidden rounded-xl border border-border">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -165,7 +208,7 @@ export function DepartmentsManager({
             </thead>
             <tbody>
               {pageItems.map((department) => {
-                const count = counts.get(department.name) ?? 0;
+                const count = department.employees ?? 0;
                 return (
                   <tr
                     key={department.id}
@@ -210,7 +253,8 @@ export function DepartmentsManager({
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => toggleActive(department.id)}
+                            onClick={() => toggleActive(department)}
+                            disabled={busyId === department.id}
                           >
                             Disable
                           </Button>
@@ -218,11 +262,21 @@ export function DepartmentsManager({
                           <Button
                             variant="success"
                             size="sm"
-                            onClick={() => toggleActive(department.id)}
+                            onClick={() => toggleActive(department)}
+                            disabled={busyId === department.id}
                           >
                             Enable
                           </Button>
                         )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => remove(department)}
+                          disabled={busyId === department.id}
+                          aria-label={`Delete ${department.name}`}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -274,7 +328,7 @@ export function DepartmentsManager({
 
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => !saving && setModalOpen(false)}
         title={editing ? "Edit department" : "Add department"}
         description={
           editing
@@ -287,16 +341,17 @@ export function DepartmentsManager({
               type="button"
               variant="outline"
               onClick={() => setModalOpen(false)}
+              disabled={saving}
             >
               Cancel
             </Button>
-            <Button type="submit" form="department-form">
+            <Button type="submit" form="department-form" disabled={saving}>
               {editing ? (
                 <Save className="size-4" />
               ) : (
                 <Plus className="size-4" />
               )}
-              {editing ? "Save changes" : "Add department"}
+              {saving ? "Saving…" : editing ? "Save changes" : "Add department"}
             </Button>
           </>
         }

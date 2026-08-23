@@ -11,24 +11,54 @@ export interface ChecklistItem {
 }
 
 /**
- * Interactive checklist with local state — used for onboarding task lists
- * and offboarding exit checklists (demo: not persisted).
+ * Interactive checklist. When `offboardingId` is provided, toggles are
+ * persisted via `PATCH /api/offboarding/[id]/checklist/[itemId]`; otherwise
+ * state stays local (e.g. previews).
  */
 export function Checklist({
   items,
   label,
+  offboardingId,
 }: {
   items: ChecklistItem[];
   label: string;
+  offboardingId?: string;
 }) {
   const [state, setState] = useState(items);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const toggle = (id: string) => {
-    setState((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, done: !item.done } : item,
-      ),
-    );
+  const toggle = async (item: ChecklistItem) => {
+    const done = !item.done;
+    setBusyId(item.id);
+    setError(null);
+    try {
+      if (offboardingId) {
+        const response = await fetch(
+          `/api/offboarding/${offboardingId}/checklist/${item.id}`,
+          {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ done }),
+          },
+        );
+        const body = await response.json();
+        if (!body?.ok) {
+          throw new Error(body?.error ?? `Request failed (${response.status})`);
+        }
+      }
+      setState((current) =>
+        current.map((entry) =>
+          entry.id === item.id ? { ...entry, done } : entry,
+        ),
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update checklist item.",
+      );
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const doneCount = state.filter((item) => item.done).length;
@@ -46,10 +76,11 @@ export function Checklist({
           <button
             key={item.id}
             type="button"
-            onClick={() => toggle(item.id)}
+            onClick={() => toggle(item)}
+            disabled={busyId === item.id}
             aria-pressed={item.done}
             className={cn(
-              "flex w-full items-center gap-3 rounded-lg border border-border bg-background/50 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50",
+              "flex w-full items-center gap-3 rounded-lg border border-border bg-background/50 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50 disabled:opacity-60",
               item.done && "opacity-70",
             )}
           >
@@ -66,11 +97,19 @@ export function Checklist({
             <span className={cn(item.done && "line-through")}>{item.name}</span>
           </button>
         ))}
+        {state.length === 0 && (
+          <p className="py-2 text-sm text-muted-foreground">
+            No checklist items.
+          </p>
+        )}
       </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
         <div
           className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${Math.round((doneCount / state.length) * 100)}%` }}
+          style={{
+            width: `${state.length === 0 ? 0 : Math.round((doneCount / state.length) * 100)}%`,
+          }}
         />
       </div>
     </div>

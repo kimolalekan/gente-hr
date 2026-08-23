@@ -1,25 +1,98 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { Bell, Menu } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { TenantCreateModal } from "@/components/layout/tenant-create-modal";
 import { TenantSwitcher } from "@/components/layout/tenant-switcher";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
 import type { SessionUser } from "@/lib/server/auth";
 import type { TenantSummary } from "@/lib/server/tenant-store";
 
+/** Tenant row as returned by `GET /api/tenants`. */
+interface ApiTenant {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string | null;
+  role: string;
+  isPrimary: boolean;
+}
+
+function toTenantSummary(tenant: ApiTenant): TenantSummary {
+  return {
+    tenantId: tenant.id,
+    name: tenant.name,
+    slug: tenant.slug,
+    role:
+      tenant.role === "admin" || tenant.role === "hr" ? tenant.role : "member",
+    isPrimary: tenant.isPrimary,
+  };
+}
+
 export function AppHeader({
   user,
   isAdmin,
+  isSuperAdmin = false,
   menuOpen,
   onMenuClick,
   tenants,
 }: {
   user: SessionUser;
   isAdmin: boolean;
+  /** Platform super-admins can create new organizations (see TenantCreateModal). */
+  isSuperAdmin?: boolean;
   menuOpen: boolean;
   onMenuClick: () => void;
   tenants: TenantSummary[];
 }) {
+  const pathname = usePathname();
+  const [unread, setUnread] = useState(0);
+  const [createOpen, setCreateOpen] = useState(false);
+  // Organization list — refreshed from the API on mount and on navigation so
+  // the switcher always reflects the signed-in user's real memberships.
+  const [tenantList, setTenantList] = useState<TenantSummary[]>(tenants);
+
+  const refreshTenants = useCallback(() => {
+    let cancelled = false;
+    fetch("/api/tenants")
+      .then((response) => response.json())
+      .then((body) => {
+        if (!cancelled && body?.ok && Array.isArray(body.data)) {
+          setTenantList((body.data as ApiTenant[]).map(toTenantSummary));
+        }
+      })
+      .catch(() => {
+        // Keep the server-rendered list if the API is unreachable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => refreshTenants(), [refreshTenants, pathname]);
+
+  // The logged-in user's unread notification count — refreshed on navigation
+  // so reading notifications on the notifications page updates the badge.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/notifications/unread-count")
+      .then((response) => response.json())
+      .then((body) => {
+        if (!cancelled && body?.ok && typeof body.data?.count === "number") {
+          setUnread(body.data.count);
+        }
+      })
+      .catch(() => {
+        // Ignore — the badge simply stays hidden.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur sm:px-6">
       <button
@@ -33,7 +106,18 @@ export function AppHeader({
         <Menu className="size-4" />
       </button>
 
-      <TenantSwitcher tenants={tenants} currentTenantId={user.tenantId} />
+      <TenantSwitcher
+        tenants={tenantList}
+        currentTenantId={user.tenantId}
+        canCreate={isSuperAdmin}
+        onCreate={() => setCreateOpen(true)}
+      />
+
+      <TenantCreateModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => refreshTenants()}
+      />
 
       <div className="flex-1" />
 
@@ -43,7 +127,11 @@ export function AppHeader({
         className="relative inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted/60"
       >
         <Bell className="size-4" />
-        <span className="absolute right-2 top-2 size-2 rounded-full bg-destructive" />
+        {unread > 0 && (
+          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
       </Link>
 
       <ThemeToggle isAdmin={isAdmin} />

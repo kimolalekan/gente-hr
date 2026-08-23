@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Star, Target, TrendingUp } from "lucide-react";
-import { ActionButton } from "@/components/hr/action-button";
+import { ReviewFeedbackButton } from "@/components/hr/reviews-manager";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,15 +12,45 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  formatDate,
-  getCycle,
-  getEmployeeById,
-  getPerformanceTemplate,
-  getReview,
-} from "@/lib/hr-data";
+import { formatDate } from "@/lib/hr-data";
+import { getCurrentUser } from "@/lib/server/auth";
+import { apiGet } from "@/lib/server/api-client";
 
 export const metadata = { title: "Performance review" };
+
+/** Review detail from `GET /api/performance/reviews/[id]`. */
+interface ReviewDetail {
+  id: string;
+  cycleId: string;
+  cycleName: string | null;
+  employeeId: string;
+  employeeName: string | null;
+  reviewerName: string | null;
+  templateId: string;
+  deadline: string | null;
+  deadlineExtended: number;
+  selfRating: number | null;
+  managerRating: number | null;
+  overall: number | null;
+  status: string;
+  strengths: string | null;
+  growth: string | null;
+  submittedAt: string | null;
+  createdAt: string;
+  template: {
+    name: string;
+    description: string | null;
+  } | null;
+}
+
+/** Cycle row from `GET /api/performance/cycles` (for the period label). */
+interface CycleRow {
+  id: string;
+  name: string;
+  period: string;
+  status: string;
+  createdAt: string;
+}
 
 export default async function ReviewDetailPage({
   params,
@@ -28,12 +58,27 @@ export default async function ReviewDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const review = getReview(id);
+  const user = await getCurrentUser();
+  const review = await apiGet<ReviewDetail>(
+    `/api/performance/reviews/${id}`,
+  ).catch(() => null);
   if (!review) notFound();
 
-  const employee = getEmployeeById(review.employeeId);
-  const cycle = getCycle(review.cycleId);
-  const template = getPerformanceTemplate(review.templateId);
+  // Employees can only open their own reviews (the API also enforces this).
+  if (user?.role === "member") {
+    const me = await apiGet<{ id: string }>("/api/employees/me").catch(
+      () => null,
+    );
+    if (!me || me.id !== review.employeeId) notFound();
+  }
+
+  const cycles = await apiGet<CycleRow[]>("/api/performance/cycles").catch(
+    () => [],
+  );
+  const cycle = cycles.find((item) => item.id === review.cycleId);
+  const reviewer = review.reviewerName ?? "—";
+  const employeeName = review.employeeName ?? review.id;
+  const submitted = review.status === "submitted";
 
   return (
     <>
@@ -48,20 +93,18 @@ export default async function ReviewDetailPage({
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
-              Review — {employee?.name ?? review.id}
+              Review — {employeeName}
             </h1>
-            <Badge
-              variant={review.status === "submitted" ? "success" : "warning"}
-            >
+            <Badge variant={submitted ? "success" : "warning"}>
               {review.status}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {cycle?.name ?? review.cycleId} · reviewed by {review.reviewer}
+            {cycle?.name ?? review.cycleId} · reviewed by {reviewer}
           </p>
         </div>
-        {employee && (
-          <Link href={`/employees/${employee.id}`}>
+        {user?.role !== "member" && (
+          <Link href={`/employees/${review.employeeId}`}>
             <Button variant="outline">View employee profile</Button>
           </Link>
         )}
@@ -81,14 +124,16 @@ export default async function ReviewDetailPage({
                 <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
                   <Star className="size-3.5" /> Self
                 </p>
-                <p className="mt-1 text-2xl font-bold">{review.selfRating}</p>
+                <p className="mt-1 text-2xl font-bold">
+                  {review.selfRating ?? "—"}
+                </p>
               </div>
               <div className="rounded-lg border border-border bg-background/50 p-4 text-center">
                 <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
                   <TrendingUp className="size-3.5" /> Manager
                 </p>
                 <p className="mt-1 text-2xl font-bold">
-                  {review.managerRating}
+                  {review.managerRating ?? "—"}
                 </p>
               </div>
               <div className="rounded-lg border border-primary bg-primary/5 p-4 text-center">
@@ -96,7 +141,9 @@ export default async function ReviewDetailPage({
                   <Target className="size-3.5" /> Overall
                 </p>
                 <p className="mt-1 text-2xl font-bold text-primary">
-                  {review.overall.toFixed(1)}
+                  {(review.overall ?? 0) > 0
+                    ? `${review.overall?.toFixed(1)}`
+                    : "—"}
                 </p>
               </div>
             </CardContent>
@@ -110,7 +157,7 @@ export default async function ReviewDetailPage({
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  {review.strengths}
+                  {review.strengths ?? "—"}
                 </p>
               </CardContent>
             </Card>
@@ -120,23 +167,38 @@ export default async function ReviewDetailPage({
                 <CardDescription>Where to focus next.</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">{review.growth}</p>
+                <p className="text-sm text-muted-foreground">
+                  {review.growth ?? "—"}
+                </p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="flex justify-end">
-            <ActionButton
-              variant={review.status === "submitted" ? "outline" : "default"}
-              doneLabel={
-                review.status === "submitted" ? "Submitted" : "Feedback saved"
-              }
-            >
-              {review.status === "submitted"
-                ? "Edit review"
-                : "Submit feedback"}
-            </ActionButton>
-          </div>
+          {user?.role === "member" ? (
+            !submitted && (
+              <div className="flex justify-end">
+                <ReviewFeedbackButton
+                  reviewId={review.id}
+                  canManage={false}
+                  rating={review.selfRating}
+                  strengths={review.strengths}
+                  growth={review.growth}
+                  submitted={submitted}
+                />
+              </div>
+            )
+          ) : (
+            <div className="flex justify-end">
+              <ReviewFeedbackButton
+                reviewId={review.id}
+                canManage
+                rating={review.managerRating}
+                strengths={review.strengths}
+                growth={review.growth}
+                submitted={submitted}
+              />
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -146,9 +208,9 @@ export default async function ReviewDetailPage({
               <CardDescription>Manager evaluation.</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center gap-3">
-              <Avatar name={review.reviewer} size="sm" />
+              <Avatar name={reviewer} size="sm" />
               <div className="min-w-0">
-                <p className="truncate font-medium">{review.reviewer}</p>
+                <p className="truncate font-medium">{reviewer}</p>
                 <p className="truncate text-xs text-muted-foreground">
                   People manager
                 </p>
@@ -167,13 +229,15 @@ export default async function ReviewDetailPage({
               <div className="rounded-lg border border-border bg-background/50 p-3">
                 <p className="text-xs text-muted-foreground">Template</p>
                 <p className="mt-0.5 font-medium">
-                  {template?.name ?? review.templateId}
+                  {review.template?.name ?? review.templateId}
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-background/50 p-3">
                 <p className="text-xs text-muted-foreground">Deadline</p>
                 <p className="mt-0.5 font-medium">
-                  {formatDate(review.deadline)}
+                  {review.deadline
+                    ? formatDate(review.deadline.slice(0, 10))
+                    : "—"}
                   {(review.deadlineExtended ?? 0) > 0 && (
                     <span className="ml-1.5 text-xs font-normal text-muted-foreground">
                       extended {review.deadlineExtended ?? 0}×
@@ -182,7 +246,10 @@ export default async function ReviewDetailPage({
                 </p>
               </div>
               <p className="text-xs text-muted-foreground">
-                Reviewed {formatDate("2026-08-18")}
+                Reviewed{" "}
+                {review.submittedAt
+                  ? formatDate(review.submittedAt.slice(0, 10))
+                  : "—"}
               </p>
             </CardContent>
           </Card>

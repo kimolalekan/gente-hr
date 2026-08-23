@@ -1,4 +1,7 @@
-import { CompanyProfileForm } from "@/components/settings/company-profile-form";
+import {
+  CompanyProfileForm,
+  type CompanyProfile,
+} from "@/components/settings/company-profile-form";
 import {
   Card,
   CardContent,
@@ -6,10 +9,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { apiGet } from "@/lib/server/api-client";
 
 export const metadata = { title: "General settings" };
 
-export default function GeneralSettingsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function GeneralSettingsPage() {
+  const company = await apiGet<CompanyProfile>("/api/settings/company");
+
   return (
     <div className="space-y-6">
       <div>
@@ -27,7 +35,7 @@ export default function GeneralSettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CompanyProfileForm />
+          <CompanyProfileForm initial={company} />
         </CardContent>
       </Card>
     </div>

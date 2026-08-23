@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { CheckCircle2, Loader2, Save } from "lucide-react";
+import { CheckCircle2, Loader2, Save, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -54,19 +54,28 @@ const GROUPS: GroupDef[] = [
   },
   {
     id: "tax",
-    title: "Tax",
-    description: "Tax document or tax ID.",
-    fields: [{ id: "tax_id", label: "Tax ID / document" }],
+    title: "Tax ID",
+    description: "Tax ID or number.",
+    fields: [{ id: "tax_id", label: "Tax ID / Number" }],
   },
   {
     id: "health_insurance",
-    title: "Health insurance",
-    description: "Provider details or policy file.",
+    title: "Health Coverage",
+    description: "Provider details or policy file — managed by HR.",
     fields: [
       { id: "provider", label: "Provider name" },
       { id: "insurance_id", label: "Insurance ID" },
       { id: "contact_name", label: "Contact name" },
       { id: "contact_email", label: "Contact email" },
+    ],
+  },
+  {
+    id: "pension",
+    title: "Pension",
+    description: "Retirement savings provider details.",
+    fields: [
+      { id: "provider", label: "Provider name" },
+      { id: "pension_id", label: "Pension ID" },
     ],
   },
 ];
@@ -76,27 +85,36 @@ interface GroupState {
   required: Record<string, boolean>;
 }
 
-function initialGroups(): Record<string, GroupState> {
+type ConfigShape = Record<string, GroupState>;
+
+/** Map the saved tenant config over the field definitions. */
+function initialState(config: ConfigShape): Record<string, GroupState> {
   const result: Record<string, GroupState> = {};
   for (const group of GROUPS) {
+    const saved = config[group.id];
     const required: Record<string, boolean> = {};
     for (const field of group.fields) {
-      required[field.id] = !field.fixedOptional;
+      required[field.id] = saved?.required?.[field.id] ?? !field.fixedOptional;
     }
-    result[group.id] = { enabled: true, required };
+    result[group.id] = { enabled: saved?.enabled ?? true, required };
   }
   return result;
 }
 
 /**
  * Employee config — which custom fields appear on the create-employee form
- * and whether each is required. Demo state is local; wire to tenant settings
- * (jsonb) later.
+ * and whether each is required. Loaded from /api/settings/employee-config and
+ * saved via PUT.
  */
-export function EmployeeConfigForm() {
-  const [groups, setGroups] = useState(initialGroups);
+export function EmployeeConfigForm({
+  initialConfig,
+}: {
+  initialConfig: ConfigShape;
+}) {
+  const [groups, setGroups] = useState(() => initialState(initialConfig));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const toggleGroup = (groupId: string, enabled: boolean) => {
     setGroups((current) => ({
@@ -119,15 +137,32 @@ export function EmployeeConfigForm() {
     }));
   };
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
-    // Simulate a request; wire to a settings API route later.
-    window.setTimeout(() => {
-      setSaving(false);
+    setSaved(false);
+    setError(null);
+    try {
+      const response = await fetch("/api/settings/employee-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(groups),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.ok) {
+        throw new Error(body?.error ?? "Failed to save configuration");
+      }
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
-    }, 600);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save configuration",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -223,6 +258,12 @@ export function EmployeeConfigForm() {
           <span className="flex items-center gap-1.5 text-sm text-success">
             <CheckCircle2 className="size-4" />
             Saved
+          </span>
+        )}
+        {error && (
+          <span className="flex items-center gap-1.5 text-sm text-destructive">
+            <XCircle className="size-4" />
+            {error}
           </span>
         )}
       </div>

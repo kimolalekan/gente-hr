@@ -1,6 +1,5 @@
 import Link from "next/link";
 import {
-  BarChart3,
   Bell,
   CalendarCheck,
   CalendarDays,
@@ -25,50 +24,7 @@ import {
   StatCard,
   type Stat,
 } from "@/components/dashboard/dashboard-shared";
-import {
-  ATTENDANCE_WEEK_TREND,
-  LEAVE_BALANCES,
-  LOANS,
-  getPayslips,
-} from "@/lib/hr-data";
 import type { SessionUser } from "@/lib/server/auth";
-
-const MY_BALANCE = LEAVE_BALANCES[0];
-const PRESENT_AVG = Math.round(
-  ATTENDANCE_WEEK_TREND.reduce((sum, day) => sum + day.presentPct, 0) /
-    ATTENDANCE_WEEK_TREND.length,
-);
-
-const STATS: Stat[] = [
-  {
-    label: "Leave balance",
-    value: `${MY_BALANCE.vacation.total - MY_BALANCE.vacation.used} days`,
-    delta: `Vacation · ${MY_BALANCE.vacation.used} used`,
-    icon: CalendarDays,
-    tone: "info",
-  },
-  {
-    label: "Attendance this week",
-    value: `${PRESENT_AVG}%`,
-    delta: "Present · on track",
-    icon: CalendarCheck,
-    tone: "success",
-  },
-  {
-    label: "Active loans",
-    value: String(LOANS.filter((loan) => loan.status === "active").length),
-    delta: "Repayment on schedule",
-    icon: Wallet,
-    tone: "warning",
-  },
-  {
-    label: "Latest payslip",
-    value: getPayslips()[0]?.period ?? "—",
-    delta: "Available for download",
-    icon: FileText,
-    tone: "primary",
-  },
-];
 
 interface SelfServiceAction {
   href: string;
@@ -85,7 +41,7 @@ const ACTIONS: SelfServiceAction[] = [
     icon: CalendarCheck,
   },
   {
-    href: "/employees",
+    href: "/profile",
     label: "My profile",
     description: "Personal details & documents",
     icon: UserRound,
@@ -120,12 +76,6 @@ const ACTIONS: SelfServiceAction[] = [
     description: "Performance & feedback",
     icon: Star,
   },
-  {
-    href: "/reports",
-    label: "Reports",
-    description: "Dashboards & exports",
-    icon: BarChart3,
-  },
 ];
 
 const ROLE_LABELS: Record<SessionUser["role"], string> = {
@@ -134,12 +84,78 @@ const ROLE_LABELS: Record<SessionUser["role"], string> = {
   member: "Employee",
 };
 
+/** Leave balance row (member scope of `GET /api/leave/balances`). */
+export interface StaffLeaveBalance {
+  employeeId: string;
+  vacation: { total: number; used: number };
+  sick: { total: number; used: number };
+  personal: { total: number; used: number };
+}
+
+/** Loan row (member scope of `GET /api/payroll/loans`). */
+export interface StaffLoan {
+  id: string;
+  status: string;
+}
+
+/** Payslip row (member scope of `GET /api/payroll/payslips`). */
+export interface StaffPayslip {
+  period: string;
+}
+
 /**
- * Staff (employee) dashboard — self-service view per Agent.md §13: personal
- * stats, own profile, and quick actions for attendance, leave, loans,
- * payslips, notifications, and reviews.
+ * Staff (employee) dashboard — self-service view per Agent.md §14: the signed
+ * in employee's own stats and quick actions for attendance, leave, loans,
+ * payslips, notifications, and reviews. Nothing org-wide is shown here.
  */
-export function StaffDashboard({ user }: { user: SessionUser }) {
+export function StaffDashboard({
+  user,
+  leaveBalance,
+  attendancePct,
+  loans,
+  payslips,
+}: {
+  user: SessionUser;
+  leaveBalance: StaffLeaveBalance | null;
+  attendancePct: number;
+  loans: StaffLoan[];
+  payslips: StaffPayslip[];
+}) {
+  const stats: Stat[] = [
+    {
+      label: "Leave balance",
+      value: leaveBalance
+        ? `${leaveBalance.vacation.total - leaveBalance.vacation.used} days`
+        : "—",
+      delta: leaveBalance
+        ? `Vacation · ${leaveBalance.vacation.used} used`
+        : "No balance on file",
+      icon: CalendarDays,
+      tone: "info",
+    },
+    {
+      label: "Attendance this week",
+      value: `${attendancePct}%`,
+      delta: "Present · on track",
+      icon: CalendarCheck,
+      tone: "success",
+    },
+    {
+      label: "Active loans",
+      value: String(loans.filter((loan) => loan.status === "active").length),
+      delta: loans.length ? "Repayment on schedule" : "No active loans",
+      icon: Wallet,
+      tone: "warning",
+    },
+    {
+      label: "Latest payslip",
+      value: payslips[0]?.period ?? "—",
+      delta: payslips[0] ? "Available for download" : "No payslips yet",
+      icon: FileText,
+      tone: "primary",
+    },
+  ];
+
   return (
     <>
       <DashboardHeader
@@ -148,7 +164,7 @@ export function StaffDashboard({ user }: { user: SessionUser }) {
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {STATS.map((stat) => (
+        {stats.map((stat) => (
           <StatCard key={stat.label} stat={stat} />
         ))}
       </div>
@@ -206,7 +222,7 @@ export function StaffDashboard({ user }: { user: SessionUser }) {
               <span className="text-muted-foreground">Role</span>
               <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
             </div>
-            <Link href="/employees" className="block">
+            <Link href="/profile" className="block">
               <Button className="w-full">View my profile</Button>
             </Link>
           </CardContent>

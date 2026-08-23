@@ -14,10 +14,12 @@ import type { TenantSummary } from "@/lib/server/tenant-store";
 export function AppShell({
   user,
   tenants,
+  isSuperAdmin = false,
   children,
 }: {
   user: SessionUser;
   tenants: TenantSummary[];
+  isSuperAdmin?: boolean;
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,11 +28,12 @@ export function AppShell({
 
   return (
     <div className="flex min-h-dvh">
-      <AppSidebar open={sidebarOpen} onClose={closeSidebar} />
+      <AppSidebar open={sidebarOpen} onClose={closeSidebar} role={user.role} />
       <div className="min-w-0 flex-1">
         <AppHeader
           user={user}
           isAdmin={user.role === "admin"}
+          isSuperAdmin={isSuperAdmin}
           menuOpen={sidebarOpen}
           onMenuClick={openSidebar}
           tenants={tenants}

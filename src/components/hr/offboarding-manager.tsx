@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
-import { FileUp, LogOut, Paperclip, UserMinus } from "lucide-react";
+import { LogOut, UserMinus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,25 +20,44 @@ import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  createOffboarding,
-  EXIT_CHECKLIST,
   EXIT_REASON_LABELS,
   formatDate,
-  getEmployeeById,
   type Employee,
   type ExitReason,
-  type Offboarding,
 } from "@/lib/hr-data";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Selectable exit-checklist items when starting an offboarding. */
+const EXIT_CHECKLIST_NAMES = [
+  "Asset return (laptop, phone, ID card)",
+  "System access revocation (email, tools)",
+  "HR exit formalities",
+  "Final settlement processing",
+  "Experience letter generation",
+];
+
+/** Offboarding list row from GET /api/offboarding. */
+export interface OffboardingRow {
+  id: string;
+  employeeId: string;
+  reason: ExitReason;
+  lastWorkingDay: string;
+  status: "in_progress" | "completed";
+  exitInterviewNotes: string | null;
+  notes: string | null;
+  createdAt: string;
+  employeeName: string | null;
+  checklistProgress: { done: number; total: number };
+}
+
 export function OffboardingManager({
   offboardings,
   employees,
 }: {
-  offboardings: Offboarding[];
+  offboardings: OffboardingRow[];
   employees: Employee[];
 }) {
   const [items, setItems] = useState(offboardings);
@@ -52,11 +71,15 @@ export function OffboardingManager({
     return date.toISOString().slice(0, 10);
   });
   const [notes, setNotes] = useState("");
-  const [terminationLetter, setTerminationLetter] = useState<string>();
-  const [selectedChecklist, setSelectedChecklist] = useState<string[]>(
-    EXIT_CHECKLIST.map((item) => item.name),
-  );
+  const [selectedChecklist, setSelectedChecklist] =
+    useState<string[]>(EXIT_CHECKLIST_NAMES);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const employeesById = useMemo(
+    () => new Map(employees.map((employee) => [employee.id, employee])),
+    [employees],
+  );
 
   // Employees without an existing offboarding process.
   const available = useMemo(
@@ -72,13 +95,14 @@ export function OffboardingManager({
   ).length;
   const completed = items.filter((item) => item.status === "completed").length;
   const openChecklistItems = items
-    .flatMap((item) => item.checklist)
-    .filter((item) => !item.done).length;
+    .map((item) => item.checklistProgress)
+    .reduce((sum, progress) => sum + (progress.total - progress.done), 0);
 
   const openModal = () => {
     setError(null);
-    setTerminationLetter(undefined);
-    setSelectedChecklist(EXIT_CHECKLIST.map((item) => item.name));
+    setEmployeeId("");
+    setNotes("");
+    setSelectedChecklist(EXIT_CHECKLIST_NAMES);
     setOpen(true);
   };
 
@@ -90,7 +114,7 @@ export function OffboardingManager({
     );
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!employeeId) {
       setError("Select an employee to offboard.");
@@ -100,19 +124,51 @@ export function OffboardingManager({
       setError("Select at least one checklist item.");
       return;
     }
-    const item = createOffboarding(
-      employeeId,
-      reason,
-      lastWorkingDay,
-      selectedChecklist,
-      notes.trim() || undefined,
-      terminationLetter,
-    );
-    setItems((current) => [item, ...current]);
-    setOpen(false);
-    setEmployeeId("");
-    setNotes("");
+    setSaving(true);
     setError(null);
+    try {
+      const response = await fetch("/api/offboarding", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          employeeId,
+          reason,
+          lastWorkingDay,
+          checklistNames: selectedChecklist,
+          notes: notes.trim() || undefined,
+        }),
+      });
+      const body = await response.json();
+      if (!body?.ok) {
+        throw new Error(body?.error ?? `Request failed (${response.status})`);
+      }
+      const created = body.data as {
+        id: string;
+        employeeId: string;
+        reason: ExitReason;
+        lastWorkingDay: string;
+        status: "in_progress" | "completed";
+        exitInterviewNotes: string | null;
+        notes: string | null;
+        createdAt: string;
+      };
+      const employee = employeesById.get(created.employeeId);
+      setItems((current) => [
+        {
+          ...created,
+          employeeName: employee?.name ?? null,
+          checklistProgress: { done: 0, total: selectedChecklist.length },
+        },
+        ...current,
+      ]);
+      setOpen(false);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to start offboarding.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -143,6 +199,12 @@ export function OffboardingManager({
           </CardContent>
         </Card>
       </div>
+
+      {error && !open && (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
       <Card>
         <CardHeader>
@@ -178,10 +240,10 @@ export function OffboardingManager({
               </thead>
               <tbody>
                 {items.map((item) => {
-                  const employee = getEmployeeById(item.employeeId);
-                  const done = item.checklist.filter(
-                    (entry) => entry.done,
-                  ).length;
+                  const employee = employeesById.get(item.employeeId);
+                  const name = item.employeeName ?? employee?.name ?? "—";
+                  const role = employee?.role ?? "";
+                  const { done, total } = item.checklistProgress;
                   return (
                     <tr
                       key={item.id}
@@ -189,25 +251,23 @@ export function OffboardingManager({
                     >
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-3">
-                          <Avatar name={employee?.name ?? "—"} size="sm" />
+                          <Avatar name={name} size="sm" />
                           <div className="min-w-0">
-                            <p className="truncate font-medium">
-                              {employee?.name ?? "—"}
-                            </p>
+                            <p className="truncate font-medium">{name}</p>
                             <p className="truncate text-xs text-muted-foreground">
-                              {employee?.role ?? ""}
+                              {role}
                             </p>
                           </div>
                         </div>
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                        {EXIT_REASON_LABELS[item.reason]}
+                        {EXIT_REASON_LABELS[item.reason] ?? item.reason}
                       </td>
                       <td className="px-4 py-3">
                         {formatDate(item.lastWorkingDay)}
                       </td>
                       <td className="hidden px-4 py-3 sm:table-cell">
-                        {done}/{item.checklist.length}
+                        {done}/{total}
                       </td>
                       <td className="px-4 py-3">
                         <Badge
@@ -228,6 +288,16 @@ export function OffboardingManager({
                     </tr>
                   );
                 })}
+                {items.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-4 py-10 text-center text-sm text-muted-foreground"
+                    >
+                      No exit processes yet.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -236,17 +306,26 @@ export function OffboardingManager({
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => !saving && setOpen(false)}
         title="Start offboarding"
         description="Initiate an exit process for an employee."
         footer={
           <>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={saving}
+            >
               Cancel
             </Button>
-            <Button type="submit" form="offboarding-form" variant="destructive">
+            <Button
+              type="submit"
+              form="offboarding-form"
+              variant="destructive"
+              disabled={saving}
+            >
               <LogOut />
-              Start offboarding
+              {saving ? "Starting…" : "Start offboarding"}
             </Button>
           </>
         }
@@ -258,6 +337,7 @@ export function OffboardingManager({
               id="offboard-employee"
               value={employeeId}
               onChange={(event) => setEmployeeId(event.target.value)}
+              placeholder="Select an employee…"
             >
               <option value="">Select an employee…</option>
               {available.map((employee) => (
@@ -296,47 +376,19 @@ export function OffboardingManager({
               />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="offboard-termination">Termination letter</Label>
-            <label
-              htmlFor="offboard-termination"
-              className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-background/50 px-3 py-3 text-sm transition-colors hover:bg-muted/50"
-            >
-              <FileUp className="size-4 shrink-0 text-muted-foreground" />
-              {terminationLetter ? (
-                <span className="flex min-w-0 items-center gap-1.5 truncate font-medium">
-                  <Paperclip className="size-3.5 shrink-0 text-primary" />
-                  {terminationLetter}
-                </span>
-              ) : (
-                <span className="text-muted-foreground">
-                  Attach the termination letter (PDF)
-                </span>
-              )}
-              <input
-                id="offboard-termination"
-                type="file"
-                accept=".pdf,application/pdf"
-                className="sr-only"
-                onChange={(event) =>
-                  setTerminationLetter(event.target.files?.[0]?.name)
-                }
-              />
-            </label>
-          </div>
           <div className="space-y-2">
             <Label>Offboarding checklist</Label>
             <div className="space-y-1 rounded-lg border border-border bg-background/50 p-2">
-              {EXIT_CHECKLIST.map((item) => (
+              {EXIT_CHECKLIST_NAMES.map((item) => (
                 <div
-                  key={item.name}
+                  key={item}
                   className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm"
                 >
-                  <span>{item.name}</span>
+                  <span>{item}</span>
                   <Switch
-                    checked={selectedChecklist.includes(item.name)}
-                    onCheckedChange={() => toggleChecklistItem(item.name)}
-                    aria-label={`Include: ${item.name}`}
+                    checked={selectedChecklist.includes(item)}
+                    onCheckedChange={() => toggleChecklistItem(item)}
+                    aria-label={`Include: ${item}`}
                   />
                 </div>
               ))}

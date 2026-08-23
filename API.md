@@ -1,9 +1,11 @@
 # Gente HR — API Endpoints & Implementation Map
 
 Every page/feature in the app, and the REST endpoints needed to make it real.
-Endpoints marked ✅ already exist; the rest need to be built. The UI is
-currently demo-driven (local component state backed by `src/lib/hr-data.ts`);
-these endpoints are what the repository layer should serve.
+**All endpoints below are implemented** (route handlers under `src/app/api/…`)
+and backed by the Postgres schema in `db/schema.ts` (apply with
+`pnpm db:migrate && pnpm db:seed`). The UI pages still render demo state from
+`src/lib/hr-data.ts`; swapping them to `fetch` the endpoints below is the
+remaining wiring work.
 
 ---
 
@@ -26,7 +28,7 @@ these endpoints are what the repository layer should serve.
   `409` conflict, `422` validation, `429` rate limit, `503` DB unavailable.
 - **Pagination**: query `?page=1&pageSize=20` → `{ items, total, page, pageSize }`.
 - **Search**: `?q=` (name/email/code substring, case-insensitive).
-- **File uploads**: `multipart/form-data`; see §16. Stored file ids/urls are
+- **File uploads**: `multipart/form-data`; see §18. Stored file ids/urls are
   returned and persisted on the record.
 - **Audit**: state-changing admin/HR actions write to `audit_logs`
   (actor = session user, category per module).
@@ -47,17 +49,17 @@ these endpoints are what the repository layer should serve.
 
 ## 3. Multi-Tenancy
 
-| Method | Path                               | Role        | Purpose                                                                                                               |
-| ------ | ---------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/tenants`                     | any         | Organizations the user belongs to (header switcher) — currently server-rendered via `tenant-store`, may become an API |
-| GET    | `/api/tenants/current`             | any         | Active tenant profile (name, slug, settings)                                                                          |
-| PATCH  | `/api/tenants/current`             | admin       | Update company profile (general settings)                                                                             |
-| GET    | `/api/tenants`                     | super-admin | All tenants (global)                                                                                                  |
-| POST   | `/api/tenants`                     | super-admin | Create a company + default admin                                                                                      |
-| PATCH  | `/api/tenants/:id`                 | super-admin | Suspend / change tier / edit tenant                                                                                   |
-| POST   | `/api/tenants/:id/members`         | super-admin | Add a user to a tenant with a role                                                                                    |
-| PATCH  | `/api/tenants/:id/members/:userId` | super-admin | Change membership role/status                                                                                         |
-| DELETE | `/api/tenants/:id/members/:userId` | super-admin | Remove membership                                                                                                     |
+| Method | Path                               | Role        | Purpose                                                                                                                                                                                                                       |
+| ------ | ---------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/tenants`                     | any         | Organizations the user belongs to (header switcher) — currently server-rendered via `tenant-store`, may become an API                                                                                                         |
+| GET    | `/api/tenants/current`             | any         | Active tenant profile (name, slug, settings)                                                                                                                                                                                  |
+| PATCH  | `/api/tenants/current`             | admin       | Update company profile (general settings)                                                                                                                                                                                     |
+| GET    | `/api/tenants`                     | super-admin | All tenants (global)                                                                                                                                                                                                          |
+| POST   | `/api/tenants`                     | super-admin | Create a company + default admin. Body: `{ name, slug?, timezone?, currency?, adminEmail? }`. The creator is added as an admin member so they can switch into the new org; `adminEmail` (optional) links an additional admin. |
+| PATCH  | `/api/tenants/:id`                 | super-admin | Suspend / change tier / edit tenant                                                                                                                                                                                           |
+| POST   | `/api/tenants/:id/members`         | super-admin | Add a user to a tenant with a role                                                                                                                                                                                            |
+| PATCH  | `/api/tenants/:id/members/:userId` | super-admin | Change membership role/status                                                                                                                                                                                                 |
+| DELETE | `/api/tenants/:id/members/:userId` | super-admin | Remove membership                                                                                                                                                                                                             |
 
 ---
 
@@ -86,28 +88,29 @@ The admin invite email carries a login link; the admin then signs in with OTP.
 
 ## 6. Employees
 
-| Method | Path                                  | Role                    | Purpose                                                                                              |
-| ------ | ------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
-| GET    | `/api/employees`                      | admin, hr               | List (search `?q=`, filter `?department=`, `?status=`, pagination)                                   |
-| POST   | `/api/employees`                      | admin, hr               | Create employee (name, email, phone, role, department, location, manager, salary, join date, status) |
-| GET    | `/api/employees/:id`                  | admin, hr; member (own) | Employee profile incl. contact, employment, bank, IDs, emergency contact, tax, insurance             |
-| PATCH  | `/api/employees/:id`                  | admin, hr               | Edit profile (name, email, role, department, salary, status…)                                        |
-| DELETE | `/api/employees/:id`                  | admin                   | Remove employee (or archive)                                                                         |
-| GET    | `/api/employees/:id/documents`        | admin, hr; member (own) | Documents on file                                                                                    |
-| POST   | `/api/employees/:id/documents`        | admin, hr; member (own) | Upload document (category, file)                                                                     |
-| DELETE | `/api/employees/:id/documents/:docId` | admin, hr               | Remove document                                                                                      |
-| PATCH  | `/api/employees/:id/documents/:docId` | admin, hr               | Verify / mark expired                                                                                |
-| GET    | `/api/employees/:id/attendance`       | admin, hr; member (own) | Attendance history                                                                                   |
-| GET    | `/api/employees/:id/leave-balance`    | admin, hr; member (own) | Leave balances                                                                                       |
-| GET    | `/api/employees/:id/leave`            | admin, hr; member (own) | Leave history                                                                                        |
-| GET    | `/api/employees/:id/payslips`         | admin, hr; member (own) | Payslips                                                                                             |
+| Method | Path                                  | Role                    | Purpose                                                                                                                                             |
+| ------ | ------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/employees`                      | admin, hr               | List (search `?q=`, filter `?department=`, `?status=`, pagination)                                                                                  |
+| GET    | `/api/employees/export`               | admin, hr               | Employee directory as CSV (`?format=csv`, optional `?department=` filter)                                                                           |
+| POST   | `/api/employees`                      | admin, hr               | Create employee (name, email, phone, role, department, location, manager, salary, join date, status)                                                |
+| GET    | `/api/employees/:id`                  | admin, hr; member (own) | Employee profile incl. contact, employment, structured address (address/state/country), bank, IDs, emergency contact, tax, health coverage, pension |
+| PATCH  | `/api/employees/:id`                  | admin, hr               | Edit profile (name, email, role, department, salary, status…)                                                                                       |
+| DELETE | `/api/employees/:id`                  | admin                   | Remove employee (or archive)                                                                                                                        |
+| GET    | `/api/employees/:id/documents`        | admin, hr; member (own) | Documents on file                                                                                                                                   |
+| POST   | `/api/employees/:id/documents`        | admin, hr; member (own) | Upload document (category, file)                                                                                                                    |
+| DELETE | `/api/employees/:id/documents/:docId` | admin, hr               | Remove document                                                                                                                                     |
+| PATCH  | `/api/employees/:id/documents/:docId` | admin, hr               | Verify / mark expired                                                                                                                               |
+| GET    | `/api/employees/:id/attendance`       | admin, hr; member (own) | Attendance history                                                                                                                                  |
+| GET    | `/api/employees/:id/leave-balance`    | admin, hr; member (own) | Leave balances                                                                                                                                      |
+| GET    | `/api/employees/:id/leave`            | admin, hr; member (own) | Leave history                                                                                                                                       |
+| GET    | `/api/employees/:id/payslips`         | admin, hr; member (own) | Payslips                                                                                                                                            |
 
 **Employee self-service "complete profile"** (fields configured in Employee
-Config) are collected during onboarding (§7) and/or via:
+Config) are collected during onboarding (§9) and/or via:
 
-| Method | Path                                | Role         | Purpose                                                           |
-| ------ | ----------------------------------- | ------------ | ----------------------------------------------------------------- |
-| PATCH  | `/api/employees/:id/profile-fields` | member (own) | Update own bank, government ID, emergency contact, tax, insurance |
+| Method | Path                                | Role         | Purpose                                                                                                                |
+| ------ | ----------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| PATCH  | `/api/employees/:id/profile-fields` | member (own) | Update own bank, government ID, emergency contact, tax, pension (health coverage is HR/admin-managed after onboarding) |
 
 ---
 
@@ -123,24 +126,60 @@ Config) are collected during onboarding (§7) and/or via:
 
 ---
 
-## 8. Onboarding (invite → employee self-service)
+## 8. ATS (Recruitment & Hiring)
 
-| Method | Path                                | Role               | Purpose                                                                                                                                                                                                                                  |
-| ------ | ----------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/onboarding`                   | admin, hr          | List plans (status filter)                                                                                                                                                                                                               |
-| POST   | `/api/onboarding`                   | admin, hr          | **Invite**: `{ fullName, email }` → create plan (status `invited`) + **send email with completion link/token**                                                                                                                           |
-| GET    | `/api/onboarding/:id`               | admin, hr          | Plan detail (new-hire info, tasks, offer-letter status)                                                                                                                                                                                  |
-| PATCH  | `/api/onboarding/:id`               | admin, hr          | Edit invite details / cancel invite                                                                                                                                                                                                      |
-| GET    | `/api/onboarding/complete?token=`   | **public**         | Load invite context for the emailed link (name, email)                                                                                                                                                                                   |
-| PUT    | `/api/onboarding/complete`          | **public** (token) | **Employee submits details**: contact (phone, address, state, country), passport photograph (file), signed offer letter file, bank, government ID, emergency contact, tax, health insurance → plan → `in_progress`, create user/employee |
-| PATCH  | `/api/onboarding/:id/tasks/:taskId` | admin, hr          | Mark onboarding task done / in progress                                                                                                                                                                                                  |
-| POST   | `/api/onboarding/:id/resend`        | admin, hr          | Resend invite email                                                                                                                                                                                                                      |
+Pipeline: **Create jobs → Applications → Screening → Interview → Offer → Hired/Rejected → Onboarding** (§9). Hired applications create the employee record + onboarding plan.
+
+### Jobs
+
+| Method | Path                      | Role       | Purpose                                                               |
+| ------ | ------------------------- | ---------- | --------------------------------------------------------------------- |
+| GET    | `/api/ats/jobs`           | admin, hr  | List jobs (`?q=`, `?status=`, pagination) + application counts        |
+| POST   | `/api/ats/jobs`           | admin, hr  | Create job posting (title, department, location, type, salary range)  |
+| GET    | `/api/ats/jobs/:id`       | admin, hr  | Job detail + applications by stage                                    |
+| PATCH  | `/api/ats/jobs/:id`       | admin, hr  | Update job / status (draft → open → closed)                           |
+| DELETE | `/api/ats/jobs/:id`       | admin      | Delete job posting                                                    |
+| GET    | `/api/ats/jobs/:id/apply` | **public** | Job info for the public apply page (open jobs only)                   |
+| POST   | `/api/ats/jobs/:id/apply` | **public** | Submit an application (name, email, phone, resume link, cover letter) |
+
+### Applications
+
+| Method | Path                                                | Role      | Purpose                                                            |
+| ------ | --------------------------------------------------- | --------- | ------------------------------------------------------------------ |
+| GET    | `/api/ats/applications`                             | admin, hr | List (`?jobId=`, `?stage=`, pagination)                            |
+| POST   | `/api/ats/applications`                             | admin, hr | Add candidate manually                                             |
+| GET    | `/api/ats/applications/:id`                         | admin, hr | Detail: candidate, stage history, interviews, offer, employee link |
+| PATCH  | `/api/ats/applications/:id`                         | admin, hr | Update candidate / notes                                           |
+| DELETE | `/api/ats/applications/:id`                         | admin     | Remove application                                                 |
+| POST   | `/api/ats/applications/:id/stage`                   | admin, hr | Move forward (screening → interview → offer) + note → history      |
+| POST   | `/api/ats/applications/:id/interviews`              | admin, hr | Schedule next interview round (datetime, interviewer)              |
+| PATCH  | `/api/ats/applications/:id/interviews/:interviewId` | admin, hr | Update interview status/feedback                                   |
+| POST   | `/api/ats/applications/:id/offer`                   | admin, hr | Send offer (salary, start date, terms) → stage offer               |
+| POST   | `/api/ats/applications/:id/hire`                    | admin, hr | **Hire**: create employee + onboarding plan (§9), stage → hired    |
+| POST   | `/api/ats/applications/:id/reject`                  | admin, hr | Reject (note) → stage rejected                                     |
+
+Pages: `/ats/jobs`, `/ats/jobs/new`, `/ats/jobs/:id` (+ `/edit`), `/ats/applications` (pipeline board), `/ats/applications/:id`, public apply `/apply/:jobId`.
+
+---
+
+## 9. Onboarding (invite → employee self-service)
+
+| Method | Path                                | Role               | Purpose                                                                                                                                                                                                                                                               |
+| ------ | ----------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/onboarding`                   | admin, hr          | List plans (status filter)                                                                                                                                                                                                                                            |
+| POST   | `/api/onboarding`                   | admin, hr          | **Invite**: `{ fullName, email }` → create plan (status `invited`) + **send email with completion link/token**                                                                                                                                                        |
+| GET    | `/api/onboarding/:id`               | admin, hr          | Plan detail (new-hire info, tasks, offer-letter status)                                                                                                                                                                                                               |
+| PATCH  | `/api/onboarding/:id`               | admin, hr          | Edit invite details / cancel invite                                                                                                                                                                                                                                   |
+| GET    | `/api/onboarding/complete?token=`   | **public**         | Load invite context for the emailed link (name, email)                                                                                                                                                                                                                |
+| PUT    | `/api/onboarding/complete`          | **public** (token) | **Employee submits details**: contact (phone, address, state, country), passport photograph (file), signed offer letter file, bank, government ID, emergency contact, tax, pension → plan → `in_progress`, create user/employee (health coverage is HR/admin-managed) |
+| PATCH  | `/api/onboarding/:id/tasks/:taskId` | admin, hr          | Mark onboarding task done / in progress                                                                                                                                                                                                                               |
+| POST   | `/api/onboarding/:id/resend`        | admin, hr          | Resend invite email                                                                                                                                                                                                                                                   |
 
 Email triggers: invite sent (with completion link), welcome once complete.
 
 ---
 
-## 9. Offboarding
+## 10. Offboarding
 
 | Method | Path                                     | Role      | Purpose                                                                                              |
 | ------ | ---------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
@@ -155,7 +194,7 @@ Email triggers: offboarding started (employee notified), exit confirmation.
 
 ---
 
-## 10. Leave
+## 11. Leave
 
 | Method | Path                     | Role                             | Purpose                                                          |
 | ------ | ------------------------ | -------------------------------- | ---------------------------------------------------------------- |
@@ -173,7 +212,7 @@ Email triggers: request submitted, approved/rejected/cancelled, deadline warning
 
 ---
 
-## 11. Attendance
+## 12. Attendance
 
 | Method | Path                                       | Role                    | Purpose                                                |
 | ------ | ------------------------------------------ | ----------------------- | ------------------------------------------------------ |
@@ -184,11 +223,11 @@ Email triggers: request submitted, approved/rejected/cancelled, deadline warning
 | GET    | `/api/attendance/summary`                  | admin, hr               | Today's stats: present, late, remote, on leave, absent |
 | GET    | `/api/attendance/week-trend`               | admin, hr               | Weekly headcount trend                                 |
 | GET    | `/api/attendance/departments`              | admin, hr               | Department breakdown                                   |
-| GET    | `/api/attendance/report?from=&to=&format=` | admin, hr               | Attendance report (JSON/CSV)                           |
+| GET    | `/api/attendance/report?from=&to=&format=` | admin, hr               | Attendance report (JSON/CSV), default last 7 days      |
 
 ---
 
-## 12. Performance
+## 13. Performance
 
 ### Templates
 
@@ -216,7 +255,7 @@ Email triggers: review started (employee), deadline extended, review submitted.
 
 ---
 
-## 13. Payroll
+## 14. Payroll
 
 | Method | Path                                | Role                    | Purpose                                                                                                                   |
 | ------ | ----------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -226,11 +265,11 @@ Email triggers: review started (employee), deadline extended, review submitted.
 | GET    | `/api/payroll/runs/preview?period=` | admin, hr               | Preview totals before running                                                                                             |
 | GET    | `/api/payroll/salary`               | admin, hr               | Salary records                                                                                                            |
 | POST   | `/api/payroll/salary`               | admin, hr               | Set/update salary `{ employeeId, basic, allowances…, effectiveFrom }`                                                     |
-| GET    | `/api/payroll/loans`                | admin, hr; member (own) | Loans                                                                                                                     |
+| GET    | `/api/payroll/loans`                | admin, hr; member (own) | Loans (`?from=&to=` date range, default last 7 days)                                                                      |
 | POST   | `/api/payroll/loans`                | admin, hr               | Create loan `{ employeeId, type, amount, interestRate, termMonths }` (compute EMI)                                        |
 | PATCH  | `/api/payroll/loans/:id/approve`    | admin, hr               | Approve/disburse                                                                                                          |
 | GET    | `/api/payroll/loans/:id`            | admin, hr; member (own) | Loan detail + repayment schedule                                                                                          |
-| GET    | `/api/payroll/payslips?period=`     | admin, hr; member (own) | Payslips                                                                                                                  |
+| GET    | `/api/payroll/payslips?period=`     | admin, hr; member (own) | Payslips (`?from=&to=` date range, default last 7 days)                                                                   |
 | GET    | `/api/payroll/payslips/:id`         | admin, hr; member (own) | Payslip detail (earnings/deductions breakdown)                                                                            |
 | GET    | `/api/payroll/payslips/:id/pdf`     | admin, hr; member (own) | Download payslip PDF                                                                                                      |
 | POST   | `/api/payroll/payslips/:id/email`   | admin, hr               | Email payslip to employee                                                                                                 |
@@ -240,18 +279,18 @@ payslip), loan approved.
 
 ---
 
-## 14. Reports & Exports
+## 15. Reports & Exports
 
-| Method | Path                                | Role                        | Purpose                                                          |
-| ------ | ----------------------------------- | --------------------------- | ---------------------------------------------------------------- |
-| GET    | `/api/reports`                      | admin, hr; member (limited) | Report catalog + summary metrics                                 |
-| GET    | `/api/reports/:id`                  | admin, hr                   | Report detail (employees, leave, attendance, payroll dashboards) |
-| GET    | `/api/reports/:id/export?format=csv | pdf`                        | admin, hr                                                        | Export report |
-| GET    | `/api/reports/export-all?format=`   | admin, hr                   | Export combined workforce report                                 |
+| Method | Path                                | Role                        | Purpose                                                                                                                                         |
+| ------ | ----------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/reports`                      | admin, hr; member (limited) | Report catalog + summary metrics                                                                                                                |
+| GET    | `/api/reports/:id`                  | admin, hr                   | Report detail (employees, leave, attendance, payroll). Date-sensitive reports accept `?from=&to=` (`YYYY-MM-DD`), defaulting to the last 7 days |
+| GET    | `/api/reports/:id/export?format=csv | pdf`                        | admin, hr                                                                                                                                       | Export report (respects the same `from`/`to` range) |
+| GET    | `/api/reports/export-all?format=`   | admin, hr                   | Export combined workforce report (respects `from`/`to`)                                                                                         |
 
 ---
 
-## 15. Notifications
+## 16. Notifications
 
 | Method | Path                              | Role | Purpose                        |
 | ------ | --------------------------------- | ---- | ------------------------------ |
@@ -265,14 +304,14 @@ in-app notification row for the relevant user.
 
 ---
 
-## 16. Settings
+## 17. Settings
 
 ### General
 
-| Method | Path                    | Role             | Purpose                                                            |
-| ------ | ----------------------- | ---------------- | ------------------------------------------------------------------ |
-| GET    | `/api/settings/company` | admin, hr (view) | Company profile (name, website, support email, timezone, currency) |
-| PATCH  | `/api/settings/company` | admin            | Update profile (currency options incl. flags)                      |
+| Method | Path                    | Role             | Purpose                                                                                                       |
+| ------ | ----------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/settings/company` | admin, hr (view) | Company profile (name, website, support email, language, timezone, currency, office days, employee ID prefix) |
+| PATCH  | `/api/settings/company` | admin            | Update profile (incl. office days, `employeePrefix`, language: en/fr/pt/es)                                   |
 
 ### Users (admin management)
 
@@ -285,10 +324,17 @@ in-app notification row for the relevant user.
 
 ### Employee Config (form fields)
 
-| Method | Path                            | Role  | Purpose                                          |
-| ------ | ------------------------------- | ----- | ------------------------------------------------ |
-| GET    | `/api/settings/employee-config` | admin | Current field config (groups, enabled, required) |
-| PUT    | `/api/settings/employee-config` | admin | Save config → used by onboarding/employee forms  |
+| Method | Path                            | Role  | Purpose                                                                                                                  |
+| ------ | ------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/api/settings/employee-config` | admin | Current field config (groups, enabled, required) — bank, government ID, emergency contact, tax, Health Coverage, Pension |
+| PUT    | `/api/settings/employee-config` | admin | Save config → used by onboarding/employee forms                                                                          |
+
+### Payroll (payslip breakdown)
+
+| Method | Path                    | Role  | Purpose                                                                                           |
+| ------ | ----------------------- | ----- | ------------------------------------------------------------------------------------------------- |
+| GET    | `/api/settings/payroll` | admin | Payslip breakdown config (earnings/deductions components, labels, enabled) — merged over defaults |
+| PUT    | `/api/settings/payroll` | admin | Save breakdown config → drives which components/labels appear on payslips                         |
 
 ### Email provider
 
@@ -317,7 +363,7 @@ in-app notification row for the relevant user.
 
 ---
 
-## 17. Files & Uploads
+## 18. Files & Uploads
 
 | Method | Path             | Role   | Purpose                                                                                                                                                            |
 | ------ | ---------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -332,7 +378,7 @@ uploads. The setup wizard's logo is passed as a data URL to `/api/setup`
 
 ---
 
-## 18. Cross-Cutting Work
+## 19. Cross-Cutting Work
 
 1. **RBAC middleware**: an auth helper (e.g. `requireRole(…, ["admin","hr"])`)
    reused by every route handler; member routes must scope queries to the
@@ -350,7 +396,7 @@ uploads. The setup wizard's logo is passed as a data URL to `/api/setup`
 
 ---
 
-## 19. Build Order Suggestion
+## 20. Build Order Suggestion
 
 1. **Setup provisioning** — `GET /api/setup/status` + `POST /api/setup` (tenant,
    admin, email provider, theme) so a new workspace is fully configurable.

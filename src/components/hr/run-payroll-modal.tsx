@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, Mail, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,10 +21,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Run payroll: shows a preview of the next period (derived from salaries and
- * loans) and asks for an email to send the payroll PDF to. Demo only — no
- * backend; simulates processing and shows a sent confirmation.
+ * loans) and asks for an email to send the payroll PDF to. Submits to
+ * `POST /api/payroll/runs` and refreshes the runs list on success.
  */
 export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -37,7 +39,7 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
     setOpen(true);
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmed = email.trim();
     if (!EMAIL_RE.test(trimmed)) {
@@ -46,11 +48,30 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
     }
     setBusy(true);
     setError(null);
-    // Simulate processing + email delivery; wire to a payroll API route later.
-    window.setTimeout(() => {
-      setBusy(false);
+    let apiError: string | null = null;
+    try {
+      const response = await fetch("/api/payroll/runs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period: preview.period, email: trimmed }),
+      });
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (!body?.ok) {
+        apiError = body?.error ?? "Could not run payroll";
+        throw new Error(apiError);
+      }
       setSent(true);
-    }, 900);
+      // Re-fetch the payroll page so the new run appears in the list.
+      router.refresh();
+    } catch {
+      if (apiError) setError(apiError);
+      else setError("Could not run payroll. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -75,11 +96,7 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                form="run-payroll-form"
-                disabled={busy}
-              >
+              <Button type="submit" form="run-payroll-form" disabled={busy}>
                 {busy ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (

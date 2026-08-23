@@ -1,5 +1,12 @@
-import { LeaveCalendar } from "@/components/hr/leave-calendar";
-import { LeaveRequestsTable } from "@/components/hr/leave-requests-table";
+import {
+  LeaveCalendar,
+  type LeaveCalendarDay,
+} from "@/components/hr/leave-calendar";
+import {
+  LeaveRequestsTable,
+  type LeaveRow,
+} from "@/components/hr/leave-requests-table";
+import { MyLeave, type ApiLeaveBalance } from "@/components/hr/my-leave";
 import { PageHeader } from "@/components/hr/page-header";
 import { Tabs } from "@/components/ui/tabs";
 import {
@@ -9,11 +16,53 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { LEAVE_REQUESTS } from "@/lib/hr-data";
+import { getCurrentUser } from "@/lib/server/auth";
+import { apiGet, type Paginated } from "@/lib/server/api-client";
 
 export const metadata = { title: "Leave" };
 
-export default function LeavePage() {
+interface LeaveCalendarData {
+  month: string;
+  days: LeaveCalendarDay[];
+}
+
+function currentMonth(): string {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export default async function LeavePage() {
+  const user = await getCurrentUser();
+
+  if (user?.role === "member") {
+    const myEmployee = await apiGet<{ id: string }>("/api/employees/me").catch(
+      () => null,
+    );
+    const [requests, balances] = await Promise.all([
+      apiGet<Paginated<LeaveRow>>("/api/leave", { pageSize: 100 }),
+      apiGet<ApiLeaveBalance[]>("/api/leave/balances"),
+    ]);
+    const year = new Date().getFullYear();
+    const balance =
+      balances.find((item) => item.year === year) ?? balances[0] ?? null;
+    return (
+      <MyLeave
+        employeeId={myEmployee?.id ?? ""}
+        initialRequests={requests.items}
+        balance={balance}
+      />
+    );
+  }
+
+  const month = currentMonth();
+  const [requests, calendar] = await Promise.all([
+    apiGet<Paginated<LeaveRow>>("/api/leave", { pageSize: 200 }),
+    apiGet<LeaveCalendarData>("/api/leave/calendar", { month }),
+  ]);
+  const monthLabel = new Date(
+    `${calendar.month}-01T00:00:00`,
+  ).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
   return (
     <>
       <PageHeader
@@ -30,14 +79,14 @@ export default function LeavePage() {
             content: (
               <Card>
                 <CardHeader>
-                  <CardTitle>Leave calendar — August 2026</CardTitle>
+                  <CardTitle>Leave calendar — {monthLabel}</CardTitle>
                   <CardDescription>
                     Who&apos;s away. Overlapping requests are flagged as
                     conflicts.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <LeaveCalendar />
+                  <LeaveCalendar month={calendar.month} days={calendar.days} />
                 </CardContent>
               </Card>
             ),
@@ -54,7 +103,7 @@ export default function LeavePage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <LeaveRequestsTable requests={LEAVE_REQUESTS} />
+                  <LeaveRequestsTable requests={requests.items} />
                 </CardContent>
               </Card>
             ),

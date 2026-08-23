@@ -13,6 +13,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LeaveRequestActions } from "@/components/hr/leave-request-actions";
+import { type LeaveRow } from "@/components/hr/leave-requests-table";
 import {
   Card,
   CardContent,
@@ -22,12 +23,17 @@ import {
 } from "@/components/ui/card";
 import {
   formatDate,
-  getEmployeeById,
-  getLeaveRequest,
-  LEAVE_REQUESTS,
   LEAVE_TYPE_LABELS,
+  type LeaveRequest,
   type LeaveStatus,
+  type LeaveType,
 } from "@/lib/hr-data";
+import { getCurrentUser } from "@/lib/server/auth";
+import {
+  ApiClientError,
+  apiGet,
+  type Paginated,
+} from "@/lib/server/api-client";
 
 export const metadata = { title: "Leave request" };
 
@@ -41,19 +47,68 @@ const STATUS_VARIANT: Record<
   cancelled: "secondary",
 };
 
+/** Detail row returned by `GET /api/leave/[id]` (raw DB row + employee name). */
+interface ApiLeaveDetail {
+  id: string;
+  employeeId: string;
+  employeeName: string | null;
+  type: LeaveType;
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason: string | null;
+  status: LeaveStatus;
+  createdAt: string;
+}
+
 export default async function LeaveRequestPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const request = getLeaveRequest(id);
-  if (!request) notFound();
 
-  const employee = getEmployeeById(request.employeeId);
-  const related = LEAVE_REQUESTS.filter(
-    (item) => item.employeeId === request.employeeId && item.id !== request.id,
-  );
+  let request: LeaveRequest;
+  let employeeName: string | null = null;
+  try {
+    const detail = await apiGet<ApiLeaveDetail>(`/api/leave/${id}`);
+    employeeName = detail.employeeName;
+    request = {
+      id: detail.id,
+      employeeId: detail.employeeId,
+      type: detail.type,
+      start: detail.startDate,
+      end: detail.endDate,
+      days: detail.days,
+      reason: detail.reason ?? undefined,
+      status: detail.status,
+    };
+  } catch (error) {
+    // The API denies foreign requests to members with 403 — hide it like a 404.
+    if (
+      error instanceof ApiClientError &&
+      (error.status === 404 || error.status === 403)
+    ) {
+      notFound();
+    }
+    throw error;
+  }
+
+  // Employees can only open their own requests.
+  const user = await getCurrentUser();
+  if (user?.role === "member") {
+    const myEmployee = await apiGet<{ id: string }>("/api/employees/me").catch(
+      () => null,
+    );
+    if (request.employeeId !== myEmployee?.id) notFound();
+  }
+
+  const related = (
+    await apiGet<Paginated<LeaveRow>>("/api/leave", {
+      employeeId: request.employeeId,
+      pageSize: 100,
+    })
+  ).items.filter((item) => item.id !== id);
   const isDecided = request.status !== "pending";
 
   return (
@@ -81,8 +136,8 @@ export default async function LeaveRequestPage({
             {request.days > 1 ? "s" : ""}
           </p>
         </div>
-        {employee && (
-          <Link href={`/employees/${employee.id}`}>
+        {user?.role !== "member" && (
+          <Link href={`/employees/${request.employeeId}`}>
             <Button variant="outline">View employee profile</Button>
           </Link>
         )}
@@ -196,17 +251,41 @@ export default async function LeaveRequestPage({
         </div>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-              <CardDescription>Decide this request.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <LeaveRequestActions request={request} />
-            </CardContent>
-          </Card>
+          {user?.role === "member" ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Status</CardTitle>
+                <CardDescription>Request progress.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {request.status === "pending" ? (
+                  <p className="text-sm text-muted-foreground">
+                    Your request is awaiting approval by the People team.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    This request has been{" "}
+                    <span className="font-medium capitalize text-foreground">
+                      {request.status}
+                    </span>
+                    . No further actions are available.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Actions</CardTitle>
+                <CardDescription>Decide this request.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LeaveRequestActions request={request} />
+              </CardContent>
+            </Card>
+          )}
 
-          {employee && (
+          {employeeName && (
             <Card>
               <CardHeader>
                 <CardTitle>Employee</CardTitle>
@@ -214,12 +293,9 @@ export default async function LeaveRequestPage({
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <Avatar name={employee.name} size="sm" />
+                  <Avatar name={employeeName} size="sm" />
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{employee.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {employee.role} · {employee.department}
-                    </p>
+                    <p className="truncate font-medium">{employeeName}</p>
                   </div>
                 </div>
               </CardContent>

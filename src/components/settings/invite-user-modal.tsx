@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { CheckCircle2, Loader2, Mail, Send, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  CheckCircle2,
+  Loader2,
+  Mail,
+  Power,
+  Send,
+  UserPlus,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,9 +20,14 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Invite an admin user (full name + email). Admins get access to every
- * organization. Demo only — simulates sending the invite.
+ * organization. Sends POST /api/users/invite.
  */
-export function InviteUserModal({ existingEmails }: { existingEmails: string[] }) {
+export function InviteUserModal({
+  existingEmails,
+}: {
+  existingEmails: string[];
+}) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -29,7 +43,7 @@ export function InviteUserModal({ existingEmails }: { existingEmails: string[] }
     setOpen(true);
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim().toLowerCase();
@@ -47,11 +61,27 @@ export function InviteUserModal({ existingEmails }: { existingEmails: string[] }
     }
     setBusy(true);
     setError(null);
-    // Simulate sending the invite; wire to a users API route later.
-    window.setTimeout(() => {
-      setBusy(false);
+    try {
+      const response = await fetch("/api/users/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName: trimmedName, email: trimmedEmail }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.ok) {
+        throw new Error(body?.error ?? "Failed to send the invite");
+      }
       setSent(true);
-    }, 800);
+      router.refresh();
+    } catch (inviteError) {
+      setError(
+        inviteError instanceof Error
+          ? inviteError.message
+          : "Failed to send the invite",
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -95,8 +125,8 @@ export function InviteUserModal({ existingEmails }: { existingEmails: string[] }
               <p className="font-semibold">Invite sent</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {fullName} will receive an email at{" "}
-                <span className="font-medium text-foreground">{email}</span>{" "}
-                to set up their admin account.
+                <span className="font-medium text-foreground">{email}</span> to
+                set up their admin account.
               </p>
             </div>
           </div>
@@ -136,5 +166,69 @@ export function InviteUserModal({ existingEmails }: { existingEmails: string[] }
         )}
       </Modal>
     </>
+  );
+}
+
+/** Activate / deactivate an admin user via PATCH /api/users/[id]. */
+export function UserStatusToggle({
+  userId,
+  status,
+}: {
+  userId: string;
+  status: "active" | "inactive";
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const next = status === "active" ? "inactive" : "active";
+
+  const toggle = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.ok) {
+        throw new Error(body?.error ?? "Failed to update status");
+      }
+      router.refresh();
+    } catch (toggleError) {
+      setError(
+        toggleError instanceof Error
+          ? toggleError.message
+          : "Failed to update status",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <span className="inline-flex flex-col items-end gap-1">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={toggle}
+        disabled={busy}
+        title={next === "active" ? "Activate account" : "Deactivate account"}
+      >
+        {busy ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <Power className="size-3.5" />
+        )}
+        {next === "active" ? "Activate" : "Deactivate"}
+      </Button>
+      {error && (
+        <span className="flex items-center gap-1 text-xs text-destructive">
+          <XCircle className="size-3" />
+          {error}
+        </span>
+      )}
+    </span>
   );
 }

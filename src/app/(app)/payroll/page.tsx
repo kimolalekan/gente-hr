@@ -18,12 +18,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  formatCurrency,
-  formatDate,
-  getPayslips,
-  PAYROLL_RUNS,
-} from "@/lib/hr-data";
+import { formatCurrency, formatDate } from "@/lib/hr-data";
+import { getCurrentUser } from "@/lib/server/auth";
+import { apiGet, type Paginated } from "@/lib/server/api-client";
 
 export const metadata = { title: "Payroll" };
 
@@ -50,29 +47,254 @@ function nextPeriod(period: string): string {
   return `${MONTHS[next]} ${next === 0 ? Number(year) + 1 : year}`;
 }
 
-export default function PayrollPage() {
-  const latest = PAYROLL_RUNS[0];
-  const previewPayslips = getPayslips(nextPeriod(latest.period));
-  const preview = {
-    period: nextPeriod(latest.period),
-    employees: previewPayslips.length,
-    gross: previewPayslips.reduce((sum, payslip) => sum + payslip.gross, 0),
-    deductions: previewPayslips.reduce(
-      (sum, payslip) =>
-        sum +
-        payslip.tax +
-        payslip.pension +
-        payslip.insurance +
-        payslip.loanEmi,
+function currentPeriod(): string {
+  const date = new Date();
+  return `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+/** "September 2026" → "Sep 1" — the day payroll runs. */
+function nextRunLabel(period: string): string {
+  const [month, year] = period.split(" ");
+  const index = MONTHS.indexOf(month);
+  if (index === -1) return period;
+  return new Date(Number(year), index, 1).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** Payroll run row from `GET /api/payroll/runs`. */
+interface PayrollRunRow {
+  id: string;
+  period: string;
+  processedAt: string;
+  total: number;
+  employees: number;
+  status: string;
+  createdAt: string;
+}
+
+/** Payslip row from `GET /api/payroll/payslips`. */
+interface PayslipRow {
+  id: string;
+  employeeId: string;
+  period: string;
+  gross: number;
+  net: number;
+  status: string;
+}
+
+/** Loan row from `GET /api/payroll/loans`. */
+interface LoanRow {
+  id: string;
+  employeeId: string;
+  amount: number;
+  monthlyEmi: number;
+  paidMonths: number;
+  status: string;
+}
+
+/** Current user's employee record from `GET /api/employees/me`. */
+interface MeEmployee {
+  id: string;
+  name: string;
+}
+
+/** Preview from `GET /api/payroll/runs/preview`. */
+interface PayrollPreviewData {
+  period: string;
+  employees: number;
+  totalGross: number;
+  totalDeductions: number;
+  totalNet: number;
+}
+
+/** Employee (member) view — their own payslips and loans only. */
+function MyPayroll({
+  payslips,
+  loans,
+  employeeName,
+}: {
+  payslips: PayslipRow[];
+  loans: LoanRow[];
+  employeeName?: string;
+}) {
+  const latest = payslips[0];
+  const current = latest?.period;
+  const periodCount = current
+    ? payslips.filter((payslip) => payslip.period === current).length
+    : 0;
+  const outstanding = loans
+    .filter((loan) => loan.status === "active")
+    .reduce(
+      (sum, loan) => sum + (loan.amount - loan.paidMonths * loan.monthlyEmi),
       0,
-    ),
-    net: previewPayslips.reduce((sum, payslip) => sum + payslip.net, 0),
+    );
+
+  return (
+    <>
+      <PageHeader
+        title="My payroll"
+        description={
+          employeeName
+            ? `Payslips and loans for ${employeeName}.`
+            : "Your payslips and loans."
+        }
+      >
+        <Link href="/payroll/loans">
+          <Button variant="outline">
+            <Landmark className="size-4" />
+            My loans
+          </Button>
+        </Link>
+      </PageHeader>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="p-4">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <Wallet className="size-4" /> Latest net pay
+            </p>
+            <p className="mt-1 text-2xl font-bold">
+              {latest ? formatCurrency(latest.net) : "—"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {latest?.period ?? "No payslips yet"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <Landmark className="size-4" /> Active loans
+            </p>
+            <p className="mt-1 text-2xl font-bold">{loans.length}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {outstanding > 0
+                ? `${formatCurrency(outstanding)} outstanding`
+                : "Nothing outstanding"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <FileText className="size-4" /> Payslips
+            </p>
+            <p className="mt-1 text-2xl font-bold">{periodCount}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {current ?? "No payslips yet"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>My payslips</CardTitle>
+          <CardDescription>Recent payslips on file.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {payslips.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No payslips available yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                    <th className="py-2.5 pr-4 font-medium">Period</th>
+                    <th className="px-4 py-2.5 font-medium">Gross</th>
+                    <th className="px-4 py-2.5 font-medium">Net</th>
+                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="py-2.5 pl-4 text-right font-medium">
+                      Details
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payslips.map((payslip) => (
+                    <tr
+                      key={payslip.id}
+                      className="border-b border-border last:border-0"
+                    >
+                      <td className="py-3 pr-4 font-medium">
+                        {payslip.period}
+                      </td>
+                      <td className="px-4 py-3">
+                        {formatCurrency(payslip.gross)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {formatCurrency(payslip.net)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant={
+                            payslip.status === "paid" ? "success" : "warning"
+                          }
+                        >
+                          {payslip.status}
+                        </Badge>
+                      </td>
+                      <td className="py-3 pl-4 text-right">
+                        <Link href={`/payroll/payslips/${payslip.id}`}>
+                          <Button variant="outline" size="sm">
+                            View
+                          </Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+export default async function PayrollPage() {
+  const user = await getCurrentUser();
+  if (user?.role === "member") {
+    const [employee, payslips, loans] = await Promise.all([
+      apiGet<MeEmployee>("/api/employees/me").catch(() => null),
+      apiGet<Paginated<PayslipRow>>("/api/payroll/payslips"),
+      apiGet<Paginated<LoanRow>>("/api/payroll/loans"),
+    ]);
+    return (
+      <MyPayroll
+        payslips={payslips.items}
+        loans={loans.items}
+        employeeName={employee?.name}
+      />
+    );
+  }
+
+  const runs = await apiGet<Paginated<PayrollRunRow>>("/api/payroll/runs");
+  const latest = runs.items[0];
+  const previewPeriod = latest ? nextPeriod(latest.period) : currentPeriod();
+  const preview = await apiGet<PayrollPreviewData>(
+    "/api/payroll/runs/preview",
+    {
+      period: previewPeriod,
+    },
+  ).catch(() => null);
+  const previewProps = {
+    period: preview?.period ?? previewPeriod,
+    employees: preview?.employees ?? 0,
+    gross: preview?.totalGross ?? 0,
+    deductions: preview?.totalDeductions ?? 0,
+    net: preview?.totalNet ?? 0,
   };
+  const ytd = runs.items.reduce((sum, run) => sum + run.total, 0);
 
   return (
     <>
       <PageHeader title="Payroll" description="Run, review and export payroll.">
-        <RunPayrollButton preview={preview} />
+        <RunPayrollButton preview={previewProps} />
       </PageHeader>
 
       <div className="flex flex-wrap gap-2">
@@ -97,10 +319,10 @@ export default function PayrollPage() {
               <Wallet className="size-4" /> This month
             </p>
             <p className="mt-1 text-2xl font-bold">
-              {formatCurrency(latest.total)}
+              {latest ? formatCurrency(latest.total) : "—"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {latest.period}
+              {latest?.period ?? "No runs yet"}
             </p>
           </CardContent>
         </Card>
@@ -109,8 +331,14 @@ export default function PayrollPage() {
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <TrendingUp className="size-4" /> YTD
             </p>
-            <p className="mt-1 text-2xl font-bold">{formatCurrency(1221760)}</p>
-            <p className="mt-1 text-xs text-success">+3.2% vs last year</p>
+            <p className="mt-1 text-2xl font-bold">{formatCurrency(ytd)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {runs.items.length > 0
+                ? `Across ${runs.items.length} processed run${
+                    runs.items.length === 1 ? "" : "s"
+                  }`
+                : "No runs processed yet"}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -118,9 +346,13 @@ export default function PayrollPage() {
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <CheckCircle2 className="size-4" /> Employees paid
             </p>
-            <p className="mt-1 text-2xl font-bold">{latest.employees}</p>
+            <p className="mt-1 text-2xl font-bold">
+              {latest?.employees ?? "—"}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Across {latest.employees} active roles
+              {latest
+                ? `Across ${latest.employees} active roles`
+                : "No runs yet"}
             </p>
           </CardContent>
         </Card>
@@ -129,7 +361,9 @@ export default function PayrollPage() {
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <CalendarClock className="size-4" /> Next run
             </p>
-            <p className="mt-1 text-2xl font-bold">Sep 1</p>
+            <p className="mt-1 text-2xl font-bold">
+              {nextRunLabel(previewPeriod)}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">Monthly cycle</p>
           </CardContent>
         </Card>
@@ -156,14 +390,14 @@ export default function PayrollPage() {
                 </tr>
               </thead>
               <tbody>
-                {PAYROLL_RUNS.map((run) => (
+                {runs.items.map((run) => (
                   <tr
                     key={run.id}
                     className="border-b border-border last:border-0"
                   >
                     <td className="py-3 pr-4 font-medium">{run.period}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {formatDate(run.processedAt)}
+                      {formatDate(run.processedAt.slice(0, 10))}
                     </td>
                     <td className="px-4 py-3">{run.employees}</td>
                     <td className="px-4 py-3">{formatCurrency(run.total)}</td>

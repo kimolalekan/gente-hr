@@ -17,11 +17,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import {
-  createOnboardingPlan,
   getOnboardingProgress,
   type Employee,
   type OnboardingPlan,
 } from "@/lib/hr-data";
+
+function progressOf(plan: OnboardingPlan): number {
+  if (plan.tasks.length === 0) return 0;
+  return getOnboardingProgress(plan);
+}
 
 export function OnboardingManager({
   plans,
@@ -33,10 +37,14 @@ export function OnboardingManager({
   const [items, setItems] = useState(plans);
   const [open, setOpen] = useState(false);
   const [sent, setSent] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const employeeEmails = useMemo(
     () => new Set(employees.map((employee) => employee.email.toLowerCase())),
@@ -56,10 +64,12 @@ export function OnboardingManager({
     setEmail("");
     setError(null);
     setSent(false);
+    setInviteLink(null);
+    setNotice(null);
     setOpen(true);
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmedEmail = email.trim().toLowerCase();
     if (!fullName.trim()) {
@@ -74,17 +84,71 @@ export function OnboardingManager({
       setError("Someone with that email already works at the company.");
       return;
     }
-    const plan = createOnboardingPlan({
-      fullName: fullName.trim(),
-      email: trimmedEmail,
-    });
-    setItems((current) => [plan, ...current]);
-    setSent(true);
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          email: trimmedEmail,
+        }),
+      });
+      const body = await response.json();
+      if (!body?.ok) {
+        throw new Error(body?.error ?? `Request failed (${response.status})`);
+      }
+      const plan = body.data as OnboardingPlan & { inviteLink?: string };
+      setItems((current) => [
+        {
+          id: plan.id,
+          employeeId: plan.employeeId ?? "",
+          fullName: plan.fullName,
+          email: plan.email,
+          phone: plan.phone ?? "",
+          address: plan.address ?? "",
+          state: plan.state ?? "",
+          country: plan.country ?? "",
+          signedOfferLetter: plan.signedOfferLetter,
+          startDate: plan.startDate,
+          targetDate: plan.targetDate,
+          status: plan.status,
+          tasks: [],
+        },
+        ...current,
+      ]);
+      setInviteLink(plan.inviteLink ?? null);
+      setSent(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to send the invite.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const completeHref = `/onboarding/complete?name=${encodeURIComponent(
-    fullName.trim(),
-  )}&email=${encodeURIComponent(email.trim().toLowerCase())}`;
+  const resend = async (plan: OnboardingPlan) => {
+    setBusyId(plan.id);
+    setError(null);
+    try {
+      const response = await fetch(`/api/onboarding/${plan.id}/resend`, {
+        method: "POST",
+      });
+      const body = await response.json();
+      if (!body?.ok) {
+        throw new Error(body?.error ?? `Request failed (${response.status})`);
+      }
+      setNotice(`Invite re-sent to ${plan.email}.`);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to re-send the invite.",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   return (
     <>
@@ -112,6 +176,17 @@ export function OnboardingManager({
           </CardContent>
         </Card>
       </div>
+
+      {error && !open && (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      {notice && !open && (
+        <p className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-sm text-success">
+          {notice}
+        </p>
+      )}
 
       <Card>
         <CardHeader>
@@ -144,13 +219,13 @@ export function OnboardingManager({
                   <th className="px-4 py-2.5 font-medium">Progress</th>
                   <th className="px-4 py-2.5 font-medium">Status</th>
                   <th className="py-2.5 pl-4 text-right font-medium">
-                    Details
+                    Actions
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((plan) => {
-                  const progress = getOnboardingProgress(plan);
+                  const progress = progressOf(plan);
                   return (
                     <tr
                       key={plan.id}
@@ -202,15 +277,38 @@ export function OnboardingManager({
                         </Badge>
                       </td>
                       <td className="py-3 pl-4 text-right">
-                        <Link href={`/onboarding/${plan.id}`}>
-                          <Button variant="outline" size="sm">
-                            View details
-                          </Button>
-                        </Link>
+                        <div className="flex items-center justify-end gap-2">
+                          {plan.status !== "completed" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => resend(plan)}
+                              disabled={busyId === plan.id}
+                            >
+                              <Send className="size-3.5" />
+                              Resend
+                            </Button>
+                          )}
+                          <Link href={`/onboarding/${plan.id}`}>
+                            <Button variant="outline" size="sm">
+                              View details
+                            </Button>
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );
                 })}
+                {items.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-4 py-10 text-center text-sm text-muted-foreground"
+                    >
+                      No onboarding plans yet — invite your first new hire.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -219,7 +317,7 @@ export function OnboardingManager({
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => !saving && setOpen(false)}
         title={sent ? "Invite sent" : "Invite a new hire"}
         description={
           sent
@@ -231,12 +329,16 @@ export function OnboardingManager({
             <Button onClick={() => setOpen(false)}>Done</Button>
           ) : (
             <>
-              <Button variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={saving}
+              >
                 Cancel
               </Button>
-              <Button type="submit" form="onboarding-form">
+              <Button type="submit" form="onboarding-form" disabled={saving}>
                 <Send />
-                Send invite
+                {saving ? "Sending…" : "Send invite"}
               </Button>
             </>
           )
@@ -253,11 +355,13 @@ export function OnboardingManager({
                 with a link to fill in the remaining details.
               </p>
             </div>
-            <Link href={completeHref}>
-              <Button variant="outline" size="sm">
-                Preview the employee form
-              </Button>
-            </Link>
+            {inviteLink && (
+              <Link href={inviteLink}>
+                <Button variant="outline" size="sm">
+                  Preview the employee form
+                </Button>
+              </Link>
+            )}
           </div>
         ) : (
           <form id="onboarding-form" onSubmit={submit} className="space-y-4">
@@ -288,8 +392,8 @@ export function OnboardingManager({
             {error && <p className="text-sm text-destructive">{error}</p>}
             <p className="text-xs text-muted-foreground">
               The employee fills in the remaining details (phone, address,
-              state, country, bank, ID, tax and insurance) from the emailed
-              link.
+              state, country, bank, ID, tax ID, health coverage and pension)
+              from the emailed link.
             </p>
           </form>
         )}

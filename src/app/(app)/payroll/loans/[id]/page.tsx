@@ -19,13 +19,39 @@ import {
 import {
   formatCurrency,
   formatDate,
-  getEmployeeById,
-  getLoan,
-  getRepaymentSchedule,
   LOAN_TYPE_LABELS,
+  type LoanType,
 } from "@/lib/hr-data";
+import { getCurrentUser } from "@/lib/server/auth";
+import { apiGet } from "@/lib/server/api-client";
 
 export const metadata = { title: "Loan" };
+
+/** Loan detail from `GET /api/payroll/loans/[id]` (+ repayment schedule). */
+interface LoanDetail {
+  id: string;
+  employeeId: string;
+  employeeName: string | null;
+  type: string;
+  amount: number;
+  interestRate: number;
+  termMonths: number;
+  monthlyEmi: number;
+  disbursedAt: string | null;
+  paidMonths: number;
+  status: string;
+  createdAt: string;
+  schedule: Array<{
+    month: string;
+    principal: number;
+    interest: number;
+    balance: number;
+  }>;
+}
+
+function loanTypeLabel(type: string): string {
+  return LOAN_TYPE_LABELS[type as LoanType] ?? type;
+}
 
 export default async function LoanDetailPage({
   params,
@@ -33,13 +59,31 @@ export default async function LoanDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const loan = getLoan(id);
+  const user = await getCurrentUser();
+  const loan = await apiGet<LoanDetail>(`/api/payroll/loans/${id}`).catch(
+    () => null,
+  );
   if (!loan) notFound();
 
-  const employee = getEmployeeById(loan.employeeId);
-  const schedule = getRepaymentSchedule(loan);
-  const remaining = Math.max(0, loan.amount - loan.paidMonths * loan.monthly);
-  const totalInterest = schedule.reduce((sum, row) => sum + row.interest, 0);
+  // Employees can only open their own loans (the API also enforces this).
+  if (user?.role === "member") {
+    const me = await apiGet<{ id: string }>("/api/employees/me").catch(
+      () => null,
+    );
+    if (!me || me.id !== loan.employeeId) notFound();
+  }
+
+  const monthly = loan.monthlyEmi;
+  const remaining = Math.max(0, loan.amount - loan.paidMonths * monthly);
+  const schedule = loan.schedule.map((row, index) => ({
+    ...row,
+    emi: row.principal + row.interest,
+    paid: index < loan.paidMonths,
+  }));
+  const totalInterest = loan.schedule.reduce(
+    (sum, row) => sum + row.interest,
+    0,
+  );
 
   return (
     <>
@@ -54,7 +98,7 @@ export default async function LoanDetailPage({
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
-              {LOAN_TYPE_LABELS[loan.type]} loan — {employee?.name ?? loan.id}
+              {loanTypeLabel(loan.type)} loan — {loan.employeeName ?? loan.id}
             </h1>
             <Badge
               variant={
@@ -71,11 +115,14 @@ export default async function LoanDetailPage({
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Disbursed {formatDate(loan.disbursedAt)} · {loan.termMonths} months
+            {loan.disbursedAt
+              ? `Disbursed ${formatDate(loan.disbursedAt.slice(0, 10))} · `
+              : ""}
+            {loan.termMonths} months
           </p>
         </div>
-        {employee && (
-          <Link href={`/employees/${employee.id}`}>
+        {user?.role !== "member" && (
+          <Link href={`/employees/${loan.employeeId}`}>
             <Button variant="outline">View employee profile</Button>
           </Link>
         )}
@@ -105,9 +152,7 @@ export default async function LoanDetailPage({
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <Wallet className="size-4" /> EMI
             </p>
-            <p className="mt-1 text-2xl font-bold">
-              {formatCurrency(loan.monthly)}
-            </p>
+            <p className="mt-1 text-2xl font-bold">{formatCurrency(monthly)}</p>
           </CardContent>
         </Card>
         <Card>

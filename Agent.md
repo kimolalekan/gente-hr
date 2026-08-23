@@ -73,15 +73,18 @@ A minimalist HR management tool built as a single Next.js application with integ
 
 ### Core Profile
 
-- Employee ID (auto-generated, tenant-specific)
+- Employee ID (auto-generated from the company's configurable ID prefix, e.g. `EMP-014`)
 - Full name, email, phone
 - Department, role/designation
-- Join date, work location
+- Join date, structured address (address, state, country — country/state pickers with flags)
 - Employment type (full-time/contract/intern)
 - Emergency contact details
 - Bank account details (for payroll)
-- PAN/SSN/Tax ID
+- Tax ID / Number
+- Health coverage details (provider, insurance ID, contact) — **set by HR/admin**, not the employee
+- Pension details (provider name, pension ID)
 - Profile photo upload
+- **Edit page** — full edit at `/employees/[id]/edit` covering employment plus profile field groups (bank, government ID, emergency contact, tax ID, health coverage, pension); the directory is read-only with search/filter and CSV export
 - **Multi-Tenant:** Employees belong to specific company
 
 ### Document Management
@@ -100,7 +103,50 @@ A minimalist HR management tool built as a single Next.js application with integ
 
 ---
 
-## 2. ONBOARDING
+## 2. ATS (RECRUITMENT & HIRING)
+
+Talent acquisition pipeline: **Create jobs → Applications → Screening → Interview → Offer → Hired/Rejected → Onboarding** (§3). Hired applications flow directly into onboarding (create the employee record + onboarding plan).
+
+### Jobs
+
+- Create/edit job postings: title, department, location, employment type, salary range
+- Job status: Draft → Open → Closed
+- **Multi-Tenant:** Jobs isolated per company
+
+### Applications
+
+- Candidates apply to open jobs (name, email, phone, resume, cover letter)
+- Attach candidate documents (resume/CV)
+- Application status tracks the pipeline: New → Screening → Interview → Offer → Hired / Rejected
+- **Multi-Tenant:** Applications isolated per company
+
+### Screening
+
+- Review and shortlist candidates
+- Move applications forward through the pipeline (Screening → Interview → Offer)
+- Stage change history + recruiter notes
+
+### Interview
+
+- Schedule interview rounds against a shortlisted candidate
+- Record interviewer feedback/notes per round
+
+### Offer & Decision
+
+- Send an offer to a candidate; record offer terms
+- Mark an application **Hired** or **Rejected** at any stage
+- **Hired** applications hand off to onboarding (§3) with the candidate's details
+
+### Candidate View
+
+- Self-service link to track application status
+- Status-change email/in-app notifications
+
+---
+
+## 3. ONBOARDING
+
+New hires complete their own profile via a public invite link; **health coverage is not collected from the employee** — HR/admin sets it afterwards (§8, employee edit). Hired ATS applications (§2) arrive here as new onboarding plans.
 
 ### Task Management
 
@@ -110,6 +156,7 @@ A minimalist HR management tool built as a single Next.js application with integ
 - Task due dates
 - Notes/comments on each task
 - Progress tracking (% completion)
+- Employee self-service form: contact, address (country/state pickers with flags), bank, government ID, emergency contact, tax ID, pension
 - **Multi-Tenant:** Templates per company
 
 ### Standard Tasks (Examples)
@@ -124,7 +171,7 @@ A minimalist HR management tool built as a single Next.js application with integ
 
 ---
 
-## 3. OFFBOARDING
+## 4. OFFBOARDING
 
 ### Exit Process
 
@@ -150,7 +197,7 @@ A minimalist HR management tool built as a single Next.js application with integ
 
 ---
 
-## 4. LEAVE MANAGEMENT
+## 5. LEAVE MANAGEMENT
 
 ### Leave Requests
 
@@ -180,7 +227,7 @@ A minimalist HR management tool built as a single Next.js application with integ
 
 ---
 
-## 5. ATTENDANCE TRACKING
+## 6. ATTENDANCE TRACKING
 
 ### Daily Attendance
 
@@ -203,7 +250,7 @@ A minimalist HR management tool built as a single Next.js application with integ
 
 ---
 
-## 6. PERFORMANCE REVIEWS
+## 7. PERFORMANCE REVIEWS
 
 ### Review Cycles
 
@@ -231,7 +278,7 @@ A minimalist HR management tool built as a single Next.js application with integ
 
 ---
 
-## 7. PAYROLL
+## 8. PAYROLL
 
 ### Salary Management
 
@@ -245,13 +292,14 @@ A minimalist HR management tool built as a single Next.js application with integ
 ### Loan Management
 
 - Loan request (personal, advance, vehicle, other)
-- Amount, interest rate, tenure
+- Amount, interest rate (default 0), tenure
 - Monthly EMI calculation
 - Loan approval/rejection
 - Outstanding balance tracking
 - Repayment schedule
 - EMI deduction tracking per payslip
 - Loan closure status
+- Date-range filtering on the loans list (default last 7 days)
 
 ### Payslip Generation
 
@@ -260,8 +308,9 @@ A minimalist HR management tool built as a single Next.js application with integ
 - Deductions breakdown (tax, PF, loan EMI, insurance)
 - Gross vs Net pay
 - Year-to-date (YTD) summary
-- PDF generation & download
-- Email delivery to employees
+- **Branded PDF download** — payslip PDF renders the tenant logo + organization name and downloads via `Content-Disposition: attachment` (no email)
+- Email delivery to employees (separate API)
+- Date-range filtering on the payslip list (default last 7 days)
 - Payslip history
 
 ### Payroll Reporting
@@ -272,7 +321,7 @@ A minimalist HR management tool built as a single Next.js application with integ
 
 ---
 
-## 8. REPORTS & DASHBOARDS
+## 9. REPORTS & DASHBOARDS
 
 ### Employee Dashboard
 
@@ -303,11 +352,12 @@ A minimalist HR management tool built as a single Next.js application with integ
 ### Export Options
 
 - CSV/Excel export for all reports
+- **Date-range control on every report page** — From/To calendar inputs defaulting to the last 7 days; the report rows, summaries and CSV exports follow the selected range (attendance is the renamed "Attendance" report, no longer "Today's attendance")
 - PDF downloads (payslips, reports)
 
 ---
 
-## 9. NOTIFICATIONS
+## 10. NOTIFICATIONS
 
 ### Email Notifications
 
@@ -332,7 +382,7 @@ A minimalist HR management tool built as a single Next.js application with integ
 
 ---
 
-## 10. AUTHENTICATION - PASSWORDLESS LOGIN
+## 11. AUTHENTICATION - PASSWORDLESS LOGIN
 
 ### Login Flow
 
@@ -382,7 +432,7 @@ A minimalist HR management tool built as a single Next.js application with integ
 
 ---
 
-## 11. EMAIL SERVICE INTEGRATION
+## 12. EMAIL SERVICE INTEGRATION
 
 ### Supported Email Providers
 
@@ -438,7 +488,7 @@ The system supports multiple email service providers with a unified API interfac
 
 ---
 
-## 12. ADMINISTRATION
+## 13. ADMINISTRATION
 
 ### Super Admin (Global)
 
@@ -498,7 +548,7 @@ The system supports multiple email service providers with a unified API interfac
 
 ---
 
-## 13. SELF-SERVICE (Employee Portal)
+## 14. SELF-SERVICE (Employee Portal)
 
 ### Employee View
 
@@ -518,7 +568,7 @@ The system supports multiple email service providers with a unified API interfac
 
 ---
 
-## 14. ROLE-BASED ACCESS CONTROL (RBAC) - DETAILED
+## 15. ROLE-BASED ACCESS CONTROL (RBAC) - DETAILED
 
 ### Role Definitions
 
@@ -551,7 +601,7 @@ The system supports multiple email service providers with a unified API interfac
 
 ---
 
-## 15. TECHNICAL STACK
+## 16. TECHNICAL STACK
 
 ### Frontend & Backend (Single Project)
 
@@ -594,7 +644,7 @@ The system supports multiple email service providers with a unified API interfac
 
 ---
 
-## 16. DATABASE SCHEMA OVERVIEW (Drizzle ORM)
+## 17. DATABASE SCHEMA OVERVIEW (Drizzle ORM)
 
 ### Core Tables
 
@@ -626,7 +676,12 @@ The system supports multiple email service providers with a unified API interfac
 **Employees Table**
 
 - Employee profiles with tenant isolation
-- Fields: id, tenant_id, user_id, employee_id, department, designation, join_date, employment_type, emergency_contact (jsonb), bank_details (jsonb), tax_id, profile_photo, status, timestamps
+- Fields: id, tenant_id, user_id, employee_id, department, designation, join_date, address (jsonb: address/state/country), employment_type, emergency_contact (jsonb), bank_details (jsonb), government_id (jsonb), health_insurance (jsonb, HR-managed), pension (jsonb), tax_id, profile_photo, status, timestamps
+
+**ATS Tables** (tenant-scoped, see §2)
+
+- `jobs` — job postings (title, department, location, salary range, status)
+- `applications` — candidate applications with pipeline stage (screening → interview → offer → hired/rejected) + resume/cover letter attachments
 
 **Other Tenant-Specific Tables** (all include tenant_id)
 
@@ -657,7 +712,7 @@ The system supports multiple email service providers with a unified API interfac
 
 ---
 
-## 17. TENANT SETUP FLOW
+## 18. TENANT SETUP FLOW
 
 ### Initial Setup - Single Company Mode
 
@@ -682,17 +737,17 @@ The system supports multiple email service providers with a unified API interfac
 
 ### Adding a New Company (Super Admin)
 
-1. Super Admin navigates to "Companies" section
-2. Click "Add Company"
-3. Enter company details (name, slug, address, timezone, currency, branding)
-4. Company created
-5. Assign admin user(s) to company
+1. Super Admin opens the organization switcher in the header
+2. Select "New organization" (modal)
+3. Enter company details (name, slug auto-suggested, timezone, currency with flags, optional admin email)
+4. Company created — the creator is added as an admin member so they can switch into it immediately
+5. Assign additional admin user(s) to company
 6. Company ready for use
 
 ### Switching Companies
 
 1. User clicks company switcher in header
-2. Dropdown shows available companies
+2. Dropdown shows available companies (with the user's role in each)
 3. User selects different company
 4. Session updated with new tenant_id
 5. Dashboard reloads with company data
@@ -701,7 +756,7 @@ The system supports multiple email service providers with a unified API interfac
 
 ---
 
-## 18. AUTHENTICATION FLOW WITH TENANTS
+## 19. AUTHENTICATION FLOW WITH TENANTS
 
 ### OTP Login Flow
 
@@ -737,9 +792,8 @@ The system supports multiple email service providers with a unified API interfac
 
 ---
 
-## 19. WHAT'S EXCLUDED (Minimalist Approach)
+## 20. WHAT'S EXCLUDED (Minimalist Approach)
 
-❌ Advanced recruitment/ATS (job postings, candidate tracking)
 ❌ Learning Management System (courses, certifications)
 ❌ Complex shift scheduling & roster management
 ❌ Advanced project management/task tracking
@@ -755,12 +809,13 @@ The system supports multiple email service providers with a unified API interfac
 
 ---
 
-## 20. FEATURE SUMMARY TABLE
+## 21. FEATURE SUMMARY TABLE
 
 | Category                      | Features           | Super Admin | Admin         | HR            | Employee        |
 | ----------------------------- | ------------------ | ----------- | ------------- | ------------- | --------------- |
 | **Tenant Management**         | 5                  | ✅ Full     | ❌ None       | ❌ None       | ❌ None         |
 | **Employee Management**       | 8                  | ✅ Full     | ✅ Full       | ✅ Full       | ✅ Limited      |
+| **ATS (Recruitment)**         | 6                  | ✅ Full     | ✅ Full       | ✅ Full       | ✅ Limited      |
 | **Onboarding**                | 4                  | ✅ Full     | ✅ Full       | ✅ Full       | ✅ Limited      |
 | **Offboarding**               | 4                  | ✅ Full     | ✅ Full       | ✅ Full       | ✅ Limited      |
 | **Leave Management**          | 7                  | ✅ Full     | ✅ Full       | ✅ Full       | ✅ Self-Service |
@@ -774,11 +829,11 @@ The system supports multiple email service providers with a unified API interfac
 | **Administration**            | 7                  | ✅ Full     | ✅ Full       | ❌ Restricted | ❌ None         |
 | **Self-Service**              | 11                 | N/A         | N/A           | N/A           | ✅ Full         |
 | **Audit Logs**                | N/A                | ✅ All      | ✅ Company    | ❌ None       | ❌ None         |
-| **TOTAL**                     | **~118+ features** |             |               |               |                 |
+| **TOTAL**                     | **~124+ features** |             |               |               |                 |
 
 ---
 
-## 21. SECURITY FEATURES
+## 22. SECURITY FEATURES
 
 ### Authentication Security
 
@@ -820,7 +875,7 @@ The system supports multiple email service providers with a unified API interfac
 
 ---
 
-## 22. EMAIL PROVIDER COMPARISON
+## 23. EMAIL PROVIDER COMPARISON
 
 | Feature                 | Resend     | ZeptoMail  | Mailgun     | Brevo      |
 | ----------------------- | ---------- | ---------- | ----------- | ---------- |
@@ -841,7 +896,7 @@ The system supports multiple email service providers with a unified API interfac
 
 ---
 
-## 23. DEVELOPMENT TIMELINE ESTIMATE
+## 24. DEVELOPMENT TIMELINE ESTIMATE
 
 | Phase        | Features                                                | Estimated Time  |
 | ------------ | ------------------------------------------------------- | --------------- |
@@ -849,34 +904,36 @@ The system supports multiple email service providers with a unified API interfac
 | **Phase 2**  | Multi-tenant architecture, tenant management            | 1.5 weeks       |
 | **Phase 3**  | Passwordless auth (OTP + Magic Link), email integration | 2 weeks         |
 | **Phase 4**  | Employee management, RBAC with tenant context           | 2 weeks         |
+| **Phase 4B** | ATS — jobs, applications, screening → interview → offer | 1.5 weeks       |
 | **Phase 5**  | Leave management, attendance                            | 2 weeks         |
 | **Phase 6**  | Onboarding, offboarding                                 | 1.5 weeks       |
 | **Phase 7**  | Payroll (salary, loans, payslips)                       | 3-4 weeks       |
 | **Phase 8**  | Performance reviews, reports                            | 2 weeks         |
 | **Phase 9**  | Email templates, notifications                          | 1.5 weeks       |
 | **Phase 10** | Testing, deployment, documentation                      | 2 weeks         |
-| **Total**    |                                                         | **18-20 weeks** |
+| **Total**    |                                                         | **19-21 weeks** |
 
 ---
 
-## 24. RECOMMENDED DEVELOPMENT ORDER
+## 25. RECOMMENDED DEVELOPMENT ORDER
 
 1. **Setup** - Next.js 15+ project, Drizzle ORM, PostgreSQL
 2. **Multi-Tenancy Core** - Tenant schema, tenant middleware, isolation strategies
 3. **Authentication** - OTP login flow, email integration (Resend)
 4. **User Management** - User creation, role assignment, tenant association
 5. **Employee Management** - Core CRUD operations with tenant context
-6. **Leave Management** - Requests, approvals, balance
-7. **Attendance** - Check-in/out, tracking
-8. **Onboarding & Offboarding** - Checklists, status tracking
-9. **Payroll** - Salary structure, loans, payslip generation
-10. **Email Templates** - All email notifications
-11. **Reports & Dashboards** - Analytics, exports
-12. **Testing & Deployment** - Quality assurance, production
+6. **ATS (Recruitment)** - Jobs, applications, screening → interview → offer pipeline
+7. **Leave Management** - Requests, approvals, balance
+8. **Attendance** - Check-in/out, tracking
+9. **Onboarding & Offboarding** - Checklists, status tracking
+10. **Payroll** - Salary structure, loans, payslip generation
+11. **Email Templates** - All email notifications
+12. **Reports & Dashboards** - Analytics, exports
+13. **Testing & Deployment** - Quality assurance, production
 
 ---
 
-## 25. ENVIRONMENT VARIABLES
+## 26. ENVIRONMENT VARIABLES
 
 ```env
 # Database
@@ -928,7 +985,7 @@ NODE_ENV=development
 
 ---
 
-## 26. KEY ADVANTAGES OF THIS ARCHITECTURE
+## 27. KEY ADVANTAGES OF THIS ARCHITECTURE
 
 ### Single Project Benefits
 
@@ -973,7 +1030,7 @@ NODE_ENV=development
 
 ---
 
-## 27. MULTI-TENANT ARCHITECTURE DECISIONS
+## 28. MULTI-TENANT ARCHITECTURE DECISIONS
 
 ### Decision 1: Optional Multi-Tenancy
 

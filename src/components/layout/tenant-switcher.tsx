@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Check, ChevronDown, Loader2 } from "lucide-react";
+import { Building2, Check, ChevronDown, Loader2, Plus } from "lucide-react";
 import { DropdownItem, DropdownMenu } from "@/components/ui/dropdown-menu";
 import type { TenantSummary } from "@/lib/server/tenant-store";
 
@@ -20,9 +20,14 @@ const ROLE_LABELS: Record<TenantSummary["role"], string> = {
 export function TenantSwitcher({
   tenants,
   currentTenantId,
+  canCreate = false,
+  onCreate,
 }: {
   tenants: TenantSummary[];
   currentTenantId: string;
+  /** Super-admins get a "New organization" entry in the dropdown. */
+  canCreate?: boolean;
+  onCreate?: () => void;
 }) {
   const router = useRouter();
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
@@ -31,7 +36,7 @@ export function TenantSwitcher({
   const current =
     tenants.find((tenant) => tenant.tenantId === currentTenantId) ?? null;
 
-  if (tenants.length <= 1) return null;
+  if (tenants.length <= 1 && !canCreate) return null;
 
   const switchTo = async (tenantId: string) => {
     if (tenantId === currentTenantId || switchingTo) return;
@@ -101,6 +106,17 @@ export function TenantSwitcher({
             </DropdownItem>
           );
         })}
+        {canCreate && (
+          <>
+            <div className="my-1 border-t border-border" />
+            <DropdownItem onClick={onCreate}>
+              <Plus className="size-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate text-left">
+                New organization
+              </span>
+            </DropdownItem>
+          </>
+        )}
         {error && (
           <p className="px-2.5 py-1.5 text-xs text-destructive">{error}</p>
         )}

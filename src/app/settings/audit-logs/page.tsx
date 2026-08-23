@@ -1,11 +1,28 @@
-import { AuditLogTable } from '@/components/settings/audit-log-table';
-import { PageHeader } from '@/components/hr/page-header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AUDIT_LOGS } from '@/lib/hr-data';
+import {
+  AuditLogTable,
+  type AuditLogItem,
+} from "@/components/settings/audit-log-table";
+import { PageHeader } from "@/components/hr/page-header";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { apiGet, type Paginated } from "@/lib/server/api-client";
 
-export const metadata = { title: 'Audit logs' };
+export const metadata = { title: "Audit logs" };
 
-export default function AuditLogsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AuditLogsPage() {
+  const data = await apiGet<Paginated<AuditLogItem>>("/api/audit-logs", {
+    page: 1,
+    pageSize: 50,
+  });
+  const logs = data.items;
+
   return (
     <>
       <PageHeader
@@ -16,12 +33,10 @@ export default function AuditLogsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Activity log</CardTitle>
-          <CardDescription>
-            {AUDIT_LOGS.length} events · last 7 days
-          </CardDescription>
+          <CardDescription>{logs.length} events · newest first</CardDescription>
         </CardHeader>
         <CardContent>
-          <AuditLogTable logs={AUDIT_LOGS} />
+          <AuditLogTable logs={logs} />
         </CardContent>
       </Card>
     </>

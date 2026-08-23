@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import {
+  BriefcaseBusiness,
   CalendarCheck,
   CalendarDays,
   FileText,
@@ -12,12 +13,14 @@ import {
   LogOut,
   Settings,
   Star,
+  UserRound,
   Users,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { ThemeInfo } from "@/components/theme/theme-info";
 import { cn } from "@/lib/utils";
+import type { SessionUser } from "@/lib/server/auth";
 
 interface NavItem {
   id: string;
@@ -29,6 +32,12 @@ interface NavItem {
 const NAV: NavItem[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard, href: "/" },
   { id: "employees", label: "Employees", icon: Users, href: "/employees" },
+  {
+    id: "recruiting",
+    label: "Recruiting",
+    icon: BriefcaseBusiness,
+    href: "/ats",
+  },
   {
     id: "attendance",
     label: "Attendance",
@@ -53,12 +62,47 @@ const NAV: NavItem[] = [
   { id: "reports", label: "Reports", icon: FileText, href: "/reports" },
 ];
 
+/** Nav items visible per role — employees only see self-service pages. */
+const ROLE_NAV_IDS: Record<SessionUser["role"], string[]> = {
+  admin: [
+    "overview",
+    "employees",
+    "recruiting",
+    "attendance",
+    "payroll",
+    "leave",
+    "performance",
+    "onboarding",
+    "offboarding",
+    "reports",
+  ],
+  hr: [
+    "overview",
+    "employees",
+    "recruiting",
+    "attendance",
+    "payroll",
+    "leave",
+    "performance",
+    "onboarding",
+    "offboarding",
+    "reports",
+  ],
+  member: ["overview", "attendance", "leave", "payroll", "performance"],
+};
+
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function SidebarContent({ pathname }: { pathname: string }) {
+function SidebarContent({
+  pathname,
+  role,
+}: {
+  pathname: string;
+  role: SessionUser["role"];
+}) {
   return (
     <>
       <Link
@@ -75,40 +119,58 @@ function SidebarContent({ pathname }: { pathname: string }) {
       </Link>
 
       <nav className="mt-4 flex-1 space-y-0.5">
-        {NAV.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(pathname, item.href);
-          return (
-            <Link
-              key={item.id}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
-                active
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <Icon className="size-4" />
-              {item.label}
-            </Link>
-          );
-        })}
+        {NAV.filter((item) => ROLE_NAV_IDS[role].includes(item.id)).map(
+          (item) => {
+            const Icon = item.icon;
+            const active = isActive(pathname, item.href);
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <Icon className="size-4" />
+                {item.label}
+              </Link>
+            );
+          },
+        )}
       </nav>
 
       <div className="space-y-1 border-t border-border pt-3">
-        <Link
-          href="/settings/general"
-          className={cn(
-            "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
-            pathname.startsWith("/settings")
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground",
-          )}
-        >
-          <Settings className="size-4" />
-          Settings
-        </Link>
+        {role === "member" && (
+          <Link
+            href="/profile"
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+              pathname.startsWith("/profile")
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <UserRound className="size-4" />
+            My profile
+          </Link>
+        )}
+        {role === "admin" && (
+          <Link
+            href="/settings/general"
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+              pathname.startsWith("/settings")
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <Settings className="size-4" />
+            Settings
+          </Link>
+        )}
         <ThemeInfo />
       </div>
     </>
@@ -123,9 +185,11 @@ function SidebarContent({ pathname }: { pathname: string }) {
 export function AppSidebar({
   open,
   onClose,
+  role,
 }: {
   open: boolean;
   onClose: () => void;
+  role: SessionUser["role"];
 }) {
   const pathname = usePathname();
 
@@ -154,7 +218,7 @@ export function AppSidebar({
     <>
       {/* Desktop static sidebar (always visible on md+) */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-border bg-card/40 p-3 md:flex">
-        <SidebarContent pathname={pathname} />
+        <SidebarContent pathname={pathname} role={role} />
       </aside>
 
       {/* Mobile backdrop */}
@@ -176,7 +240,7 @@ export function AppSidebar({
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <SidebarContent pathname={pathname} />
+        <SidebarContent pathname={pathname} role={role} />
       </aside>
     </>
   );

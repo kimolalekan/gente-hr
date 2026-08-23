@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   ArrowLeft,
   CalendarClock,
@@ -20,15 +20,42 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { OnboardingTasks } from "@/components/hr/onboarding-tasks";
+import { getCurrentUser } from "@/lib/server/auth";
+import { apiGet, ApiClientError } from "@/lib/server/api-client";
 import {
   formatDate,
-  getEmployeeById,
-  getOnboardingPlan,
   getOnboardingProgress,
-  TASK_STATUS_LABELS,
+  type OnboardingPlan,
+  type OnboardingTask,
+  type TaskStatus,
 } from "@/lib/hr-data";
 
 export const metadata = { title: "Onboarding plan" };
+
+interface OnboardingDetailRow {
+  id: string;
+  employeeId: string | null;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  address: string | null;
+  state: string | null;
+  country: string | null;
+  signedOfferLetter: string | null;
+  startDate: string;
+  targetDate: string;
+  status: string;
+  createdAt: string;
+  tasks: Array<{
+    id: string;
+    name: string;
+    department: string;
+    status: TaskStatus;
+    dueDate: string | null;
+    sortOrder: number;
+  }>;
+}
 
 export default async function OnboardingDetailPage({
   params,
@@ -36,11 +63,42 @@ export default async function OnboardingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const plan = getOnboardingPlan(id);
-  if (!plan) notFound();
 
-  const employee = getEmployeeById(plan.employeeId);
-  const progress = getOnboardingProgress(plan);
+  // Employees don't manage onboarding — it's an HR/admin workspace.
+  const user = await getCurrentUser();
+  if (user?.role === "member") redirect("/");
+
+  let row: OnboardingDetailRow;
+  try {
+    row = await apiGet<OnboardingDetailRow>(`/api/onboarding/${id}`);
+  } catch (error) {
+    if (error instanceof ApiClientError && error.status === 404) notFound();
+    throw error;
+  }
+
+  const plan: OnboardingPlan = {
+    id: row.id,
+    employeeId: row.employeeId ?? "",
+    fullName: row.fullName,
+    email: row.email,
+    phone: row.phone ?? "",
+    address: row.address ?? "",
+    state: row.state ?? "",
+    country: row.country ?? "",
+    signedOfferLetter: row.signedOfferLetter ?? undefined,
+    startDate: row.startDate,
+    targetDate: row.targetDate,
+    status: row.status as OnboardingPlan["status"],
+    tasks: row.tasks.map((task): OnboardingTask => ({
+      id: task.id,
+      name: task.name,
+      department: task.department as OnboardingTask["department"],
+      status: task.status,
+      due: task.dueDate ?? row.targetDate,
+    })),
+  };
+
+  const progress = plan.tasks.length === 0 ? 0 : getOnboardingProgress(plan);
 
   return (
     <>
@@ -71,8 +129,8 @@ export default async function OnboardingDetailPage({
           </div>
           <p className="mt-1 text-sm text-muted-foreground">{plan.email}</p>
         </div>
-        {employee && (
-          <Link href={`/employees/${employee.id}`}>
+        {plan.employeeId && (
+          <Link href={`/employees/${plan.employeeId}`}>
             <Button variant="outline">View employee profile</Button>
           </Link>
         )}
@@ -84,43 +142,11 @@ export default async function OnboardingDetailPage({
             <CardHeader>
               <CardTitle>Task checklist</CardTitle>
               <CardDescription>
-                Assigned to HR, IT and Admin — tap to update.
+                Assigned to HR, IT and Admin — tap a task to change its status.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {plan.tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center gap-3 rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm"
-                  >
-                    <span
-                      className={
-                        task.status === "completed"
-                          ? "flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-white"
-                          : "flex size-5 shrink-0 items-center justify-center rounded-full border border-border text-transparent"
-                      }
-                    >
-                      <CheckCircle2 className="size-3" />
-                    </span>
-                    <span
-                      className={
-                        task.status === "completed"
-                          ? "flex-1 text-muted-foreground line-through"
-                          : "flex-1"
-                      }
-                    >
-                      {task.name}
-                    </span>
-                    <Badge variant="outline" className="hidden sm:inline-flex">
-                      {task.department}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {TASK_STATUS_LABELS[task.status]}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <OnboardingTasks planId={plan.id} tasks={plan.tasks} />
             </CardContent>
           </Card>
 

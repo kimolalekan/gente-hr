@@ -18,17 +18,108 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/server/auth";
-import {
-  EMPLOYEES,
-  PERFORMANCE_TEMPLATES,
-  REVIEW_CYCLES,
-  REVIEWS,
-} from "@/lib/hr-data";
+import { apiGet, type Paginated } from "@/lib/server/api-client";
 
 export const metadata = { title: "Performance" };
 
+/** Review row from `GET /api/performance/reviews` (member-scoped for members). */
+interface ReviewRow {
+  id: string;
+  cycleId: string;
+  cycleName: string | null;
+  employeeId: string;
+  employeeName: string | null;
+  reviewerName: string | null;
+  templateId: string;
+  deadline: string | null;
+  deadlineExtended: number;
+  selfRating: number | null;
+  managerRating: number | null;
+  overall: number | null;
+  status: string;
+  submittedAt: string | null;
+  createdAt: string;
+}
+
+/** Cycle row from `GET /api/performance/cycles`. */
+interface CycleRow {
+  id: string;
+  name: string;
+  period: string;
+  status: string;
+  createdAt: string;
+}
+
+/** Template row from `GET /api/performance/templates`. */
+interface TemplateRow {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+/** Employee row from `GET /api/employees` (start-review picker). */
+interface EmployeeRow {
+  id: string;
+  name: string;
+  role: string | null;
+}
+
+/** Employee (member) view — their own reviews only. */
+function MyPerformance({
+  reviews,
+  templates,
+}: {
+  reviews: ReviewRow[];
+  templates: TemplateRow[];
+}) {
+  return (
+    <>
+      <PageHeader
+        title="My performance"
+        description="Your reviews, ratings and feedback."
+      />
+
+      <ReviewsManager
+        reviews={reviews}
+        employees={[]}
+        templates={templates}
+        canManage={false}
+      />
+    </>
+  );
+}
+
 export default async function PerformancePage() {
   const user = await getCurrentUser();
+  if (user?.role === "member") {
+    const [reviews, templates] = await Promise.all([
+      apiGet<Paginated<ReviewRow>>("/api/performance/reviews"),
+      apiGet<TemplateRow[]>("/api/performance/templates"),
+    ]);
+    return <MyPerformance reviews={reviews.items} templates={templates} />;
+  }
+
+  const [reviews, cycles, templates, employees] = await Promise.all([
+    apiGet<Paginated<ReviewRow>>("/api/performance/reviews"),
+    apiGet<CycleRow[]>("/api/performance/cycles"),
+    apiGet<TemplateRow[]>("/api/performance/templates"),
+    apiGet<Paginated<EmployeeRow>>("/api/employees"),
+  ]);
+
+  const openCycles = cycles.filter((cycle) => cycle.status === "open").length;
+  const submitted = reviews.items.filter(
+    (review) => review.status === "submitted",
+  ).length;
+  const rated = reviews.items.filter(
+    (review) => review.overall !== null && review.overall > 0,
+  );
+  const average =
+    rated.length > 0
+      ? (
+          rated.reduce((sum, review) => sum + (review.overall ?? 0), 0) /
+          rated.length
+        ).toFixed(1)
+      : "—";
 
   return (
     <>
@@ -50,9 +141,7 @@ export default async function PerformancePage() {
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <ClipboardList className="size-4" /> Open cycles
             </p>
-            <p className="mt-1 text-2xl font-bold text-primary">
-              {REVIEW_CYCLES.filter((cycle) => cycle.status === "open").length}
-            </p>
+            <p className="mt-1 text-2xl font-bold text-primary">{openCycles}</p>
           </CardContent>
         </Card>
         <Card>
@@ -60,7 +149,7 @@ export default async function PerformancePage() {
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <Star className="size-4" /> Reviews
             </p>
-            <p className="mt-1 text-2xl font-bold">{REVIEWS.length}</p>
+            <p className="mt-1 text-2xl font-bold">{reviews.items.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -68,9 +157,7 @@ export default async function PerformancePage() {
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <CheckCircle2 className="size-4" /> Submitted
             </p>
-            <p className="mt-1 text-2xl font-bold text-success">
-              {REVIEWS.filter((review) => review.status === "submitted").length}
-            </p>
+            <p className="mt-1 text-2xl font-bold text-success">{submitted}</p>
           </CardContent>
         </Card>
         <Card>
@@ -78,12 +165,7 @@ export default async function PerformancePage() {
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <Gauge className="size-4" /> Average rating
             </p>
-            <p className="mt-1 text-2xl font-bold">
-              {(
-                REVIEWS.reduce((sum, review) => sum + review.overall, 0) /
-                REVIEWS.length
-              ).toFixed(1)}
-            </p>
+            <p className="mt-1 text-2xl font-bold">{average}</p>
           </CardContent>
         </Card>
       </div>
@@ -96,7 +178,7 @@ export default async function PerformancePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {REVIEW_CYCLES.map((cycle) => (
+          {cycles.map((cycle) => (
             <div
               key={cycle.id}
               className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/50 p-3"
@@ -119,11 +201,10 @@ export default async function PerformancePage() {
       </Card>
 
       <ReviewsManager
-        reviews={REVIEWS}
-        employees={EMPLOYEES}
-        templates={PERFORMANCE_TEMPLATES}
-        reviewer={user?.name ?? ""}
-        canManage={user?.role !== "member"}
+        reviews={reviews.items}
+        employees={employees.items}
+        templates={templates}
+        canManage
       />
     </>
   );

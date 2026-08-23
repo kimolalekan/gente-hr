@@ -10,10 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import {
   formatDate,
-  getEmployee,
   LEAVE_TYPE_LABELS,
-  type LeaveRequest,
   type LeaveStatus,
+  type LeaveType,
 } from "@/lib/hr-data";
 
 const STATUS_VARIANT: Record<
@@ -26,37 +25,118 @@ const STATUS_VARIANT: Record<
   cancelled: "secondary",
 };
 
-function addDays(iso: string, days: number): string {
-  const date = new Date(`${iso}T00:00:00`);
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+/** Leave request row as returned by `GET /api/leave`. */
+export interface LeaveRow {
+  id: string;
+  employeeId: string;
+  employeeName?: string | null;
+  type: LeaveType;
+  start: string;
+  end: string;
+  days: number;
+  reason?: string | null;
+  status: LeaveStatus;
+  createdAt?: string;
+}
+
+/** Raw leave row returned by the PATCH action endpoints. */
+interface ApiLeaveRow {
+  id?: string;
+  employeeId?: string;
+  type?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  days?: number;
+  reason?: string | null;
+  status?: string;
+}
+
+const LEAVE_TYPES: LeaveType[] = ["vacation", "sick", "parental", "other"];
+
+function isLeaveType(value: string | undefined): value is LeaveType {
+  return value != null && LEAVE_TYPES.includes(value as LeaveType);
+}
+
+function isLeaveStatus(value: string | undefined): value is LeaveStatus {
+  return (
+    value === "approved" ||
+    value === "pending" ||
+    value === "declined" ||
+    value === "cancelled"
+  );
+}
+
+/** Merge the PATCH response (raw DB row) back into the list row. */
+function applyPatch(current: LeaveRow, row: ApiLeaveRow): LeaveRow {
+  return {
+    ...current,
+    type: isLeaveType(row.type) ? row.type : current.type,
+    start: row.startDate ?? current.start,
+    end: row.endDate ?? current.end,
+    days: row.days ?? current.days,
+    reason: row.reason ?? current.reason,
+    status: isLeaveStatus(row.status) ? row.status : current.status,
+  };
 }
 
 /**
  * Leave requests table with actions: approve, extend (adds days to the end
- * date) and cancel. Demo state is local — wire to the leaves table later.
+ * date) and cancel — all persisted via the `/api/leave/[id]/*` endpoints.
+ * `readOnly` hides the management actions (used for the employee's own view).
  */
-export function LeaveRequestsTable({ requests }: { requests: LeaveRequest[] }) {
+export function LeaveRequestsTable({
+  requests,
+  readOnly = false,
+}: {
+  requests: LeaveRow[];
+  readOnly?: boolean;
+}) {
   const [items, setItems] = useState(requests);
-  const [extending, setExtending] = useState<LeaveRequest | null>(null);
+  const [extending, setExtending] = useState<LeaveRow | null>(null);
   const [extraDays, setExtraDays] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const updateStatus = (id: string, status: LeaveStatus) => {
-    setItems((current) =>
-      current.map((request) =>
-        request.id === id ? { ...request, status } : request,
-      ),
-    );
+  const runAction = async (
+    id: string,
+    action: "approve" | "reject" | "cancel",
+  ) => {
+    setBusyId(id);
+    setError(null);
+    try {
+      const response = await fetch(`/api/leave/${id}/${action}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+      });
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        data?: ApiLeaveRow;
+      } | null;
+      if (!body?.ok || !body.data) {
+        setError(body?.error ?? `Could not ${action} this request`);
+        return;
+      }
+      const row = body.data;
+      setItems((current) =>
+        current.map((request) =>
+          request.id === id ? applyPatch(request, row) : request,
+        ),
+      );
+    } catch {
+      setError(`Could not ${action} this request`);
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const openExtend = (request: LeaveRequest) => {
+  const openExtend = (request: LeaveRow) => {
     setExtending(request);
     setExtraDays("");
     setError(null);
   };
 
-  const submitExtend = (event: FormEvent) => {
+  const submitExtend = async (event: FormEvent) => {
     event.preventDefault();
     if (!extending) return;
     const days = Math.round(Number(extraDays));
@@ -64,22 +144,44 @@ export function LeaveRequestsTable({ requests }: { requests: LeaveRequest[] }) {
       setError("Enter a number of days between 1 and 60.");
       return;
     }
-    setItems((current) =>
-      current.map((request) =>
-        request.id === extending.id
-          ? {
-              ...request,
-              end: addDays(request.end, days),
-              days: request.days + days,
-            }
-          : request,
-      ),
-    );
-    setExtending(null);
+    setBusyId(extending.id);
+    setError(null);
+    try {
+      const response = await fetch(`/api/leave/${extending.id}/extend`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extraDays: days }),
+      });
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        data?: ApiLeaveRow;
+      } | null;
+      if (!body?.ok || !body.data) {
+        setError(body?.error ?? "Could not extend this request");
+        return;
+      }
+      const row = body.data;
+      setItems((current) =>
+        current.map((request) =>
+          request.id === extending.id ? applyPatch(request, row) : request,
+        ),
+      );
+      setExtending(null);
+    } catch {
+      setError("Could not extend this request");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
     <>
+      {error && !extending && (
+        <p className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-sm text-destructive">
+          {error}
+        </p>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -94,7 +196,6 @@ export function LeaveRequestsTable({ requests }: { requests: LeaveRequest[] }) {
           </thead>
           <tbody>
             {items.map((request) => {
-              const employee = getEmployee(request.employeeId);
               const actionable =
                 request.status === "pending" || request.status === "approved";
               return (
@@ -105,10 +206,7 @@ export function LeaveRequestsTable({ requests }: { requests: LeaveRequest[] }) {
                   <td className="py-3 pr-4">
                     <div className="min-w-0">
                       <p className="truncate font-medium">
-                        {employee?.name ?? "—"}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {employee?.role ?? ""}
+                        {request.employeeName ?? "—"}
                       </p>
                     </div>
                   </td>
@@ -131,15 +229,14 @@ export function LeaveRequestsTable({ requests }: { requests: LeaveRequest[] }) {
                           View
                         </Button>
                       </Link>
-                      {actionable && (
+                      {!readOnly && actionable && (
                         <>
                           {request.status === "pending" && (
                             <Button
                               variant="success"
                               size="sm"
-                              onClick={() =>
-                                updateStatus(request.id, "approved")
-                              }
+                              disabled={busyId !== null}
+                              onClick={() => runAction(request.id, "approve")}
                             >
                               <Check className="size-3.5" />
                               Approve
@@ -148,6 +245,7 @@ export function LeaveRequestsTable({ requests }: { requests: LeaveRequest[] }) {
                           <Button
                             variant="outline"
                             size="sm"
+                            disabled={busyId !== null}
                             onClick={() => openExtend(request)}
                           >
                             <CalendarPlus className="size-3.5" />
@@ -156,9 +254,8 @@ export function LeaveRequestsTable({ requests }: { requests: LeaveRequest[] }) {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() =>
-                              updateStatus(request.id, "cancelled")
-                            }
+                            disabled={busyId !== null}
+                            onClick={() => runAction(request.id, "cancel")}
                           >
                             <X className="size-3.5" />
                             Cancel

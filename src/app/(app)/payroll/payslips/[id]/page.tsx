@@ -1,19 +1,50 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { ArrowLeft, FileDown, Receipt } from 'lucide-react';
-import { ActionButton } from '@/components/hr/action-button';
-import { Avatar } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft, FileDown, Receipt } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { formatCurrency, getEmployeeById, getPayslip } from '@/lib/hr-data';
+} from "@/components/ui/card";
+import { formatCurrency } from "@/lib/hr-data";
+import { getCurrentUser } from "@/lib/server/auth";
+import { apiGet, type Paginated } from "@/lib/server/api-client";
+import { cn } from "@/lib/utils";
 
-export const metadata = { title: 'Payslip' };
+export const metadata = { title: "Payslip" };
+
+/** Payslip detail from `GET /api/payroll/payslips/[id]`. */
+interface PayslipDetail {
+  id: string;
+  employeeId: string;
+  employeeName: string | null;
+  employeeEmail: string | null;
+  period: string;
+  basic: number;
+  hra: number;
+  allowances: number;
+  bonus: number;
+  tax: number;
+  pension: number;
+  insurance: number;
+  loanEmi: number;
+  gross: number;
+  net: number;
+  status: string;
+  generatedAt: string;
+  createdAt: string;
+}
+
+/** Payslip row from `GET /api/payroll/payslips` — used for the YTD figure. */
+interface PayslipRow {
+  period: string;
+  gross: number;
+}
 
 export default async function PayslipDetailPage({
   params,
@@ -21,24 +52,47 @@ export default async function PayslipDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const payslip = getPayslip(id);
+  const user = await getCurrentUser();
+  const payslip = await apiGet<PayslipDetail>(
+    `/api/payroll/payslips/${id}`,
+  ).catch(() => null);
   if (!payslip) notFound();
 
-  const employee = getEmployeeById(payslip.employeeId);
-  const deductions = payslip.tax + payslip.pension + payslip.insurance + payslip.loanEmi;
-  const ytdGross = payslip.gross * 8; // Jan – Aug
+  // Employees can only open their own payslips (the API also enforces this).
+  if (user?.role === "member") {
+    const me = await apiGet<{ id: string }>("/api/employees/me").catch(
+      () => null,
+    );
+    if (!me || me.id !== payslip.employeeId) notFound();
+  }
+
+  const deductions =
+    payslip.tax + payslip.pension + payslip.insurance + payslip.loanEmi;
+
+  // Year-to-date gross: all payslips for this employee in the same period
+  // year (member-scoped automatically for members).
+  const periodYear = payslip.period.split(" ")[1] ?? "";
+  const all = await apiGet<Paginated<PayslipRow>>(
+    "/api/payroll/payslips",
+    user?.role === "member" ? undefined : { employeeId: payslip.employeeId },
+  ).catch(() => null);
+  const ytdGross = (all?.items ?? [])
+    .filter((row) => periodYear && row.period.includes(periodYear))
+    .reduce((sum, row) => sum + row.gross, 0);
 
   const earnings = [
-    { label: 'Basic salary', value: payslip.basic },
-    { label: 'HRA', value: payslip.hra },
-    { label: 'Allowances', value: payslip.allowances },
-    { label: 'Bonus', value: payslip.bonus },
+    { label: "Basic salary", value: payslip.basic },
+    { label: "HRA", value: payslip.hra },
+    { label: "Transport allowance", value: payslip.allowances },
+    { label: "Bonus", value: payslip.bonus },
   ];
   const deductionRows = [
-    { label: 'Income tax', value: payslip.tax },
-    { label: 'Pension', value: payslip.pension },
-    { label: 'Insurance', value: payslip.insurance },
-    ...(payslip.loanEmi > 0 ? [{ label: 'Loan EMI', value: payslip.loanEmi }] : []),
+    { label: "Income tax", value: payslip.tax },
+    { label: "Pension", value: payslip.pension },
+    { label: "Insurance", value: payslip.insurance },
+    ...(payslip.loanEmi > 0
+      ? [{ label: "Loan EMI", value: payslip.loanEmi }]
+      : []),
   ];
 
   return (
@@ -56,16 +110,21 @@ export default async function PayslipDetailPage({
             <h1 className="text-2xl font-bold tracking-tight">
               Payslip — {payslip.period}
             </h1>
-            <Badge variant={payslip.status === 'paid' ? 'success' : 'warning'}>
+            <Badge variant={payslip.status === "paid" ? "success" : "warning"}>
               {payslip.status}
             </Badge>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{employee?.name ?? ''}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {payslip.employeeName ?? ""}
+          </p>
         </div>
-        <ActionButton doneLabel="Downloaded">
+        <Link
+          href={`/api/payroll/payslips/${payslip.id}/pdf`}
+          className={cn(buttonVariants({ variant: "outline" }))}
+        >
           <FileDown />
           Download PDF
-        </ActionButton>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -81,9 +140,14 @@ export default async function PayslipDetailPage({
             <CardContent>
               <div className="divide-y divide-border">
                 {earnings.map((row) => (
-                  <div key={row.label} className="flex items-center justify-between py-2.5 text-sm">
+                  <div
+                    key={row.label}
+                    className="flex items-center justify-between py-2.5 text-sm"
+                  >
                     <span className="text-muted-foreground">{row.label}</span>
-                    <span className="font-medium">{formatCurrency(row.value)}</span>
+                    <span className="font-medium">
+                      {formatCurrency(row.value)}
+                    </span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between py-2.5 text-sm font-semibold">
@@ -97,14 +161,21 @@ export default async function PayslipDetailPage({
           <Card>
             <CardHeader>
               <CardTitle>Deductions</CardTitle>
-              <CardDescription>Taxes, pension and other deductions.</CardDescription>
+              <CardDescription>
+                Taxes, pension and other deductions.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="divide-y divide-border">
                 {deductionRows.map((row) => (
-                  <div key={row.label} className="flex items-center justify-between py-2.5 text-sm">
+                  <div
+                    key={row.label}
+                    className="flex items-center justify-between py-2.5 text-sm"
+                  >
                     <span className="text-muted-foreground">{row.label}</span>
-                    <span className="font-medium">−{formatCurrency(row.value)}</span>
+                    <span className="font-medium">
+                      −{formatCurrency(row.value)}
+                    </span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between py-2.5 text-sm font-semibold">
@@ -131,12 +202,16 @@ export default async function PayslipDetailPage({
               </div>
               <div className="flex items-center justify-between text-muted-foreground">
                 <span>Year-to-date gross</span>
-                <span className="font-medium text-foreground">{formatCurrency(ytdGross)}</span>
+                <span className="font-medium text-foreground">
+                  {formatCurrency(ytdGross)}
+                </span>
               </div>
               {payslip.loanEmi > 0 && (
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>Loan EMI included</span>
-                  <span className="font-medium text-foreground">{formatCurrency(payslip.loanEmi)}</span>
+                  <span className="font-medium text-foreground">
+                    {formatCurrency(payslip.loanEmi)}
+                  </span>
                 </div>
               )}
             </CardContent>
@@ -149,11 +224,13 @@ export default async function PayslipDetailPage({
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
-                <Avatar name={employee?.name ?? '—'} size="sm" />
+                <Avatar name={payslip.employeeName ?? "—"} size="sm" />
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{employee?.name ?? '—'}</p>
+                  <p className="truncate font-medium">
+                    {payslip.employeeName ?? "—"}
+                  </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {employee?.role ?? ''} · {employee?.department ?? ''}
+                    {payslip.employeeEmail ?? ""}
                   </p>
                 </div>
               </div>

@@ -15,6 +15,12 @@ next-env.d.ts
 # typescript
 *.tsbuildinfo
 
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright-browsers/
+
 # misc
 .DS_Store
 .pnpm-store

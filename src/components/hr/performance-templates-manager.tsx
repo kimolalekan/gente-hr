@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import {
   FileText,
   ListChecks,
+  Loader2,
   Pencil,
   Plus,
   Save,
@@ -15,7 +16,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
-import type { PerformanceTemplate } from "@/lib/hr-data";
+
+/** Template row as returned by `/api/performance/templates`. */
+interface ApiTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  sections: Array<{ id?: string; name: string; questions: string[] }>;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 interface SectionDraft {
   id: string;
@@ -23,20 +34,21 @@ interface SectionDraft {
   questions: string;
 }
 
-function toDraft(template: PerformanceTemplate | null): SectionDraft[] {
+function toDraft(template: ApiTemplate | null): SectionDraft[] {
   if (!template) return [{ id: "s_new", name: "", questions: "" }];
   return template.sections.map((section) => ({
-    id: section.id,
+    id: section.id ?? `s_${Math.random().toString(36).slice(2, 8)}`,
     name: section.name,
     questions: section.questions.join("\n"),
   }));
 }
 
-function fromDrafts(sections: SectionDraft[]): PerformanceTemplate["sections"] {
+function fromDrafts(
+  sections: SectionDraft[],
+): Array<{ name: string; questions: string[] }> {
   return sections
     .filter((section) => section.name.trim())
-    .map((section, index) => ({
-      id: section.id || `s_${Date.now().toString(36)}_${index}`,
+    .map((section) => ({
       name: section.name.trim(),
       questions: section.questions
         .split("\n")
@@ -46,20 +58,24 @@ function fromDrafts(sections: SectionDraft[]): PerformanceTemplate["sections"] {
 }
 
 /**
- * Performance templates — HR/Admin can create and edit. Demo state is local;
- * wire to a templates table later.
+ * Performance templates — HR/Admin create, edit, activate and delete. Writes
+ * go to the templates API: `POST /api/performance/templates`,
+ * `PATCH /api/performance/templates/[id]`,
+ * `PATCH /api/performance/templates/[id]/status` and
+ * `DELETE /api/performance/templates/[id]`.
  */
 export function PerformanceTemplatesManager({
   templates,
 }: {
-  templates: PerformanceTemplate[];
+  templates: ApiTemplate[];
 }) {
   const [items, setItems] = useState(templates);
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<PerformanceTemplate | null>(null);
+  const [editing, setEditing] = useState<ApiTemplate | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [sections, setSections] = useState<SectionDraft[]>([]);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const openCreate = () => {
@@ -71,10 +87,10 @@ export function PerformanceTemplatesManager({
     setOpen(true);
   };
 
-  const openEdit = (template: PerformanceTemplate) => {
+  const openEdit = (template: ApiTemplate) => {
     setEditing(template);
     setName(template.name);
-    setDescription(template.description);
+    setDescription(template.description ?? "");
     setSections(toDraft(template));
     setError(null);
     setOpen(true);
@@ -88,7 +104,7 @@ export function PerformanceTemplatesManager({
     );
   };
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -100,46 +116,110 @@ export function PerformanceTemplatesManager({
       setError("Add at least one section with a name.");
       return;
     }
-    if (editing) {
+    setBusy(true);
+    setError(null);
+    let apiError: string | null = null;
+    try {
+      const response = await fetch(
+        editing
+          ? `/api/performance/templates/${encodeURIComponent(editing.id)}`
+          : "/api/performance/templates",
+        {
+          method: editing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: trimmedName,
+            description: description.trim(),
+            sections: parsedSections,
+          }),
+        },
+      );
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        data?: ApiTemplate;
+      } | null;
+      if (!body?.ok) {
+        apiError = body?.error ?? "Could not save the template";
+        throw new Error(apiError);
+      }
+      const saved = body.data;
+      if (!saved) {
+        apiError = "Could not save the template";
+        throw new Error(apiError);
+      }
+      setItems((current) =>
+        editing
+          ? current.map((template) =>
+              template.id === editing.id
+                ? {
+                    ...template,
+                    name: saved.name,
+                    description: saved.description ?? null,
+                    sections: saved.sections,
+                    active: saved.active,
+                  }
+                : template,
+            )
+          : [saved, ...current],
+      );
+      setOpen(false);
+    } catch {
+      if (apiError) setError(apiError);
+      else setError("Could not save the template. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleActive = async (id: string, active: boolean) => {
+    try {
+      const response = await fetch(
+        `/api/performance/templates/${encodeURIComponent(id)}/status`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ active: !active }),
+        },
+      );
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (!body?.ok) return;
       setItems((current) =>
         current.map((template) =>
-          template.id === editing.id
-            ? {
-                ...template,
-                name: trimmedName,
-                description: description.trim(),
-                sections: parsedSections,
-              }
-            : template,
+          template.id === id ? { ...template, active: !active } : template,
         ),
       );
-    } else {
-      setItems((current) => [
-        {
-          id: `tpl_${Date.now().toString(36)}`,
-          name: trimmedName,
-          description: description.trim(),
-          sections: parsedSections,
-          active: true,
-        },
-        ...current,
-      ]);
+    } catch {
+      // Leave the template unchanged — the API call failed.
     }
-    setOpen(false);
   };
 
-  const toggleActive = (id: string) => {
-    setItems((current) =>
-      current.map((template) =>
-        template.id === id
-          ? { ...template, active: !template.active }
-          : template,
-      ),
+  const remove = async (id: string) => {
+    if (!window.confirm("Delete this template? This cannot be undone.")) return;
+    try {
+      const response = await fetch(
+        `/api/performance/templates/${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      const body = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (!body?.ok) return;
+      setItems((current) => current.filter((template) => template.id !== id));
+    } catch {
+      // Leave the template in place — the API call failed.
+    }
+  };
+
+  const totalQuestions = (template: ApiTemplate) =>
+    template.sections.reduce(
+      (sum, section) => sum + section.questions.length,
+      0,
     );
-  };
-
-  const totalQuestions = (template: PerformanceTemplate) =>
-    template.sections.reduce((sum, section) => sum + section.questions.length, 0);
 
   return (
     <div className="space-y-4">
@@ -166,7 +246,7 @@ export function PerformanceTemplatesManager({
               <div className="min-w-0">
                 <p className="truncate font-semibold">{template.name}</p>
                 <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                  {template.description}
+                  {template.description ?? ""}
                 </p>
               </div>
               <Badge variant={template.active ? "success" : "secondary"}>
@@ -201,9 +281,18 @@ export function PerformanceTemplatesManager({
                 variant={template.active ? "outline" : "success"}
                 size="sm"
                 className="flex-1"
-                onClick={() => toggleActive(template.id)}
+                onClick={() => toggleActive(template.id, template.active)}
               >
                 {template.active ? "Deactivate" : "Activate"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-none"
+                aria-label={`Delete ${template.name}`}
+                onClick={() => remove(template.id)}
+              >
+                <Trash2 className="size-3.5 text-destructive" />
               </Button>
             </div>
           </div>
@@ -221,11 +310,19 @@ export function PerformanceTemplatesManager({
         }
         footer={
           <>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={busy}
+            >
               Cancel
             </Button>
-            <Button type="submit" form="template-form">
-              <Save className="size-4" />
+            <Button type="submit" form="template-form" disabled={busy}>
+              {busy ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Save className="size-4" />
+              )}
               {editing ? "Save changes" : "Create template"}
             </Button>
           </>
@@ -305,7 +402,11 @@ export function PerformanceTemplatesManager({
               onClick={() =>
                 setSections((current) => [
                   ...current,
-                  { id: `s_${Date.now().toString(36)}`, name: "", questions: "" },
+                  {
+                    id: `s_${Date.now().toString(36)}`,
+                    name: "",
+                    questions: "",
+                  },
                 ])
               }
             >

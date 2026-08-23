@@ -1,17 +1,29 @@
 import { DepartmentsManager } from "@/components/hr/departments-manager";
 import { PageHeader } from "@/components/hr/page-header";
-import { DEPARTMENTS_DATA, EMPLOYEES } from "@/lib/hr-data";
+import { apiGet, type Paginated } from "@/lib/server/api-client";
 
 export const metadata = { title: "Departments" };
 
-export default function DepartmentsPage() {
+interface DepartmentRow {
+  id: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  employees: number;
+}
+
+export default async function DepartmentsPage() {
+  const page = await apiGet<Paginated<DepartmentRow>>("/api/departments", {
+    pageSize: 500,
+  });
+
   return (
     <>
       <PageHeader
         title="Departments"
         description="Organizational units and their status."
       />
-      <DepartmentsManager departments={DEPARTMENTS_DATA} employees={EMPLOYEES} />
+      <DepartmentsManager departments={page.items} />
     </>
   );
 }

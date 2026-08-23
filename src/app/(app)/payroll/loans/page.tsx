@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { HandCoins, Hourglass, Landmark } from "lucide-react";
+import { DateRangePicker } from "@/components/hr/date-range-picker";
+import { MyLoans } from "@/components/hr/my-loans";
 import { PageHeader } from "@/components/hr/page-header";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -13,10 +15,14 @@ import {
 } from "@/components/ui/card";
 import {
   formatCurrency,
-  getEmployeeById,
-  LOANS,
   LOAN_TYPE_LABELS,
+  type Loan,
+  type LoanStatus,
+  type LoanType,
 } from "@/lib/hr-data";
+import { parseRange } from "@/lib/report-dates";
+import { getCurrentUser } from "@/lib/server/auth";
+import { apiGet, type Paginated } from "@/lib/server/api-client";
 
 export const metadata = { title: "Loans" };
 
@@ -30,19 +36,105 @@ const STATUS_VARIANT: Record<
   pending: "warning",
 };
 
-export default function LoansPage() {
-  const outstanding = LOANS.filter((loan) => loan.status === "active").reduce(
-    (sum, loan) => sum + (loan.amount - loan.paidMonths * loan.monthly),
-    0,
+const LOAN_TYPES: LoanType[] = ["personal", "advance", "vehicle", "other"];
+
+/** Loan row from `GET /api/payroll/loans` (member-scoped for members). */
+interface ApiLoan {
+  id: string;
+  employeeId: string;
+  employeeName: string | null;
+  type: string;
+  amount: number;
+  interestRate: number;
+  termMonths: number;
+  monthlyEmi: number;
+  disbursedAt: string | null;
+  paidMonths: number;
+  status: string;
+  createdAt: string;
+}
+
+function isLoanType(value: string): value is LoanType {
+  return LOAN_TYPES.includes(value as LoanType);
+}
+
+function isLoanStatus(value: string): value is LoanStatus {
+  return (
+    value === "pending" ||
+    value === "approved" ||
+    value === "active" ||
+    value === "paid"
   );
-  const active = LOANS.filter((loan) => loan.status === "active").length;
+}
+
+/** Map the API row to the `Loan` shape used by `MyLoans` (`monthlyEmi` → `monthly`). */
+function toLoan(loan: ApiLoan): Loan {
+  return {
+    id: loan.id,
+    employeeId: loan.employeeId,
+    type: isLoanType(loan.type) ? loan.type : "personal",
+    amount: loan.amount,
+    interestRate: loan.interestRate,
+    termMonths: loan.termMonths,
+    monthly: loan.monthlyEmi,
+    disbursedAt: loan.disbursedAt ?? "",
+    paidMonths: loan.paidMonths,
+    status: isLoanStatus(loan.status) ? loan.status : "pending",
+  };
+}
+
+function loanTypeLabel(type: string): string {
+  return LOAN_TYPE_LABELS[type as LoanType] ?? type;
+}
+
+export default async function LoansPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>;
+}) {
+  const user = await getCurrentUser();
+  const isMember = user?.role === "member";
+
+  const { from: fromParam, to: toParam } = await searchParams;
+  const { from, to } = parseRange(fromParam, toParam);
+
+  const data = await apiGet<Paginated<ApiLoan>>("/api/payroll/loans", {
+    from,
+    to,
+  });
+  const loans = data.items;
+
+  // Employees get a self-service view with a "Request loan" button.
+  if (isMember) {
+    const me = await apiGet<{ id: string }>("/api/employees/me").catch(
+      () => null,
+    );
+    return (
+      <MyLoans
+        employeeId={me?.id ?? ""}
+        initialLoans={loans.map(toLoan)}
+        from={from}
+        to={to}
+      />
+    );
+  }
+
+  const outstanding = loans
+    .filter((loan) => loan.status === "active")
+    .reduce(
+      (sum, loan) => sum + (loan.amount - loan.paidMonths * loan.monthlyEmi),
+      0,
+    );
+  const active = loans.filter((loan) => loan.status === "active").length;
 
   return (
     <>
       <PageHeader
         title="Loans"
         description="Employee loans, advances and repayment."
-      ></PageHeader>
+      >
+        <DateRangePicker from={from} to={to} />
+      </PageHeader>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
@@ -69,7 +161,7 @@ export default function LoansPage() {
               <Hourglass className="size-4" /> Pending approval
             </p>
             <p className="mt-1 text-2xl font-bold text-warning">
-              {LOANS.filter((loan) => loan.status === "pending").length}
+              {loans.filter((loan) => loan.status === "pending").length}
             </p>
           </CardContent>
         </Card>
@@ -103,11 +195,10 @@ export default function LoansPage() {
                 </tr>
               </thead>
               <tbody>
-                {LOANS.map((loan) => {
-                  const employee = getEmployeeById(loan.employeeId);
+                {loans.map((loan) => {
                   const remaining = Math.max(
                     0,
-                    loan.amount - loan.paidMonths * loan.monthly,
+                    loan.amount - loan.paidMonths * loan.monthlyEmi,
                   );
                   return (
                     <tr
@@ -116,25 +207,22 @@ export default function LoansPage() {
                     >
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-3">
-                          <Avatar name={employee?.name ?? "—"} size="sm" />
+                          <Avatar name={loan.employeeName ?? "—"} size="sm" />
                           <div className="min-w-0">
                             <p className="truncate font-medium">
-                              {employee?.name ?? "—"}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {employee?.role ?? ""}
+                              {loan.employeeName ?? "—"}
                             </p>
                           </div>
                         </div>
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                        {LOAN_TYPE_LABELS[loan.type]}
+                        {loanTypeLabel(loan.type)}
                       </td>
                       <td className="px-4 py-3 font-medium">
                         {formatCurrency(loan.amount)}
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                        {formatCurrency(loan.monthly)}
+                        {formatCurrency(loan.monthlyEmi)}
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                         {loan.status === "paid"

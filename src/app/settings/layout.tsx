@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { getCurrentUser } from "@/lib/server/auth";
@@ -11,6 +11,8 @@ export default async function SettingsLayout({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  // Settings are admin-only — other roles get a 404 (no access page).
+  if (user.role !== "admin") notFound();
 
   const tenants = await getUserTenants(user.id);
   return (

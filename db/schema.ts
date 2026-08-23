@@ -17,7 +17,7 @@ import type { TenantTheme, ThemeMode } from "../src/lib/theme-config";
 /**
  * Full Gente HR schema — every tenant-scoped table carries `tenant_id` so
  * PostgreSQL Row-Level Security (or application-level filtering) can enforce
- * tenant isolation. See Agent.md §16 (database schema) and §27 (decisions).
+ * tenant isolation. See Agent.md §17 (database schema) and §28 (decisions).
  *
  * NOTE: Money is stored as whole currency units (integers) for simplicity.
  */
@@ -26,7 +26,7 @@ import type { TenantTheme, ThemeMode } from "../src/lib/theme-config";
 /* Tenants & multi-tenancy                                             */
 /* ------------------------------------------------------------------ */
 
-/** Companies. Branding lives in `theme_config` (Agent.md §27, Decision 4). */
+/** Companies. Branding lives in `theme_config` (Agent.md §28, Decision 4). */
 export const tenants = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
@@ -56,7 +56,7 @@ export const tenants = pgTable("tenants", {
 
 /**
  * Accounts. No tenant column here — tenant association and per-tenant role
- * live in `user_tenants` (Agent.md §27, Decision 3), so one person can work
+ * live in `user_tenants` (Agent.md §28, Decision 3), so one person can work
  * across multiple companies with different roles in each.
  */
 export const users = pgTable("users", {
@@ -155,7 +155,7 @@ export const employees = pgTable(
     phone: text("phone"),
     department: text("department"),
     designation: text("designation"),
-    location: text("location"),
+    address: jsonb("address").$type<Record<string, unknown>>(),
     managerId: uuid("manager_id").references((): AnyPgColumn => employees.id, {
       onDelete: "set null",
     }),
@@ -164,6 +164,10 @@ export const employees = pgTable(
     emergencyContact:
       jsonb("emergency_contact").$type<Record<string, unknown>>(),
     bankDetails: jsonb("bank_details").$type<Record<string, unknown>>(),
+    salary: jsonb("salary").$type<Record<string, number> | null>(),
+    governmentId: jsonb("government_id").$type<Record<string, unknown>>(),
+    healthInsurance: jsonb("health_insurance").$type<Record<string, unknown>>(),
+    pension: jsonb("pension").$type<Record<string, unknown>>(),
     taxId: text("tax_id"),
     profilePhoto: text("profile_photo"),
     status: text("status").notNull().default("active"), // active | on_leave | pending
@@ -203,6 +207,138 @@ export const employeeDocuments = pgTable(
 );
 
 /* ------------------------------------------------------------------ */
+/* ATS — Recruitment & Hiring                                          */
+/* ------------------------------------------------------------------ */
+
+/** Job postings (Agent.md §2) — multi-tenant, status draft → open → closed. */
+export const jobs = pgTable(
+  "jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    department: text("department"),
+    location: text("location"),
+    employmentType: text("employment_type").notNull().default("full_time"), // full_time | part_time | contract | intern
+    salaryMin: integer("salary_min"),
+    salaryMax: integer("salary_max"),
+    description: text("description"),
+    status: text("status").notNull().default("draft"), // draft | open | closed
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("jobs_tenant_idx").on(table.tenantId)],
+);
+
+/** Candidate applications tracked through the pipeline (Agent.md §2). */
+export const applications = pgTable(
+  "applications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    phone: text("phone"),
+    resumeUrl: text("resume_url"),
+    coverLetter: text("cover_letter"),
+    stage: text("stage").notNull().default("new"), // new | screening | interview | offer | hired | rejected
+    notes: text("notes"),
+    /** Set when the application is hired — links to the created employee. */
+    employeeId: uuid("employee_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("applications_job_email_uidx").on(table.jobId, table.email),
+    index("applications_tenant_idx").on(table.tenantId),
+  ],
+);
+
+/** Stage change history + recruiter notes per application. */
+export const applicationStages = pgTable(
+  "application_stages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    applicationId: uuid("application_id")
+      .notNull()
+      .references(() => applications.id, { onDelete: "cascade" }),
+    fromStage: text("from_stage").notNull(),
+    toStage: text("to_stage").notNull(),
+    note: text("note"),
+    actorName: text("actor_name"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("application_stages_tenant_idx").on(table.tenantId)],
+);
+
+/** Interview rounds against a candidate (Agent.md §2). */
+export const interviews = pgTable(
+  "interviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    applicationId: uuid("application_id")
+      .notNull()
+      .references(() => applications.id, { onDelete: "cascade" }),
+    round: integer("round").notNull().default(1),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+    interviewer: text("interviewer"),
+    feedback: text("feedback"),
+    status: text("status").notNull().default("scheduled"), // scheduled | completed | cancelled
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("interviews_tenant_idx").on(table.tenantId)],
+);
+
+/** Offer terms sent to a candidate (Agent.md §2). */
+export const offers = pgTable(
+  "offers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    applicationId: uuid("application_id")
+      .notNull()
+      .references(() => applications.id, { onDelete: "cascade" }),
+    salary: integer("salary"),
+    startDate: date("start_date"),
+    terms: text("terms"),
+    status: text("status").notNull().default("sent"), // sent | accepted | declined
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("offers_tenant_idx").on(table.tenantId)],
+);
+
+/* ------------------------------------------------------------------ */
 /* Departments                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -231,7 +367,7 @@ export const departments = pgTable(
 /* Onboarding                                                          */
 /* ------------------------------------------------------------------ */
 
-/** A new-hire onboarding plan (start/target dates + overall status). */
+/** A new-hire onboarding plan (invite → employee self-service → hired). */
 export const onboardingPlans = pgTable(
   "onboarding_plans",
   {
@@ -239,12 +375,20 @@ export const onboardingPlans = pgTable(
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
-    employeeId: uuid("employee_id")
-      .notNull()
-      .references(() => employees.id, { onDelete: "cascade" }),
+    /** Null until the invite is accepted and an employee record is created. */
+    employeeId: uuid("employee_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    fullName: text("full_name").notNull(),
+    email: text("email").notNull(),
+    phone: text("phone"),
+    address: text("address"),
+    state: text("state"),
+    country: text("country"),
+    signedOfferLetter: text("signed_offer_letter"),
     startDate: date("start_date").notNull(),
     targetDate: date("target_date").notNull(),
-    status: text("status").notNull().default("in_progress"), // in_progress | completed
+    status: text("status").notNull().default("invited"), // invited | in_progress | completed
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -283,7 +427,7 @@ export const onboardingTasks = pgTable(
 /* Offboarding                                                         */
 /* ------------------------------------------------------------------ */
 
-/** Exit processes (Agent.md §3). */
+/** Exit processes (Agent.md §4). */
 export const offboardings = pgTable(
   "offboardings",
   {
@@ -324,7 +468,7 @@ export const offboardingChecklistItems = pgTable(
 /* Leave management                                                    */
 /* ------------------------------------------------------------------ */
 
-/** Leave requests with approval workflow (Agent.md §4). */
+/** Leave requests with approval workflow (Agent.md §5). */
 export const leaves = pgTable(
   "leaves",
   {
@@ -386,7 +530,7 @@ export const leaveBalances = pgTable(
 /* Attendance                                                          */
 /* ------------------------------------------------------------------ */
 
-/** Daily attendance records (Agent.md §5) — one row per employee per day. */
+/** Daily attendance records (Agent.md §6) — one row per employee per day. */
 export const attendanceRecords = pgTable(
   "attendance_records",
   {
@@ -421,6 +565,31 @@ export const attendanceRecords = pgTable(
 /* Performance reviews                                                 */
 /* ------------------------------------------------------------------ */
 
+/** Review templates — sections and questions (HR/Admin define these). */
+export const performanceTemplates = pgTable(
+  "performance_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    sections: jsonb("sections")
+      .$type<Array<{ name: string; questions: string[] }>>()
+      .notNull()
+      .default([]),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("performance_templates_tenant_idx").on(table.tenantId)],
+);
+
 /** Review cycles (quarterly, half-yearly, annual, custom). */
 export const reviewCycles = pgTable(
   "review_cycles",
@@ -439,7 +608,7 @@ export const reviewCycles = pgTable(
   (table) => [index("review_cycles_tenant_idx").on(table.tenantId)],
 );
 
-/** Performance reviews: self + manager ratings, feedback (Agent.md §6). */
+/** Performance reviews: self + manager ratings, feedback (Agent.md §7). */
 export const reviews = pgTable(
   "reviews",
   {
@@ -457,6 +626,9 @@ export const reviews = pgTable(
       onDelete: "set null",
     }),
     reviewerName: text("reviewer_name"),
+    templateId: text("template_id"),
+    deadline: date("deadline"),
+    deadlineExtended: integer("deadline_extended").notNull().default(0),
     selfRating: numeric("self_rating", {
       precision: 2,
       scale: 1,
@@ -509,7 +681,7 @@ export const salary = pgTable(
   (table) => [index("salary_tenant_idx").on(table.tenantId)],
 );
 
-/** Employee loans: amount, EMI, repayment tracking (Agent.md §7). */
+/** Employee loans: amount, EMI, repayment tracking (Agent.md §8). */
 export const loans = pgTable(
   "loans",
   {
@@ -626,7 +798,7 @@ export const payslips = pgTable(
 /* Notifications                                                       */
 /* ------------------------------------------------------------------ */
 
-/** In-app notifications (Agent.md §9). */
+/** In-app notifications (Agent.md §10). */
 export const notifications = pgTable(
   "notifications",
   {
@@ -653,7 +825,7 @@ export const notifications = pgTable(
 /* Audit logs                                                          */
 /* ------------------------------------------------------------------ */
 
-/** Who did what — includes tenant context (Agent.md §12). */
+/** Who did what — includes tenant context (Agent.md §13). */
 export const auditLogs = pgTable(
   "audit_logs",
   {
@@ -679,7 +851,7 @@ export const auditLogs = pgTable(
 /* Email service                                                       */
 /* ------------------------------------------------------------------ */
 
-/** Per-tenant email provider configuration (Agent.md §11). */
+/** Per-tenant email provider configuration (Agent.md §12). */
 export const emailSettings = pgTable("email_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id")
@@ -687,27 +859,13 @@ export const emailSettings = pgTable("email_settings", {
     .unique()
     .references(() => tenants.id, { onDelete: "cascade" }),
   provider: text("provider").notNull().default("console"), // resend | zeptomail | mailgun | brevo | console
-  fallbackProvider: text("fallback_provider").notNull().default("console"),
+  /** Provider credentials keyed by field (apiKey, apiSecret, …). */
+  credentials: jsonb("credentials").$type<Record<string, string>>().default({}),
   senderName: text("sender_name").notNull().default("Gente HR"),
   senderEmail: text("sender_email").notNull().default("noreply@gente.dev"),
   replyTo: text("reply_to"),
   tracking: boolean("tracking").notNull().default(false),
   batchLimit: integer("batch_limit").notNull().default(200),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
-/** Transactional email templates (OTP, welcome, payslip, …). */
-export const emailTemplates = pgTable("email_templates", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  tenantId: uuid("tenant_id")
-    .notNull()
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  templateKey: text("template_key").notNull(), // otp | welcome | leave_request | payslip | onboarding | offboarding
-  name: text("name").notNull(),
-  subject: text("subject"),
-  body: text("body"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -734,6 +892,34 @@ export const emailLogs = pgTable(
 );
 
 /* ------------------------------------------------------------------ */
+/* Files & uploads                                                     */
+/* ------------------------------------------------------------------ */
+
+/** Uploaded files (passport photos, offer letters, documents…). */
+export const files = pgTable(
+  "files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    uploadedBy: uuid("uploaded_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    mime: text("mime").notNull().default("application/octet-stream"),
+    size: integer("size").notNull().default(0),
+    kind: text("kind").notNull().default("document"), // document | photo | letter
+    /** Base64/data-URL content — demo storage; production uses object storage. */
+    data: text("data"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("files_tenant_idx").on(table.tenantId)],
+);
+
+/* ------------------------------------------------------------------ */
 /* Inferred types                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -744,6 +930,11 @@ export type OtpCode = typeof otpCodes.$inferSelect;
 export type UserPreference = typeof userPreferences.$inferSelect;
 export type Employee = typeof employees.$inferSelect;
 export type EmployeeDocument = typeof employeeDocuments.$inferSelect;
+export type Job = typeof jobs.$inferSelect;
+export type Application = typeof applications.$inferSelect;
+export type ApplicationStage = typeof applicationStages.$inferSelect;
+export type Interview = typeof interviews.$inferSelect;
+export type Offer = typeof offers.$inferSelect;
 export type Department = typeof departments.$inferSelect;
 export type OnboardingPlan = typeof onboardingPlans.$inferSelect;
 export type OnboardingTask = typeof onboardingTasks.$inferSelect;
@@ -763,5 +954,6 @@ export type Payslip = typeof payslips.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type EmailSetting = typeof emailSettings.$inferSelect;
-export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type EmailLog = typeof emailLogs.$inferSelect;
+export type FileRecord = typeof files.$inferSelect;
+export type PerformanceTemplate = typeof performanceTemplates.$inferSelect;

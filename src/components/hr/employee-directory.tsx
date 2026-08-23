@@ -2,46 +2,93 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Pencil, Search } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { DEPARTMENTS, type Employee } from "@/lib/hr-data";
+import {
+  formatAddress,
+  type Employee,
+  type EmployeeAddress,
+  type EmployeeStatus,
+} from "@/lib/hr-data";
+
+/** Directory statuses — the API can also return "inactive" (archived). */
+type DirectoryStatus = EmployeeStatus | "inactive";
+
+interface DirectoryEmployee {
+  id: string;
+  name: string;
+  email: string;
+  role: string | null;
+  department: string | null;
+  address: EmployeeAddress | null;
+  status: DirectoryStatus;
+  joinedAt: string;
+  salary: number;
+  manager: string | null;
+  phone: string | null;
+}
 
 const STATUS_LABELS: Record<
-  Employee["status"],
-  { label: string; variant: "success" | "warning" | "info" }
+  DirectoryStatus,
+  { label: string; variant: "success" | "warning" | "info" | "secondary" }
 > = {
   active: { label: "Active", variant: "success" },
   on_leave: { label: "On leave", variant: "warning" },
   pending: { label: "Pending onboarding", variant: "info" },
+  inactive: { label: "Archived", variant: "secondary" },
 };
 
+function toDirectoryEmployee(employee: Employee): DirectoryEmployee {
+  return {
+    ...employee,
+    department: employee.department ?? "",
+    role: employee.role ?? "",
+    manager: employee.manager ?? "",
+    phone: employee.phone ?? "",
+  };
+}
+
+/** Read-only employee directory: search, filter and row actions. */
 export function EmployeeDirectory({
   employees,
+  userRole,
   initialDepartment = "all",
 }: {
   employees: Employee[];
+  userRole?: "admin" | "hr" | "member" | null;
   initialDepartment?: string;
 }) {
+  const [items] = useState<DirectoryEmployee[]>(() =>
+    employees.map(toDirectoryEmployee),
+  );
   const [query, setQuery] = useState("");
   const [department, setDepartment] = useState(initialDepartment);
 
+  const departments = useMemo(
+    () =>
+      Array.from(new Set(items.map((employee) => employee.department ?? "")))
+        .filter(Boolean)
+        .sort(),
+    [items],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return employees.filter((employee) => {
+    return items.filter((employee) => {
       const matchesQuery =
         !q ||
         employee.name.toLowerCase().includes(q) ||
         employee.email.toLowerCase().includes(q) ||
-        employee.role.toLowerCase().includes(q);
+        (employee.role ?? "").toLowerCase().includes(q);
       const matchesDepartment =
         department === "all" || employee.department === department;
       return matchesQuery && matchesDepartment;
     });
-  }, [employees, query, department]);
+  }, [items, query, department]);
 
   return (
     <div className="space-y-4">
@@ -63,7 +110,7 @@ export function EmployeeDirectory({
           onChange={(event) => setDepartment(event.target.value)}
         >
           <option value="all">All departments</option>
-          {DEPARTMENTS.map((item) => (
+          {departments.map((item) => (
             <option key={item} value={item}>
               {item}
             </option>
@@ -85,7 +132,7 @@ export function EmployeeDirectory({
                   Location
                 </th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Details</th>
+                <th className="px-4 py-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -110,23 +157,33 @@ export function EmployeeDirectory({
                       </div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {employee.role}
+                      {employee.role ?? "—"}
                     </td>
                     <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                      {employee.department}
+                      {employee.department ?? "—"}
                     </td>
                     <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
-                      {employee.location}
+                      {formatAddress(employee.address) || "—"}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link href={`/employees/${employee.id}`}>
-                        <Button variant="outline" size="sm">
-                          View details
-                        </Button>
-                      </Link>
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={`/employees/${employee.id}`}>
+                          <Button variant="outline" size="sm">
+                            View details
+                          </Button>
+                        </Link>
+                        {userRole !== "member" && (
+                          <Link href={`/employees/${employee.id}/edit`}>
+                            <Button variant="outline" size="sm">
+                              <Pencil className="size-3.5" />
+                              Edit
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -146,7 +203,7 @@ export function EmployeeDirectory({
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Showing {filtered.length} of {employees.length} employees
+        Showing {filtered.length} of {items.length} employees
       </p>
     </div>
   );
