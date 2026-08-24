@@ -28,6 +28,7 @@ import { CountryFlag } from "@/components/ui/country-flag";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { CURRENCY_OPTIONS, getCurrencyMeta } from "@/lib/currencies";
 import {
   DEFAULT_TENANT_THEME,
@@ -52,6 +53,13 @@ export const TIMEZONES = [
   "Asia/Singapore",
   "Asia/Tokyo",
   "America/New_York",
+];
+
+const LANGUAGES = [
+  { value: "en", label: "English" },
+  { value: "fr", label: "French" },
+  { value: "pt", label: "Portuguese" },
+  { value: "es", label: "Spanish" },
 ];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -84,6 +92,8 @@ export function SetupWizard() {
   const [website, setWebsite] = useState("");
   const [timezone, setTimezone] = useState("UTC");
   const [currency, setCurrency] = useState("USD");
+  const [language, setLanguage] = useState("en");
+  const [about, setAbout] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const [adminEmail, setAdminEmail] = useState("");
@@ -226,6 +236,8 @@ export function SetupWizard() {
             website: website.trim() || undefined,
             timezone,
             currency,
+            language,
+            about: about.trim() || undefined,
             logoUrl: logoUrl ?? undefined,
           },
           admin: { email: adminEmail.trim().toLowerCase() },
@@ -387,7 +399,21 @@ export function SetupWizard() {
                 ))}
               </Select>
             </div>
-            <div className="space-y-1.5 sm:col-span-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="setup-language">Language</Label>
+              <Select
+                id="setup-language"
+                value={language}
+                onChange={(event) => setLanguage(event.target.value)}
+              >
+                {LANGUAGES.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="setup-currency">Base currency</Label>
               <Select
                 id="setup-currency"
@@ -410,6 +436,17 @@ export function SetupWizard() {
                 ))}
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="setup-about">About organization</Label>
+            <Textarea
+              id="setup-about"
+              value={about}
+              onChange={(event) => setAbout(event.target.value)}
+              rows={4}
+              placeholder="What does your organization do? A short company description…"
+            />
           </div>
         </div>
       )}
@@ -575,8 +612,15 @@ export function SetupWizard() {
                   {orgName.trim() || "—"}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {website.trim() || "No website"} · {timezone}
+                  {website.trim() || "No website"} · {timezone} ·{" "}
+                  {LANGUAGES.find((item) => item.value === language)?.label ??
+                    language}
                 </p>
+                {about.trim() && (
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {about.trim()}
+                  </p>
+                )}
               </div>
             </div>
           </div>

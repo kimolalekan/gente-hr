@@ -15,6 +15,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const LANGUAGES = ["en", "fr", "pt", "es"];
 
 /** "Acme Inc." → "acme-inc" */
 function slugify(name: string): string {
@@ -48,6 +49,11 @@ export const POST = route(async (request: Request) => {
   const website = asString(org.website).trim();
   const timezone = asString(org.timezone).trim() || "UTC";
   const currency = asString(org.currency).trim() || "USD";
+  const language = asString(org.language).trim() || "en";
+  if (!LANGUAGES.includes(language)) {
+    throw new ApiError(400, "Invalid language");
+  }
+  const about = asString(org.about).trim();
 
   const { db, pool } = await getDb();
   const { tenants, users, userTenants, emailSettings, userPreferences } =
@@ -84,6 +90,8 @@ export const POST = route(async (request: Request) => {
       };
       const settings: Record<string, unknown> = { supportEmail: adminEmail };
       if (website) settings.website = website;
+      settings.language = language;
+      if (about) settings.about = about;
 
       const [tenant] = await tx
         .insert(tenants)
