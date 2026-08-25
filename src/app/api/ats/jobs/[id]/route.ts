@@ -46,14 +46,21 @@ export const GET = route(
     _request: Request,
     { params }: { params: Promise<{ id: string }> },
   ) => {
-    const user = await requireRole(["admin"]);
+    const user = await requireRole(["admin", "hr"]);
     const { id } = await params;
     if (!UUID_RE.test(id)) throw new ApiError(404, "Not found");
     const job = await resolveJob(user.tenantId, id);
 
     const { db, pool } = await getDb();
-    const { applications } = await import("@db/schema");
+    const { applications, quizzes } = await import("@db/schema");
     try {
+      const [quiz] = job.quizId
+        ? await db
+            .select({ name: quizzes.name })
+            .from(quizzes)
+            .where(eq(quizzes.id, job.quizId))
+            .limit(1)
+        : [];
       const rows = await db
         .select({ stage: applications.stage })
         .from(applications)
@@ -76,6 +83,9 @@ export const GET = route(
         salaryMin: job.salaryMin,
         salaryMax: job.salaryMax,
         description: job.description,
+        questions: job.questions,
+        quizId: job.quizId,
+        quizName: quiz?.name ?? null,
         status: job.status,
         createdAt: job.createdAt,
         updatedAt: job.updatedAt,
@@ -100,7 +110,7 @@ export const PATCH = route(
     await resolveJob(user.tenantId, id);
 
     const { db, pool } = await getDb();
-    const { jobs } = await import("@db/schema");
+    const { jobs, quizzes } = await import("@db/schema");
     try {
       const set: Partial<typeof jobs.$inferInsert> = {};
       if (body.title !== undefined) {
@@ -125,6 +135,32 @@ export const PATCH = route(
         set.salaryMax = toIntOrNull(body.salaryMax);
       if (body.description !== undefined)
         set.description = asString(body.description).trim() || null;
+      if (body.questions !== undefined) {
+        set.questions = Array.isArray(body.questions)
+          ? body.questions
+              .map((q) => asString(q).trim())
+              .filter((q) => q.length > 0)
+          : [];
+      }
+      if (body.quizId !== undefined) {
+        if (body.quizId === null) {
+          set.quizId = null;
+        } else {
+          const quizId = asString(body.quizId);
+          if (!UUID_RE.test(quizId)) throw new ApiError(400, "Invalid quiz");
+          const quiz = await db
+            .select({ id: quizzes.id })
+            .from(quizzes)
+            .where(
+              and(eq(quizzes.id, quizId), eq(quizzes.tenantId, user.tenantId)),
+            )
+            .limit(1);
+          if (!quiz[0]) {
+            throw new ApiError(400, "Quiz not found in this organization");
+          }
+          set.quizId = quizId;
+        }
+      }
       if (body.status !== undefined) {
         const status = asString(body.status).trim();
         if (!JOB_STATUSES.includes(status)) {

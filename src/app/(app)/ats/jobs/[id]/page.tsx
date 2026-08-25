@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, MapPin, Pencil, Users } from "lucide-react";
+import { ArrowLeft, ListChecks, MapPin, Pencil, Users } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -39,6 +39,9 @@ interface JobDetail {
   salaryMin: number | null;
   salaryMax: number | null;
   description: string | null;
+  questions: string[];
+  quizId: string | null;
+  quizName: string | null;
   status: JobStatus;
   createdAt: string;
   applications: number;
@@ -224,9 +227,47 @@ export default async function JobDetailPage({
                 <CardTitle>Description</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                  {job.description}
-                </p>
+                <div
+                  className="rich-content text-sm text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: job.description }}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {(job.questions.length > 0 || job.quizName) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Screening</CardTitle>
+                <CardDescription>
+                  What candidates answer when they apply.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {job.questions.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Questions
+                    </p>
+                    <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+                      {job.questions.map((question, index) => (
+                        <li key={index}>{question}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {job.quizName && (
+                  <div className="flex items-center gap-2">
+                    <ListChecks className="size-4 text-primary" />
+                    <span className="font-medium">Quiz:</span>
+                    <Link
+                      href={`/ats/quizzes`}
+                      className="text-primary hover:underline"
+                    >
+                      {job.quizName}
+                    </Link>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

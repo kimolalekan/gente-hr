@@ -11,12 +11,17 @@ export default async function NewJobPage() {
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/");
 
-  const departmentPage = await apiGet<Paginated<{ id: string; name: string }>>(
-    "/api/departments",
-    { pageSize: 500 },
-  );
+  const [departmentPage, quizPage] = await Promise.all([
+    apiGet<Paginated<{ id: string; name: string }>>("/api/departments", {
+      pageSize: 500,
+    }),
+    apiGet<Array<{ id: string; name: string }>>("/api/ats/quizzes"),
+  ]);
 
   return (
-    <JobForm departments={departmentPage.items.map((item) => item.name)} />
+    <JobForm
+      departments={departmentPage.items.map((item) => item.name)}
+      quizzes={quizPage.map((quiz) => ({ id: quiz.id, name: quiz.name }))}
+    />
   );
 }

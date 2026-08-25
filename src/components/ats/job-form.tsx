@@ -3,12 +3,12 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { EMPLOYMENT_TYPE_LABELS, type JobStatus } from "@/lib/hr-data";
 
 export interface JobFormValues {
@@ -20,6 +20,8 @@ export interface JobFormValues {
   salaryMin: string;
   salaryMax: string;
   description: string;
+  questions: string[];
+  quizId: string;
   status: JobStatus;
 }
 
@@ -28,6 +30,11 @@ const STATUS_OPTIONS: Array<{ value: JobStatus; label: string }> = [
   { value: "open", label: "Open" },
   { value: "closed", label: "Closed" },
 ];
+
+interface QuizOption {
+  id: string;
+  name: string;
+}
 
 function Field({
   id,
@@ -49,9 +56,12 @@ function Field({
 export function JobForm({
   initial,
   departments,
+  quizzes,
 }: {
   initial?: JobFormValues;
   departments: string[];
+  /** Screening quizzes available to attach to the job. */
+  quizzes: QuizOption[];
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -64,12 +74,32 @@ export function JobForm({
     salaryMin: initial?.salaryMin ?? "",
     salaryMax: initial?.salaryMax ?? "",
     description: initial?.description ?? "",
+    questions: initial?.questions ?? [],
+    quizId: initial?.quizId ?? "",
     status: initial?.status ?? ("draft" as JobStatus),
   }));
 
   const update =
     (key: keyof typeof form) => (event: { target: { value: string } }) =>
       setForm((current) => ({ ...current, [key]: event.target.value }));
+
+  const updateQuestion = (index: number, value: string) =>
+    setForm((current) => ({
+      ...current,
+      questions: current.questions.map((q, i) => (i === index ? value : q)),
+    }));
+
+  const addQuestion = () =>
+    setForm((current) => ({
+      ...current,
+      questions: [...current.questions, ""],
+    }));
+
+  const removeQuestion = (index: number) =>
+    setForm((current) => ({
+      ...current,
+      questions: current.questions.filter((_, i) => i !== index),
+    }));
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -93,6 +123,10 @@ export function JobForm({
             salaryMin: form.salaryMin ? Number(form.salaryMin) : undefined,
             salaryMax: form.salaryMax ? Number(form.salaryMax) : undefined,
             description: form.description.trim() || undefined,
+            questions: form.questions
+              .map((question) => question.trim())
+              .filter((question) => question.length > 0),
+            quizId: form.quizId || undefined,
             status: form.status,
           }),
         },
@@ -223,17 +257,85 @@ export function JobForm({
               ))}
             </Select>
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="job-quiz">Screening quiz</Label>
+            <Select
+              id="job-quiz"
+              value={form.quizId}
+              onChange={update("quizId")}
+              placeholder="No quiz"
+            >
+              <option value="">No quiz</option>
+              {quizzes.map((quiz) => (
+                <option key={quiz.id} value={quiz.id}>
+                  {quiz.name}
+                </option>
+              ))}
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Candidates take this assessment when applying.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="job-description">Description</Label>
-          <Textarea
+          <RichTextEditor
             id="job-description"
-            rows={6}
             value={form.description}
-            onChange={update("description")}
+            onChange={(html) =>
+              setForm((current) => ({ ...current, description: html }))
+            }
             placeholder="Role overview, responsibilities, requirements…"
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Screening questions</Label>
+          <p className="text-xs text-muted-foreground">
+            Custom questions candidates answer in the application form.
+          </p>
+          {form.questions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No questions yet — add one below.
+            </p>
+          ) : (
+            form.questions.map((question, index) => (
+              <div key={index} className="flex items-start gap-2">
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Label htmlFor={`job-question-${index}`} className="sr-only">
+                    Question {index + 1}
+                  </Label>
+                  <Input
+                    id={`job-question-${index}`}
+                    value={question}
+                    onChange={(event) =>
+                      updateQuestion(index, event.target.value)
+                    }
+                    placeholder={`Question ${index + 1} — e.g. How many years of experience do you have?`}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Remove question ${index + 1}`}
+                  onClick={() => removeQuestion(index)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addQuestion}
+          >
+            <Plus />
+            Add question
+          </Button>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

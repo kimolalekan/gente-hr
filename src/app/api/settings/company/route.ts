@@ -57,6 +57,8 @@ function companyShape(tenant: {
     about: typeof settings.about === "string" ? settings.about : "",
     supportEmail:
       typeof settings.supportEmail === "string" ? settings.supportEmail : "",
+    supportPhone:
+      typeof settings.supportPhone === "string" ? settings.supportPhone : "",
     language:
       typeof settings.language === "string" &&
       LANGUAGES.includes(settings.language)
@@ -148,6 +150,9 @@ export const PATCH = route(async (request: Request) => {
     }
     if (body.supportEmail !== undefined) {
       settings.supportEmail = asString(body.supportEmail).trim();
+    }
+    if (body.supportPhone !== undefined) {
+      settings.supportPhone = asString(body.supportPhone).trim();
     }
     if (body.language !== undefined) {
       const language = asString(body.language).trim();

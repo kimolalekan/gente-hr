@@ -1,6 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { JobForm, type JobFormValues } from "@/components/ats/job-form";
-import { ApiClientError, apiGet, type Paginated } from "@/lib/server/api-client";
+import {
+  ApiClientError,
+  apiGet,
+  type Paginated,
+} from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
 import type { JobStatus } from "@/lib/hr-data";
 
@@ -17,6 +21,8 @@ interface JobRow {
   salaryMin: number | null;
   salaryMax: number | null;
   description: string | null;
+  questions: string[];
+  quizId: string | null;
   status: JobStatus;
 }
 
@@ -37,10 +43,12 @@ export default async function EditJobPage({
     throw error;
   }
 
-  const departmentPage = await apiGet<Paginated<{ id: string; name: string }>>(
-    "/api/departments",
-    { pageSize: 500 },
-  );
+  const [departmentPage, quizPage] = await Promise.all([
+    apiGet<Paginated<{ id: string; name: string }>>("/api/departments", {
+      pageSize: 500,
+    }),
+    apiGet<Array<{ id: string; name: string }>>("/api/ats/quizzes"),
+  ]);
 
   const initial: JobFormValues = {
     id: job.id,
@@ -51,6 +59,8 @@ export default async function EditJobPage({
     salaryMin: job.salaryMin != null ? String(job.salaryMin) : "",
     salaryMax: job.salaryMax != null ? String(job.salaryMax) : "",
     description: job.description ?? "",
+    questions: job.questions ?? [],
+    quizId: job.quizId ?? "",
     status: job.status,
   };
 
@@ -58,6 +68,7 @@ export default async function EditJobPage({
     <JobForm
       initial={initial}
       departments={departmentPage.items.map((item) => item.name)}
+      quizzes={quizPage.map((quiz) => ({ id: quiz.id, name: quiz.name }))}
     />
   );
 }

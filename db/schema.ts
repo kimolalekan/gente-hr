@@ -225,6 +225,12 @@ export const jobs = pgTable(
     salaryMin: integer("salary_min"),
     salaryMax: integer("salary_max"),
     description: text("description"),
+    /** Screening questions candidates answer when applying. */
+    questions: jsonb("questions").$type<string[]>().notNull().default([]),
+    /** Optional screening quiz taken during the application. */
+    quizId: uuid("quiz_id").references(() => quizzes.id, {
+      onDelete: "set null",
+    }),
     status: text("status").notNull().default("draft"), // draft | open | closed
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -250,10 +256,20 @@ export const applications = pgTable(
     name: text("name").notNull(),
     email: text("email").notNull(),
     phone: text("phone"),
+    country: text("country"),
+    state: text("state"),
     resumeUrl: text("resume_url"),
     coverLetter: text("cover_letter"),
     stage: text("stage").notNull().default("new"), // new | screening | interview | offer | hired | rejected
     notes: text("notes"),
+    /** Answers to the job's screening questions (question → answer). */
+    answers: jsonb("answers").$type<Record<string, string>>(),
+    /** Quiz result: score, total questions and chosen option indices. */
+    quizResult: jsonb("quiz_result").$type<{
+      score: number;
+      total: number;
+      answers: number[];
+    } | null>(),
     /** Set when the application is hired — links to the created employee. */
     employeeId: uuid("employee_id").references(() => employees.id, {
       onDelete: "set null",
@@ -336,6 +352,33 @@ export const offers = pgTable(
       .defaultNow(),
   },
   (table) => [index("offers_tenant_idx").on(table.tenantId)],
+);
+
+/** Screening quizzes assigned to jobs (Agent.md §2 — interviews/screening). */
+export const quizzes = pgTable(
+  "quizzes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    questions: jsonb("questions")
+      .$type<
+        Array<{ question: string; options: string[]; correctIndex: number }>
+      >()
+      .notNull()
+      .default([]),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("quizzes_tenant_idx").on(table.tenantId)],
 );
 
 /* ------------------------------------------------------------------ */
@@ -935,6 +978,7 @@ export type Application = typeof applications.$inferSelect;
 export type ApplicationStage = typeof applicationStages.$inferSelect;
 export type Interview = typeof interviews.$inferSelect;
 export type Offer = typeof offers.$inferSelect;
+export type Quiz = typeof quizzes.$inferSelect;
 export type Department = typeof departments.$inferSelect;
 export type OnboardingPlan = typeof onboardingPlans.$inferSelect;
 export type OnboardingTask = typeof onboardingTasks.$inferSelect;

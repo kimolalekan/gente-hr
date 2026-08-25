@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
 
 const JOB_STATUSES = ["draft", "open", "closed"];
 const EMPLOYMENT_TYPES = ["full_time", "part_time", "contract", "intern"];
+const UUID_RE = /^[0-9a-fA-F-]{8,}$/;
 
 function toIntOrNull(value: unknown): number | null {
   const n = Number(value);
@@ -103,9 +104,28 @@ export const POST = route(async (request: Request) => {
     throw new ApiError(400, "Invalid job status");
   }
 
+  const questions = Array.isArray(body.questions)
+    ? body.questions.map((q) => asString(q).trim()).filter((q) => q.length > 0)
+    : [];
+  const quizId =
+    typeof body.quizId === "string" && UUID_RE.test(body.quizId)
+      ? body.quizId
+      : null;
+
   const { db, pool } = await getDb();
-  const { jobs } = await import("@db/schema");
+  const { jobs, quizzes } = await import("@db/schema");
   try {
+    // The quiz must belong to this tenant.
+    if (quizId) {
+      const quiz = await db
+        .select({ id: quizzes.id })
+        .from(quizzes)
+        .where(and(eq(quizzes.id, quizId), eq(quizzes.tenantId, user.tenantId)))
+        .limit(1);
+      if (!quiz[0])
+        throw new ApiError(400, "Quiz not found in this organization");
+    }
+
     const [created] = await db
       .insert(jobs)
       .values({
@@ -117,6 +137,8 @@ export const POST = route(async (request: Request) => {
         salaryMin: toIntOrNull(body.salaryMin),
         salaryMax: toIntOrNull(body.salaryMax),
         description: asString(body.description).trim() || null,
+        questions,
+        quizId,
         status,
       })
       .returning();

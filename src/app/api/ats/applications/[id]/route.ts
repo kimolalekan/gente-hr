@@ -44,14 +44,21 @@ export const GET = route(
     const app = await resolveApplication(user.tenantId, id);
 
     const { db, pool } = await getDb();
-    const { jobs, applicationStages, interviews, offers, employees } =
+    const { jobs, applicationStages, interviews, offers, employees, quizzes } =
       await import("@db/schema");
     try {
-      const [job] = await db
-        .select({ title: jobs.title })
+      const [jobRow] = await db
+        .select({ title: jobs.title, quizId: jobs.quizId })
         .from(jobs)
         .where(eq(jobs.id, app.jobId))
         .limit(1);
+      const [quiz] = jobRow?.quizId
+        ? await db
+            .select()
+            .from(quizzes)
+            .where(eq(quizzes.id, jobRow.quizId))
+            .limit(1)
+        : [];
 
       const [history, interviewRows, offerRows, employee] = await Promise.all([
         db
@@ -102,12 +109,17 @@ export const GET = route(
       return ok({
         id: app.id,
         jobId: app.jobId,
-        jobTitle: job?.title ?? null,
+        jobTitle: jobRow?.title ?? null,
         name: app.name,
         email: app.email,
         phone: app.phone,
+        country: app.country,
+        state: app.state,
         resumeUrl: app.resumeUrl,
         coverLetter: app.coverLetter,
+        answers: app.answers,
+        quizResult: app.quizResult,
+        quiz: quiz ?? null,
         stage: app.stage,
         notes: app.notes,
         createdAt: app.createdAt,
@@ -184,7 +196,10 @@ export const PATCH = route(
         .update(applications)
         .set({ ...set, updatedAt: new Date() })
         .where(
-          and(eq(applications.id, id), eq(applications.tenantId, user.tenantId)),
+          and(
+            eq(applications.id, id),
+            eq(applications.tenantId, user.tenantId),
+          ),
         )
         .returning();
 
@@ -220,7 +235,10 @@ export const DELETE = route(
       await db
         .delete(applications)
         .where(
-          and(eq(applications.id, id), eq(applications.tenantId, user.tenantId)),
+          and(
+            eq(applications.id, id),
+            eq(applications.tenantId, user.tenantId),
+          ),
         );
       await addAudit({
         tenantId: user.tenantId,

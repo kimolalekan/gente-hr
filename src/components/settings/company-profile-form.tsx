@@ -5,8 +5,8 @@ import { CheckCircle2, Loader2, Save, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { CountryFlag } from "@/components/ui/country-flag";
 import { CURRENCY_OPTIONS, getCurrencyMeta } from "@/lib/currencies";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ export interface CompanyProfile {
   website: string;
   about: string;
   supportEmail: string;
+  supportPhone: string;
   language: string;
   timezone: string;
   currency: string;
@@ -63,6 +64,7 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
     website: initial.website,
     about: initial.about,
     supportEmail: initial.supportEmail,
+    supportPhone: initial.supportPhone,
     language: initial.language,
     timezone: initial.timezone,
     currency: initial.currency,
@@ -103,6 +105,7 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
           website: values.website,
           about: values.about,
           supportEmail: values.supportEmail,
+          supportPhone: values.supportPhone,
           language: values.language,
           timezone: values.timezone,
           currency: values.currency,
@@ -154,6 +157,16 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
             type="email"
             value={values.supportEmail}
             onChange={update("supportEmail")}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="supportPhone">Support phone</Label>
+          <Input
+            id="supportPhone"
+            type="tel"
+            value={values.supportPhone}
+            onChange={update("supportPhone")}
+            placeholder="+44 20 7946 0000"
           />
         </div>
         <div className="space-y-1.5">
@@ -223,15 +236,16 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
 
       <div className="space-y-1.5">
         <Label htmlFor="about">About organization</Label>
-        <Textarea
+        <RichTextEditor
           id="about"
           value={values.about}
-          onChange={update("about")}
-          rows={4}
+          onChange={(html) =>
+            setValues((current) => ({ ...current, about: html }))
+          }
           placeholder="What does your organization do? A short company description…"
         />
         <p className="text-xs text-muted-foreground">
-          Shown on company profiles and reports.
+          Shown on company profiles, reports and public job pages.
         </p>
       </div>
 

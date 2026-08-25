@@ -4,10 +4,13 @@ import {
   ArrowLeft,
   BriefcaseBusiness,
   CalendarClock,
+  CheckCircle2,
   FileCheck2,
   Mail,
+  MapPin,
   Phone,
   UserRound,
+  XCircle,
 } from "lucide-react";
 import { ApplicationActions } from "@/components/ats/application-actions";
 import { Avatar } from "@/components/ui/avatar";
@@ -69,8 +72,25 @@ interface ApplicationDetail {
   name: string;
   email: string;
   phone: string | null;
+  country: string | null;
+  state: string | null;
   resumeUrl: string | null;
   coverLetter: string | null;
+  answers: Record<string, string> | null;
+  quizResult: {
+    score: number;
+    total: number;
+    answers: number[];
+  } | null;
+  quiz: {
+    id: string;
+    name: string;
+    questions: Array<{
+      question: string;
+      options: string[];
+      correctIndex: number;
+    }>;
+  } | null;
   stage: ApplicationStage;
   notes: string | null;
   createdAt: string;
@@ -261,6 +281,93 @@ export default async function ApplicationDetailPage({
               )}
             </CardContent>
           </Card>
+
+          {application.answers &&
+            Object.keys(application.answers).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Screening answers</CardTitle>
+                  <CardDescription>
+                    Answers to the job&apos;s screening questions.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  {Object.entries(application.answers).map(
+                    ([question, answer]) => (
+                      <div
+                        key={question}
+                        className="rounded-lg border border-border bg-background/50 p-3"
+                      >
+                        <p className="font-medium">{question}</p>
+                        <p className="mt-1 text-muted-foreground">{answer}</p>
+                      </div>
+                    ),
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+          {application.quiz && application.quizResult && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  Quiz result
+                  <Badge
+                    variant={
+                      application.quizResult.score ===
+                      application.quizResult.total
+                        ? "success"
+                        : application.quizResult.score > 0
+                          ? "warning"
+                          : "destructive"
+                    }
+                  >
+                    {application.quizResult.score}/
+                    {application.quizResult.total}
+                  </Badge>
+                </CardTitle>
+                <CardDescription>{application.quiz.name}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {application.quiz.questions.map((question, index) => {
+                  const chosen = application.quizResult?.answers[index] ?? -1;
+                  const correct = chosen === question.correctIndex;
+                  return (
+                    <div
+                      key={index}
+                      className="rounded-lg border border-border bg-background/50 p-3"
+                    >
+                      <p className="flex items-start justify-between gap-2 font-medium">
+                        <span>{question.question}</span>
+                        {correct ? (
+                          <CheckCircle2 className="size-4 shrink-0 text-success" />
+                        ) : (
+                          <XCircle className="size-4 shrink-0 text-destructive" />
+                        )}
+                      </p>
+                      <p className="mt-1 text-muted-foreground">
+                        Candidate:{" "}
+                        <span className={correct ? "" : "text-destructive"}>
+                          {chosen >= 0 && chosen < question.options.length
+                            ? question.options[chosen]
+                            : "—"}
+                        </span>
+                        {!correct && (
+                          <>
+                            {" "}
+                            · Correct:{" "}
+                            <span className="text-success">
+                              {question.options[question.correctIndex]}
+                            </span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -292,6 +399,14 @@ export default async function ApplicationDetailPage({
                   <p className="flex items-center gap-2 text-muted-foreground">
                     <Phone className="size-3.5" />
                     {application.phone}
+                  </p>
+                )}
+                {(application.country || application.state) && (
+                  <p className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="size-3.5" />
+                    {[application.state, application.country]
+                      .filter(Boolean)
+                      .join(", ")}
                   </p>
                 )}
                 {application.resumeUrl && (

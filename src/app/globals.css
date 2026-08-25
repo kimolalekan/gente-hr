@@ -130,6 +130,64 @@
     animation: gente-scale-in 150ms ease-out;
 }
 
+/* ------------------------------------------------------------------ */
+/* Rich-text editor + rendered rich content (job descriptions)         */
+/* ------------------------------------------------------------------ */
+.rich-editor:empty::before {
+    content: attr(data-placeholder);
+    color: var(--muted-foreground);
+    pointer-events: none;
+}
+
+.rich-editor ul,
+.rich-editor ol,
+.rich-content ul,
+.rich-content ol {
+    padding-left: 1.25rem;
+    list-style: revert;
+}
+
+.rich-editor h2,
+.rich-editor h3,
+.rich-content h2,
+.rich-content h3 {
+    margin-top: 0.75em;
+    margin-bottom: 0.375em;
+    font-size: 1.125em;
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.rich-editor h3,
+.rich-content h3 {
+    font-size: 1em;
+}
+
+.rich-editor p,
+.rich-content p {
+    margin: 0.5em 0;
+}
+
+.rich-editor a,
+.rich-content a {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+.rich-editor strong,
+.rich-content strong {
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.rich-editor blockquote,
+.rich-content blockquote {
+    margin: 0.5em 0;
+    border-left: 3px solid var(--border);
+    padding-left: 0.75em;
+    color: var(--muted-foreground);
+}
+
 @keyframes gente-fade-in {
     from {
         opacity: 0;

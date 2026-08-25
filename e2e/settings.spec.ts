@@ -11,7 +11,8 @@ test.describe("Settings", () => {
     await expect(page.getByRole("heading", { name: "General" })).toBeVisible();
     await expect(page.getByLabel("Company name")).toHaveValue("Acme Inc.");
     await expect(page.getByLabel("Employee ID prefix")).toHaveValue("EMP");
-    await expect(page.getByLabel("About organization")).toBeVisible();
+    // About is a rich-text editor — matched by id, not label.
+    await expect(page.locator("#about")).toBeVisible();
     await expect(page.getByLabel("Timezone")).toBeVisible();
     await expect(page.getByLabel("Language")).toBeVisible();
   });

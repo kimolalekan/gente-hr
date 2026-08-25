@@ -46,6 +46,7 @@ import {
   payrollRuns,
   payslips,
   performanceTemplates,
+  quizzes,
   reviewCycles,
   reviews,
   salary,
@@ -710,7 +711,14 @@ async function main() {
       id: tenantId,
       slug: tenantSlug,
       name: tenantName,
-      settings: { language: "en" },
+      settings: {
+        language: "en",
+        website: "https://acme.example.com",
+        about:
+          "<p>Acme Inc. builds HR software that helps teams hire, onboard and pay people anywhere in the world.</p>",
+        supportEmail: "support@acme.dev",
+        supportPhone: "+44 20 7946 0000",
+      },
       themeConfig: DEFAULT_TENANT_THEME,
     })
     .onConflictDoUpdate({
@@ -725,7 +733,14 @@ async function main() {
       id: globexTenantId,
       slug: "globex",
       name: "Globex Corp.",
-      settings: { language: "en" },
+      settings: {
+        language: "en",
+        website: "https://globex.example.com",
+        about:
+          "<p>Globex Corp. is a global logistics and distribution company serving 40+ markets.</p>",
+        supportEmail: "hello@globex.example.com",
+        supportPhone: "+1 415 555 0100",
+      },
       themeConfig: DEFAULT_TENANT_THEME,
     })
     .onConflictDoUpdate({
@@ -1188,6 +1203,38 @@ async function main() {
   console.log("  ✓ email settings (console provider)");
 
   /* ---- ATS: jobs + applications (Agent.md §2) --------------------------- */
+  const QUIZ_DESIGN = "00000000-0000-0000-0000-000000000901";
+  await db
+    .insert(quizzes)
+    .values([
+      {
+        id: QUIZ_DESIGN,
+        tenantId,
+        name: "Design fundamentals",
+        description:
+          "Quick multiple-choice check on core design and accessibility principles.",
+        questions: [
+          {
+            question: "Which principle is core to accessible design?",
+            options: [
+              "Color contrast",
+              "Symmetric grids",
+              "Parallax effects",
+              "Dark mode only",
+            ],
+            correctIndex: 0,
+          },
+          {
+            question: "Which tool is best for rapid UI prototyping?",
+            options: ["Photoshop", "Figma", "After Effects", "Excel"],
+            correctIndex: 1,
+          },
+        ],
+        active: true,
+      },
+    ])
+    .onConflictDoNothing({ target: quizzes.id });
+
   const JOB_DESIGNER = "00000000-0000-0000-0000-000000000721";
   const JOB_ENGINEER = "00000000-0000-0000-0000-000000000722";
   const JOB_BRAND = "00000000-0000-0000-0000-000000000723";
@@ -1205,7 +1252,12 @@ async function main() {
         salaryMin: 90000,
         salaryMax: 120000,
         description:
-          "Own end-to-end product design across the platform — research, UX, UI and design systems.",
+          "<p>Own end-to-end product design across the platform — research, UX, UI and design systems.</p><ul><li>Lead design for the core HR workflows</li><li>Grow the design system and component library</li><li>Mentor mid-level designers</li></ul>",
+        questions: [
+          "How many years of product design experience do you have?",
+          "Link to your portfolio",
+        ],
+        quizId: "00000000-0000-0000-0000-000000000901",
         status: "open",
       },
       {
@@ -1218,7 +1270,11 @@ async function main() {
         salaryMin: 150000,
         salaryMax: 190000,
         description:
-          "Technical leadership on our core platform — architecture, delivery and mentorship.",
+          "<p>Technical leadership on our core platform.</p><ul><li>Architecture and delivery of the HR suite</li><li>Mentorship of senior engineers</li><li>Raising the bar on code review and testing</li></ul>",
+        questions: [
+          "Years of experience with TypeScript/Node.js?",
+          "Current notice period (weeks)?",
+        ],
         status: "open",
       },
       {
@@ -1230,7 +1286,8 @@ async function main() {
         employmentType: "full_time",
         salaryMin: 80000,
         salaryMax: 110000,
-        description: "Shape the brand across marketing, product and events.",
+        description:
+          "<p>Shape the brand across marketing, product and events.</p>",
         status: "draft",
       },
       {
@@ -1242,7 +1299,7 @@ async function main() {
         employmentType: "full_time",
         salaryMin: 70000,
         salaryMax: 95000,
-        description: "Own enterprise accounts from pipeline to close.",
+        description: "<p>Own enterprise accounts from pipeline to close.</p>",
         status: "closed",
       },
     ])
@@ -1264,9 +1321,16 @@ async function main() {
         name: "Zainab Adeyemi",
         email: "zainab.adeyemi@example.com",
         phone: "+234 803 111 2233",
+        country: "Nigeria",
+        state: "Lagos",
         resumeUrl: "https://example.com/resumes/zainab-adeyemi.pdf",
         coverLetter:
           "Product designer with 6 years across fintech and health — portfolio attached.",
+        answers: {
+          "How many years of product design experience do you have?": "6 years",
+          "Link to your portfolio": "https://zainab.example.com",
+        },
+        quizResult: { score: 1, total: 2, answers: [0, 0] },
         stage: "new",
       },
       {
@@ -1276,8 +1340,13 @@ async function main() {
         name: "Oliver Bennett",
         email: "oliver.bennett@example.com",
         phone: "+44 20 7946 0444",
+        country: "United Kingdom",
+        state: "England",
         resumeUrl: null,
         coverLetter: null,
+        answers: {
+          "How many years of product design experience do you have?": "3 years",
+        },
         stage: "screening",
       },
       {
@@ -1287,9 +1356,16 @@ async function main() {
         name: "Mei Lin",
         email: "mei.lin@example.com",
         phone: "+65 8111 2233",
+        country: "Japan",
+        state: "Tokyo",
         resumeUrl: "https://example.com/resumes/mei-lin.pdf",
         coverLetter:
           "I've followed the design system work closely — would love to contribute.",
+        answers: {
+          "How many years of product design experience do you have?": "7 years",
+          "Link to your portfolio": "https://mei.example.com",
+        },
+        quizResult: { score: 2, total: 2, answers: [0, 1] },
         stage: "interview",
       },
       {
@@ -1299,8 +1375,14 @@ async function main() {
         name: "Ravi Patel",
         email: "ravi.patel@example.com",
         phone: "+91 98 0000 1122",
+        country: "India",
+        state: "Karnataka",
         resumeUrl: "https://example.com/resumes/ravi-patel.pdf",
         coverLetter: null,
+        answers: {
+          "Years of experience with TypeScript/Node.js?": "8 years",
+          "Current notice period (weeks)?": "4 weeks",
+        },
         stage: "offer",
       },
       {
@@ -1310,6 +1392,8 @@ async function main() {
         name: "James O'Brien",
         email: "james.obrien@gente.dev",
         phone: "+353 1 234 5566",
+        country: "Ireland",
+        state: "Leinster",
         resumeUrl: null,
         coverLetter: null,
         stage: "hired",
@@ -1323,8 +1407,13 @@ async function main() {
         name: "Diana Prince",
         email: "diana.prince@example.com",
         phone: "+1 212 555 0177",
+        country: "United States",
+        state: "New York",
         resumeUrl: null,
         coverLetter: null,
+        answers: {
+          "Years of experience with TypeScript/Node.js?": "5 years",
+        },
         stage: "rejected",
       },
     ])
@@ -1334,6 +1423,10 @@ async function main() {
       set: {
         stage: sql`excluded.stage`,
         notes: sql`excluded.notes`,
+        country: sql`excluded.country`,
+        state: sql`excluded.state`,
+        answers: sql`excluded.answers`,
+        quizResult: sql`excluded.quiz_result`,
         employeeId: sql`excluded.employee_id`,
         updatedAt: new Date(),
       },
@@ -1514,7 +1607,7 @@ async function main() {
     ])
     .onConflictDoNothing({ target: offers.id });
   console.log(
-    "  ✓ ATS (4 jobs, 6 applications, 12 stage changes, 3 interviews, 2 offers)",
+    "  ✓ ATS (4 jobs, 6 applications, 12 stage changes, 3 interviews, 2 offers, 1 quiz)",
   );
 
   /* ---- Onboarding plans + tasks ---------------------------------------- */

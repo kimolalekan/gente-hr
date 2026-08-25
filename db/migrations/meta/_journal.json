@@ -8,6 +8,13 @@
       "when": 1787513564797,
       "tag": "0000_daily_power_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787595288220,
+      "tag": "0001_past_stranger",
+      "breakpoints": true
     }
   ]
 }

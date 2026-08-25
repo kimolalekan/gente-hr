@@ -335,6 +335,11 @@ export interface Job {
   salaryMax: number | null;
   description: string | null;
   status: JobStatus;
+  /** Screening questions candidates answer when applying. */
+  questions: string[];
+  /** Optional screening quiz assigned to the job. */
+  quizId: string | null;
+  quizName: string | null;
   applications: number;
   createdAt: string;
 }
@@ -347,11 +352,37 @@ export interface Application {
   name: string;
   email: string;
   phone: string | null;
+  country: string | null;
+  state: string | null;
   resumeUrl: string | null;
   coverLetter: string | null;
   stage: ApplicationStage;
   notes: string | null;
+  answers: Record<string, string> | null;
+  quizResult: QuizResult | null;
   createdAt: string;
+}
+
+/** Multiple-choice screening quiz question (configured by HR/admin). */
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+}
+
+/** Screening quiz as served to candidates — correct answers are stripped. */
+export interface QuizForCandidate {
+  id: string;
+  name: string;
+  description: string | null;
+  questions: Array<{ question: string; options: string[] }>;
+}
+
+/** A candidate's quiz outcome: score, total and chosen option indices. */
+export interface QuizResult {
+  score: number;
+  total: number;
+  answers: number[];
 }
 
 export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
