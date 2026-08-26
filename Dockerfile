@@ -13,10 +13,10 @@
 # before booting, so the same image works as app, migrator and seeder.
 
 # ─── Base ────────────────────────────────────────────────────────────────────
-FROM node:22-alpine AS base
-# Enable pnpm (lockfile v9 → pnpm 9.x) without needing a package.json
+FROM node:24-alpine AS base
+# Enable pnpm (lockfile v9 → pnpm 11.x) without needing a package.json
 # `packageManager` field.
-RUN corepack enable && corepack prepare pnpm@9 --activate
+RUN corepack enable && corepack prepare pnpm@11.24.0 --activate
 WORKDIR /app
 
 # ─── Dependencies ────────────────────────────────────────────────────────────

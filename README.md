@@ -55,7 +55,7 @@ Manage your entire people workflow in one place:
 ### What You Need:
 
 - Linux, macOS, or Windows
-- **Node.js 22+** and **pnpm** installed
+- **Node.js 24+ (LTS)** and **pnpm 11+** installed
 - **PostgreSQL 16+** database
 - **Email API** from zeptomail, mailgun, or resend
 

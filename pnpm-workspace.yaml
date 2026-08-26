@@ -1,3 +1,7 @@
+# Single-package workspace — the app lives at the repository root.
+packages:
+  - "."
+
 # pnpm build-script approvals (postinstall scripts that are allowed to run).
 allowBuilds:
   esbuild: true
