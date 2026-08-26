@@ -282,17 +282,22 @@ docker compose up -d db && pnpm install && pnpm db:migrate && pnpm db:seed && pn
 docker compose up -d --build        # db + app on :4001
 
 # Manual image
-docker build -t gente .
-docker run -p 4001:4001 \
-  -e DATABASE_URL=postgres://postgres:postgres@db:5432/gente \
-  -e AUTH_SESSION_SECRET=change-me \
-  gente
+# docker build -t gente .
+# docker run -p 4001:4001 \
+#   -e DATABASE_URL=postgres://postgres:postgres@db:5432/gente \
+#   -e AUTH_SESSION_SECRET=change-me \
+#   gente
 ```
 
 The Docker entrypoint applies migrations (`RUN_MIGRATIONS=1`) and optionally
 seeds (`RUN_SEED=1` on first boot) before starting `server.js` on `:4001`.
 The same image can be run as app, migrator or seeder, so one artifact serves
 the whole lifecycle.
+
+The **GitHub Actions workflow** (`.github/workflows/docker.yml`) runs lint,
+typecheck and the i18n validation, then builds the image and publishes it to
+**GitHub Container Registry** (`ghcr.io/kimolalekan/gente-hr`) on every push
+to `main` (`latest` + commit SHA tags) and on `v*` version tags (semver tags).
 
 ### Environment variables
 

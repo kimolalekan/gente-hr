@@ -1,6 +1,9 @@
-# Gente HR — Multi-Tenant HR Platform
+# Gente — Multi-Tenant HR Platform
 
 A complete HR management system for companies of any size. One installation serves multiple companies with their own branding, language, and settings.
+
+[![Docker build](https://github.com/kimolalekan/gente-hr/actions/workflows/docker.yml/badge.svg)](https://github.com/kimolalekan/gente-hr/actions/workflows/docker.yml)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ed?logo=docker&logoColor=white)](https://github.com/kimolalekan/gente-hr/pkgs/container/gente-hr)
 
 ---
 
@@ -90,6 +93,31 @@ Manage your entire people workflow in one place:
 - Set your company name, currency, timezone, and language
 - Choose a color theme
 - Configure email for sending notifications
+
+---
+
+## Docker
+
+The app ships as a container image published to **GitHub Container Registry** by the [`Docker` GitHub Action](.github/workflows/docker.yml): on every push to `main` it builds the image and tags it `latest` + commit SHA, and version tags (`v1.2.3`) produce semver-tagged images.
+
+```bash
+# Pull the latest image
+# docker pull ghcr.io/kimolalekan/gente-hr:latest
+
+# Run it against a Postgres database
+# docker run --rm -p 4001:4001 \
+#   -e DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5432/gente \
+#   -e AUTH_SESSION_SECRET=change-me \
+#   ghcr.io/kimolalekan/gente-hr:latest
+```
+
+Or run the full stack (app + database) with Compose — first boot applies migrations and seeds the demo data:
+
+```bash
+docker compose up -d --build
+```
+
+See `docs.md` → Deployment for details.
 
 ---
 
