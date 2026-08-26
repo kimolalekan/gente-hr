@@ -1,22 +1,37 @@
-import { NotificationPreferences } from '@/components/settings/notification-preferences';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { NotificationPreferences } from "@/components/settings/notification-preferences";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getTranslator } from "@/lib/server/i18n";
 
-export const metadata = { title: 'Notifications' };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("settings.notificationPrefs.title") };
+}
 
-export default function NotificationsSettingsPage() {
+export default async function NotificationsSettingsPage() {
+  const t = await getTranslator();
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {t("settings.notificationPrefs.title")}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose how you want to hear from Gente.
+          {t("settings.notificationPrefs.description")}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Notification preferences</CardTitle>
-          <CardDescription>Email and push delivery per event type.</CardDescription>
+          <CardTitle>{t("settings.notificationPrefs.cardTitle")}</CardTitle>
+          <CardDescription>
+            {t("settings.notificationPrefs.deliveryHint")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <NotificationPreferences />

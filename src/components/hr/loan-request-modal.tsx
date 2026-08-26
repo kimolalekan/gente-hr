@@ -7,12 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import {
-  formatCurrency,
-  LOAN_TYPE_LABELS,
-  type Loan,
-  type LoanType,
-} from "@/lib/hr-data";
+import { formatCurrency, type Loan, type LoanType } from "@/lib/hr-data";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 
 const LOAN_TYPES: LoanType[] = ["personal", "advance", "vehicle", "other"];
 const TERM_OPTIONS = [6, 12, 18, 24, 36];
@@ -99,6 +96,7 @@ export function LoanRequestModal({
   employeeId: string;
   onCreated: (loan: Loan) => void;
 }) {
+  const { t } = useTranslations();
   const [type, setType] = useState<LoanType>("personal");
   const [amount, setAmount] = useState("");
   const [termMonths, setTermMonths] = useState(12);
@@ -122,7 +120,7 @@ export function LoanRequestModal({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (amountValue <= 0) {
-      setError("Enter an amount greater than 0.");
+      setError(t("payroll.loans.amountError"));
       return;
     }
     setBusy(true);
@@ -152,7 +150,7 @@ export function LoanRequestModal({
         data?: ApiLoanRow;
       } | null;
       if (!body?.ok) {
-        apiError = body?.error ?? "Could not submit the request";
+        apiError = body?.error ?? t("payroll.loans.submitFailed");
         throw new Error(apiError);
       }
       onCreated(toLoan(body.data ?? {}, fallback));
@@ -174,12 +172,12 @@ export function LoanRequestModal({
     <Modal
       open={open}
       onClose={handleClose}
-      title="Request a loan"
-      description="Your request is submitted for approval by the People team."
+      title={t("payroll.loans.requestTitle")}
+      description={t("payroll.loans.requestDescription")}
       footer={
         <>
           <Button variant="outline" onClick={handleClose} disabled={busy}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" form="loan-request-form" disabled={busy}>
             {busy ? (
@@ -187,7 +185,7 @@ export function LoanRequestModal({
             ) : (
               <HandCoins className="size-4" />
             )}
-            {busy ? "Submitting…" : "Submit request"}
+            {busy ? t("common.submitting") : t("payroll.loans.submitRequest")}
           </Button>
         </>
       }
@@ -198,7 +196,7 @@ export function LoanRequestModal({
         className="space-y-4"
       >
         <div className="space-y-1.5">
-          <Label htmlFor="loan-type">Loan type</Label>
+          <Label htmlFor="loan-type">{t("payroll.loans.type")}</Label>
           <Select
             id="loan-type"
             value={type}
@@ -209,14 +207,14 @@ export function LoanRequestModal({
           >
             {LOAN_TYPES.map((option) => (
               <option key={option} value={option}>
-                {LOAN_TYPE_LABELS[option]}
+                {t(`statusLabels.loanType.${option}` as TranslationKey)}
               </option>
             ))}
           </Select>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="loan-amount">Amount</Label>
+          <Label htmlFor="loan-amount">{t("payroll.loans.amount")}</Label>
           <Input
             id="loan-amount"
             type="text"
@@ -227,13 +225,13 @@ export function LoanRequestModal({
             onChange={(event) =>
               setAmount(event.target.value.replace(/[^0-9]/g, ""))
             }
-            placeholder="e.g. 5000"
+            placeholder={t("payroll.loans.amountPlaceholder")}
             required
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="loan-term">Term (months)</Label>
+          <Label htmlFor="loan-term">{t("payroll.loans.termMonths")}</Label>
           <Select
             id="loan-term"
             value={String(termMonths)}
@@ -243,7 +241,7 @@ export function LoanRequestModal({
           >
             {TERM_OPTIONS.map((option) => (
               <option key={option} value={option}>
-                {option} months
+                {t("common.months", { n: option })}
               </option>
             ))}
           </Select>
@@ -251,7 +249,7 @@ export function LoanRequestModal({
 
         <div className="flex items-center justify-between rounded-lg border border-border bg-background/50 p-3 text-sm">
           <span className="text-muted-foreground">
-            Estimated monthly payment
+            {t("payroll.loans.estimatedEmi")}
           </span>
           <span className="font-semibold">
             {emi > 0 ? formatCurrency(emi) : "—"}

@@ -9,9 +9,13 @@ import {
   type Paginated,
 } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTranslator } from "@/lib/server/i18n";
 import type { Employee, PayrollBreakdown } from "@/lib/hr-data";
 
-export const metadata = { title: "Edit employee" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("metadata.editEmployee") };
+}
 
 export const dynamic = "force-dynamic";
 

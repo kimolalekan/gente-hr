@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
+import { useTranslations } from "@/lib/i18n/provider";
 
 /** Template row as returned by `/api/performance/templates`. */
 interface ApiTemplate {
@@ -69,6 +70,7 @@ export function PerformanceTemplatesManager({
 }: {
   templates: ApiTemplate[];
 }) {
+  const { t } = useTranslations();
   const [items, setItems] = useState(templates);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ApiTemplate | null>(null);
@@ -108,12 +110,12 @@ export function PerformanceTemplatesManager({
     event.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("A template name is required.");
+      setError(t("performance.nameRequired"));
       return;
     }
     const parsedSections = fromDrafts(sections);
     if (parsedSections.length === 0) {
-      setError("Add at least one section with a name.");
+      setError(t("performance.sectionsRequired"));
       return;
     }
     setBusy(true);
@@ -140,12 +142,12 @@ export function PerformanceTemplatesManager({
         data?: ApiTemplate;
       } | null;
       if (!body?.ok) {
-        apiError = body?.error ?? "Could not save the template";
+        apiError = body?.error ?? t("performance.saveFailed");
         throw new Error(apiError);
       }
       const saved = body.data;
       if (!saved) {
-        apiError = "Could not save the template";
+        apiError = t("performance.saveFailed");
         throw new Error(apiError);
       }
       setItems((current) =>
@@ -166,7 +168,7 @@ export function PerformanceTemplatesManager({
       setOpen(false);
     } catch {
       if (apiError) setError(apiError);
-      else setError("Could not save the template. Please try again.");
+      else setError(t("performance.saveFailedRetry"));
     } finally {
       setBusy(false);
     }
@@ -198,7 +200,7 @@ export function PerformanceTemplatesManager({
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm("Delete this template? This cannot be undone.")) return;
+    if (!window.confirm(t("performance.deleteConfirm"))) return;
     try {
       const response = await fetch(
         `/api/performance/templates/${encodeURIComponent(id)}`,
@@ -226,13 +228,13 @@ export function PerformanceTemplatesManager({
       <div className="flex justify-end">
         <Button onClick={openCreate}>
           <Plus className="size-4" />
-          New template
+          {t("performance.newTemplate")}
         </Button>
       </div>
 
       {items.length === 0 && (
         <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          No templates yet — create one to start a review from it.
+          {t("performance.templatesEmpty")}
         </p>
       )}
 
@@ -250,20 +252,26 @@ export function PerformanceTemplatesManager({
                 </p>
               </div>
               <Badge variant={template.active ? "success" : "secondary"}>
-                {template.active ? "Active" : "Inactive"}
+                {template.active
+                  ? t("settings.departments.active")
+                  : t("settings.departments.inactive")}
               </Badge>
             </div>
 
             <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <ListChecks className="size-3.5" />
-                {template.sections.length} section
-                {template.sections.length === 1 ? "" : "s"}
+                {t("performance.sectionCount", {
+                  n: template.sections.length,
+                  s: template.sections.length === 1 ? "" : "s",
+                })}
               </span>
               <span className="flex items-center gap-1">
                 <FileText className="size-3.5" />
-                {totalQuestions(template)} question
-                {totalQuestions(template) === 1 ? "" : "s"}
+                {t("performance.questionCount", {
+                  n: totalQuestions(template),
+                  s: totalQuestions(template) === 1 ? "" : "s",
+                })}
               </span>
             </div>
 
@@ -275,7 +283,7 @@ export function PerformanceTemplatesManager({
                 onClick={() => openEdit(template)}
               >
                 <Pencil className="size-3.5" />
-                Edit
+                {t("common.edit")}
               </Button>
               <Button
                 variant={template.active ? "outline" : "success"}
@@ -283,13 +291,17 @@ export function PerformanceTemplatesManager({
                 className="flex-1"
                 onClick={() => toggleActive(template.id, template.active)}
               >
-                {template.active ? "Deactivate" : "Activate"}
+                {template.active
+                  ? t("performance.deactivate")
+                  : t("performance.activate")}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 className="flex-none"
-                aria-label={`Delete ${template.name}`}
+                aria-label={t("performance.deleteTemplate", {
+                  name: template.name,
+                })}
                 onClick={() => remove(template.id)}
               >
                 <Trash2 className="size-3.5 text-destructive" />
@@ -302,11 +314,15 @@ export function PerformanceTemplatesManager({
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={editing ? "Edit template" : "New template"}
+        title={
+          editing ? t("performance.editTemplate") : t("performance.newTemplate")
+        }
         description={
           editing
-            ? `Update ${editing.name} — sections and questions.`
-            : "Sections with questions used to start a review."
+            ? t("performance.editTemplateDescription", {
+                name: editing.name,
+              })
+            : t("performance.newTemplateDescription")
         }
         footer={
           <>
@@ -315,7 +331,7 @@ export function PerformanceTemplatesManager({
               onClick={() => setOpen(false)}
               disabled={busy}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" form="template-form" disabled={busy}>
               {busy ? (
@@ -323,35 +339,39 @@ export function PerformanceTemplatesManager({
               ) : (
                 <Save className="size-4" />
               )}
-              {editing ? "Save changes" : "Create template"}
+              {editing
+                ? t("settings.branding.saveChanges")
+                : t("performance.createTemplate")}
             </Button>
           </>
         }
       >
         <form id="template-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="template-name">Name</Label>
+            <Label htmlFor="template-name">{t("common.name")}</Label>
             <Input
               id="template-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="e.g. Standard review"
+              placeholder={t("performance.namePlaceholder")}
               autoFocus
               required
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="template-description">Description</Label>
+            <Label htmlFor="template-description">
+              {t("common.description")}
+            </Label>
             <Input
               id="template-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="What is this template for?"
+              placeholder={t("performance.descriptionPlaceholder")}
             />
           </div>
 
           <div className="space-y-3">
-            <Label>Sections</Label>
+            <Label>{t("performance.sections")}</Label>
             {sections.map((section, index) => (
               <div
                 key={section.id}
@@ -366,9 +386,11 @@ export function PerformanceTemplatesManager({
                     onChange={(event) =>
                       updateSection(section.id, { name: event.target.value })
                     }
-                    placeholder="Section name (e.g. Achievements)"
+                    placeholder={t("performance.sectionNamePlaceholder")}
                     className="h-8"
-                    aria-label={`Section ${index + 1} name`}
+                    aria-label={t("performance.sectionNameAria", {
+                      n: index + 1,
+                    })}
                   />
                   <Button
                     type="button"
@@ -379,7 +401,9 @@ export function PerformanceTemplatesManager({
                         current.filter((item) => item.id !== section.id),
                       )
                     }
-                    aria-label={`Remove section ${index + 1}`}
+                    aria-label={t("performance.removeSectionAria", {
+                      n: index + 1,
+                    })}
                   >
                     <Trash2 className="size-4 text-destructive" />
                   </Button>
@@ -389,9 +413,11 @@ export function PerformanceTemplatesManager({
                   onChange={(event) =>
                     updateSection(section.id, { questions: event.target.value })
                   }
-                  placeholder={"One question per line…"}
+                  placeholder={t("performance.questionsPlaceholder")}
                   rows={3}
-                  aria-label={`Section ${index + 1} questions`}
+                  aria-label={t("performance.sectionQuestionsAria", {
+                    n: index + 1,
+                  })}
                 />
               </div>
             ))}
@@ -411,7 +437,7 @@ export function PerformanceTemplatesManager({
               }
             >
               <Plus className="size-3.5" />
-              Add section
+              {t("performance.addSection")}
             </Button>
           </div>
 

@@ -1,4 +1,10 @@
-# Local development database (OTP login requires Postgres — no in-memory fallback).
+# Gente HR — full stack via Docker: Postgres 16 + the Next.js app.
+#
+#   docker compose up -d --build   # builds the app, starts db + app
+#   docker compose logs -f app     # follow app logs
+#
+# First boot runs migrations and seeds the demo dataset (RUN_SEED=1).
+# Set a real AUTH_SESSION_SECRET for anything beyond local testing.
 services:
   db:
     image: postgres:16-alpine
@@ -16,6 +22,26 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gente-app
+    ports:
+      - "4001:4001"
+    environment:
+      PORT: 4001
+      DATABASE_URL: postgres://postgres:postgres@db:5432/gente
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-dev-secret-change-me-in-production}
+      BASE_URL: ${BASE_URL:-http://localhost:4001}
+      # Apply migrations + seed on boot (seed is idempotent).
+      RUN_MIGRATIONS: "1"
+      RUN_SEED: ${RUN_SEED:-1}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   gente-pgdata:

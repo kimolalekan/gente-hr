@@ -20,7 +20,9 @@ const DEFAULT_SENDER_NAME = "Gente HR";
 const DEFAULT_SENDER_EMAIL = "noreply@gente.dev";
 const DEFAULT_BATCH_LIMIT = 200;
 
-function maskCredentials(credentials: Record<string, string>): Record<string, string> {
+function maskCredentials(
+  credentials: Record<string, string>,
+): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(credentials)) {
     out[key] =
@@ -99,7 +101,7 @@ export const PUT = route(async (request: Request) => {
     const provider =
       body.provider !== undefined
         ? asString(body.provider).trim()
-        : existing?.provider ?? "console";
+        : (existing?.provider ?? "console");
     if (!PROVIDERS.includes(provider)) {
       throw new ApiError(422, "Invalid email provider");
     }
@@ -108,7 +110,10 @@ export const PUT = route(async (request: Request) => {
       ...(existing?.credentials ?? {}),
     };
     if (body.credentials !== undefined && body.credentials !== null) {
-      if (typeof body.credentials !== "object" || Array.isArray(body.credentials)) {
+      if (
+        typeof body.credentials !== "object" ||
+        Array.isArray(body.credentials)
+      ) {
         throw new ApiError(422, "credentials must be an object");
       }
       for (const [key, value] of Object.entries(body.credentials)) {
@@ -118,6 +123,14 @@ export const PUT = route(async (request: Request) => {
       }
     }
 
+    // ZeptoMail tokens are commonly pasted with the "Zoho-enczapikey " scheme
+    // prefix — store only the token itself.
+    if (provider === "zeptomail" && typeof credentials.apiToken === "string") {
+      credentials.apiToken = credentials.apiToken
+        .replace(/^zoho-enczapikey\s+/i, "")
+        .trim();
+    }
+
     const values = {
       tenantId: user.tenantId,
       provider,
@@ -125,23 +138,23 @@ export const PUT = route(async (request: Request) => {
       senderName:
         body.senderName !== undefined
           ? asString(body.senderName).trim() || DEFAULT_SENDER_NAME
-          : existing?.senderName ?? DEFAULT_SENDER_NAME,
+          : (existing?.senderName ?? DEFAULT_SENDER_NAME),
       senderEmail:
         body.senderEmail !== undefined
           ? asString(body.senderEmail).trim() || DEFAULT_SENDER_EMAIL
-          : existing?.senderEmail ?? DEFAULT_SENDER_EMAIL,
+          : (existing?.senderEmail ?? DEFAULT_SENDER_EMAIL),
       replyTo:
         body.replyTo !== undefined
           ? asString(body.replyTo).trim() || null
-          : existing?.replyTo ?? null,
+          : (existing?.replyTo ?? null),
       tracking:
         body.tracking !== undefined
           ? asBool(body.tracking)
-          : existing?.tracking ?? false,
+          : (existing?.tracking ?? false),
       batchLimit:
         body.batchLimit !== undefined
           ? asInt(body.batchLimit, DEFAULT_BATCH_LIMIT)
-          : existing?.batchLimit ?? DEFAULT_BATCH_LIMIT,
+          : (existing?.batchLimit ?? DEFAULT_BATCH_LIMIT),
     };
 
     const [row] = await db

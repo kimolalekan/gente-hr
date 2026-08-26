@@ -1,5 +1,9 @@
+"use client";
+
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import { cn } from "@/lib/utils";
 import type { PredefinedTheme, ThemeVar } from "@/lib/themes";
 
@@ -31,6 +35,7 @@ export function ThemeCard({
   onSelect: () => void;
   onApply: () => void;
 }) {
+  const { t } = useTranslations();
   return (
     <div
       className={cn(
@@ -50,7 +55,7 @@ export function ThemeCard({
               {theme.name}
             </p>
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-              {theme.description}
+              {t(`theme.descriptions.${theme.id}` as TranslationKey)}
             </p>
           </div>
           {selected && (
@@ -78,7 +83,7 @@ export function ThemeCard({
         className="mt-3 w-full"
         onClick={onApply}
       >
-        Apply
+        {t("theme.applyTheme")}
       </Button>
     </div>
   );
@@ -91,6 +96,7 @@ export function CustomThemeCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const { t } = useTranslations();
   return (
     <div
       className={cn(
@@ -107,10 +113,10 @@ export function CustomThemeCard({
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-sm font-semibold text-card-foreground">
-              Custom theme
+              {t("settings.branding.customTheme")}
             </p>
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-              Define your own brand colors with the color picker.
+              {t("settings.branding.customThemeCardHint")}
             </p>
           </div>
           {selected && (
@@ -135,7 +141,7 @@ export function CustomThemeCard({
         className="mt-3 w-full"
         onClick={onSelect}
       >
-        Customize
+        {t("settings.branding.customizeTheme")}
       </Button>
     </div>
   );

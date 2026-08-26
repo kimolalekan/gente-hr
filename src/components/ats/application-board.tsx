@@ -13,9 +13,11 @@ import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/lib/i18n/use-locale";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import {
   APPLICATION_STAGES,
-  APPLICATION_STAGE_LABELS,
   formatDate,
   type Application,
   type ApplicationStage,
@@ -46,6 +48,8 @@ export function ApplicationBoard({
   jobs: BoardJob[];
 }) {
   const router = useRouter();
+  const locale = useLocale();
+  const { t } = useTranslations();
   const [jobFilter, setJobFilter] = useState("");
   const [addOpen, setAddOpen] = useState(false);
 
@@ -65,11 +69,11 @@ export function ApplicationBoard({
           <Select
             value={jobFilter}
             onChange={(event) => setJobFilter(event.target.value)}
-            placeholder="All jobs"
-            aria-label="Filter by job"
+            placeholder={t("ats.applications.allJobs")}
+            aria-label={t("ats.applications.filterByJob")}
             className="w-56"
           >
-            <option value="">All jobs</option>
+            <option value="">{t("ats.applications.allJobs")}</option>
             {jobs.map((job) => (
               <option key={job.id} value={job.id}>
                 {job.title}
@@ -77,12 +81,15 @@ export function ApplicationBoard({
             ))}
           </Select>
           <Badge variant="secondary">
-            {visible.length} candidate{visible.length === 1 ? "" : "s"}
+            {t("ats.applications.candidateCount", {
+              n: visible.length,
+              s: visible.length === 1 ? "" : "s",
+            })}
           </Badge>
         </div>
         <Button onClick={() => setAddOpen(true)}>
           <UserPlus />
-          Add candidate
+          {t("ats.applications.addCandidate")}
         </Button>
       </div>
 
@@ -103,7 +110,9 @@ export function ApplicationBoard({
                     STAGE_TONE[stage],
                   )}
                 >
-                  {APPLICATION_STAGE_LABELS[stage]}
+                  {t(
+                    `statusLabels.applicationStage.${stage}` as TranslationKey,
+                  )}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {cards.length}
@@ -112,7 +121,7 @@ export function ApplicationBoard({
               <div className="flex flex-col gap-2 p-2">
                 {cards.length === 0 && (
                   <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-                    No candidates
+                    {t("ats.applications.noCandidates")}
                   </p>
                 )}
                 {cards.map((application) => (
@@ -133,10 +142,12 @@ export function ApplicationBoard({
                       </div>
                     </div>
                     <p className="mt-2 text-[11px] text-muted-foreground">
-                      Applied{" "}
-                      {formatDate(
-                        String(application.createdAt).slice(0, 10),
-                      )}
+                      {t("ats.applications.appliedDate", {
+                        date: formatDate(
+                          String(application.createdAt).slice(0, 10),
+                          locale,
+                        ),
+                      })}
                     </p>
                   </Link>
                 ))}
@@ -170,6 +181,7 @@ function AddCandidateModal({
   jobs: BoardJob[];
   onCreated: () => void;
 }) {
+  const { t } = useTranslations();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -182,14 +194,13 @@ function AddCandidateModal({
   });
 
   const update =
-    (key: keyof typeof form) =>
-    (event: { target: { value: string } }) =>
+    (key: keyof typeof form) => (event: { target: { value: string } }) =>
       setForm((current) => ({ ...current, [key]: event.target.value }));
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!form.jobId || !form.name.trim() || !form.email.trim()) {
-      setError("Job, candidate name and email are required.");
+      setError(t("ats.applications.requiredError"));
       return;
     }
     setSaving(true);
@@ -221,7 +232,9 @@ function AddCandidateModal({
       });
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add candidate.");
+      setError(
+        err instanceof Error ? err.message : t("ats.applications.addFailed"),
+      );
     } finally {
       setSaving(false);
     }
@@ -231,12 +244,12 @@ function AddCandidateModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Add candidate"
-      description="Manually add a candidate application."
+      title={t("ats.applications.addCandidate")}
+      description={t("ats.applications.addCandidateDescription")}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" form="add-candidate-form" disabled={saving}>
             {saving ? (
@@ -244,7 +257,7 @@ function AddCandidateModal({
             ) : (
               <Plus className="size-4" />
             )}
-            Add candidate
+            {t("ats.applications.addCandidate")}
           </Button>
         </>
       }
@@ -255,13 +268,13 @@ function AddCandidateModal({
         className="space-y-4"
       >
         <div className="space-y-1.5">
-          <Label htmlFor="candidate-job">Job</Label>
+          <Label htmlFor="candidate-job">{t("ats.applications.job")}</Label>
           <Select
             id="candidate-job"
             value={form.jobId}
             onChange={update("jobId")}
-            placeholder="Select a job…"
-            searchPlaceholder="Search jobs…"
+            placeholder={t("ats.applications.selectJob")}
+            searchPlaceholder={t("ats.applications.searchJobs")}
           >
             {jobs.map((job) => (
               <option key={job.id} value={job.id}>
@@ -271,54 +284,58 @@ function AddCandidateModal({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="candidate-name">Full name</Label>
+          <Label htmlFor="candidate-name">{t("ats.apply.name")}</Label>
           <Input
             id="candidate-name"
             value={form.name}
             onChange={update("name")}
-            placeholder="e.g. Ada Lovelace"
+            placeholder={t("ats.applications.namePlaceholder")}
             required
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="candidate-email">Email</Label>
+          <Label htmlFor="candidate-email">{t("common.email")}</Label>
           <Input
             id="candidate-email"
             type="email"
             value={form.email}
             onChange={update("email")}
-            placeholder="ada@example.com"
+            placeholder={t("ats.applications.emailPlaceholder")}
             required
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="candidate-phone">Phone</Label>
+          <Label htmlFor="candidate-phone">{t("common.phone")}</Label>
           <Input
             id="candidate-phone"
             type="tel"
             value={form.phone}
             onChange={update("phone")}
-            placeholder="+234 800 000 0000"
+            placeholder={t("ats.applications.phonePlaceholder")}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="candidate-resume">Resume link</Label>
+          <Label htmlFor="candidate-resume">
+            {t("ats.applications.resumeLink")}
+          </Label>
           <Input
             id="candidate-resume"
             type="url"
             value={form.resumeUrl}
             onChange={update("resumeUrl")}
-            placeholder="https://…"
+            placeholder={t("ats.applications.resumeUrlPlaceholder")}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="candidate-cover">Cover letter</Label>
+          <Label htmlFor="candidate-cover">
+            {t("ats.applications.coverLetter")}
+          </Label>
           <Textarea
             id="candidate-cover"
             rows={4}
             value={form.coverLetter}
             onChange={update("coverLetter")}
-            placeholder="Why they're a great fit…"
+            placeholder={t("ats.applications.coverLetterPlaceholder")}
           />
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}

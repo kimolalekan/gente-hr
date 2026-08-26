@@ -5,10 +5,14 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Bell, Menu } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
-import { TenantCreateModal } from "@/components/layout/tenant-create-modal";
+import {
+  TenantCreateModal,
+  type CreatedTenant,
+} from "@/components/layout/tenant-create-modal";
 import { TenantSwitcher } from "@/components/layout/tenant-switcher";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
+import { useTranslations } from "@/lib/i18n/provider";
 import type { SessionUser } from "@/lib/server/auth";
 import type { TenantSummary } from "@/lib/server/tenant-store";
 
@@ -50,6 +54,7 @@ export function AppHeader({
   tenants: TenantSummary[];
 }) {
   const pathname = usePathname();
+  const { t } = useTranslations();
   const [unread, setUnread] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
   // Organization list — refreshed from the API on mount and on navigation so
@@ -75,6 +80,35 @@ export function AppHeader({
 
   useEffect(() => refreshTenants(), [refreshTenants, pathname]);
 
+  // New org created → refresh the list, then switch the session into it so
+  // the app re-renders under the new tenant (theme, branding, data).
+  const handleTenantCreated = useCallback(
+    async (tenant: CreatedTenant) => {
+      refreshTenants();
+      try {
+        const response = await fetch("/api/auth/switch-tenant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tenantId: tenant.id }),
+        });
+        const body = (await response.json().catch(() => null)) as {
+          ok?: boolean;
+        } | null;
+        if (response.ok && body?.ok) {
+          // Full reload: the session cookie now points at the new org.
+          window.location.assign(
+            window.location.pathname +
+              window.location.search +
+              window.location.hash,
+          );
+        }
+      } catch {
+        // Best-effort — the new org still appears in the switcher.
+      }
+    },
+    [refreshTenants],
+  );
+
   // The logged-in user's unread notification count — refreshed on navigation
   // so reading notifications on the notifications page updates the badge.
   useEffect(() => {
@@ -94,49 +128,54 @@ export function AppHeader({
     };
   }, [pathname]);
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur sm:px-6">
-      <button
-        type="button"
-        onClick={onMenuClick}
-        aria-label="Open navigation menu"
-        aria-expanded={menuOpen}
-        aria-controls="app-sidebar"
-        className="inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted/60 md:hidden"
-      >
-        <Menu className="size-4" />
-      </button>
+    <>
+      <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur sm:px-6">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          aria-label={t("common.openNavigationMenu")}
+          aria-expanded={menuOpen}
+          aria-controls="app-sidebar"
+          className="inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted/60 md:hidden"
+        >
+          <Menu className="size-4" />
+        </button>
 
-      <TenantSwitcher
-        tenants={tenantList}
-        currentTenantId={user.tenantId}
-        canCreate={isSuperAdmin}
-        onCreate={() => setCreateOpen(true)}
-      />
+        <TenantSwitcher
+          tenants={tenantList}
+          currentTenantId={user.tenantId}
+          canCreate={isSuperAdmin}
+          onCreate={() => setCreateOpen(true)}
+        />
 
+        <div className="flex-1" />
+
+        <Link
+          href="/notifications"
+          aria-label={t("notifications.title")}
+          className="relative inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted/60"
+        >
+          <Bell className="size-4" />
+          {unread > 0 && (
+            <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </Link>
+
+        <ThemeToggle isAdmin={isAdmin} />
+        <Avatar name={user.name} />
+        <SignOutButton />
+      </header>
+
+      {/* Outside the header: the header's backdrop-blur would otherwise become
+          the containing block for the modal's `fixed` positioning, breaking
+          its viewport centering. */}
       <TenantCreateModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => refreshTenants()}
+        onCreated={handleTenantCreated}
       />
-
-      <div className="flex-1" />
-
-      <Link
-        href="/notifications"
-        aria-label="Notifications"
-        className="relative inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted/60"
-      >
-        <Bell className="size-4" />
-        {unread > 0 && (
-          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white">
-            {unread > 9 ? "9+" : unread}
-          </span>
-        )}
-      </Link>
-
-      <ThemeToggle isAdmin={isAdmin} />
-      <Avatar name={user.name} />
-      <SignOutButton />
-    </header>
+    </>
   );
 }

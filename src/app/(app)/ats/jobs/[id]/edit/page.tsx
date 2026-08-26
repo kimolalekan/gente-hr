@@ -6,9 +6,13 @@ import {
   type Paginated,
 } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTranslator } from "@/lib/server/i18n";
 import type { JobStatus } from "@/lib/hr-data";
 
-export const metadata = { title: "Edit job" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("ats.jobs.editJob") };
+}
 
 export const dynamic = "force-dynamic";
 

@@ -14,9 +14,14 @@ import {
 import { formatCurrency } from "@/lib/hr-data";
 import { getCurrentUser } from "@/lib/server/auth";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
+import { getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Payslip" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("metadata.payslip") };
+}
 
 /** Payslip detail from `GET /api/payroll/payslips/[id]`. */
 interface PayslipDetail {
@@ -58,6 +63,8 @@ export default async function PayslipDetailPage({
   ).catch(() => null);
   if (!payslip) notFound();
 
+  const t = await getTranslator();
+
   // Employees can only open their own payslips (the API also enforces this).
   if (user?.role === "member") {
     const me = await apiGet<{ id: string }>("/api/employees/me").catch(
@@ -81,17 +88,20 @@ export default async function PayslipDetailPage({
     .reduce((sum, row) => sum + row.gross, 0);
 
   const earnings = [
-    { label: "Basic salary", value: payslip.basic },
-    { label: "HRA", value: payslip.hra },
-    { label: "Transport allowance", value: payslip.allowances },
-    { label: "Bonus", value: payslip.bonus },
+    { label: t("payroll.payslips.basic"), value: payslip.basic },
+    { label: t("payroll.payslips.hra"), value: payslip.hra },
+    {
+      label: t("payroll.payslips.transportAllowance"),
+      value: payslip.allowances,
+    },
+    { label: t("payroll.payslips.bonus"), value: payslip.bonus },
   ];
   const deductionRows = [
-    { label: "Income tax", value: payslip.tax },
-    { label: "Pension", value: payslip.pension },
-    { label: "Insurance", value: payslip.insurance },
+    { label: t("payroll.payslips.incomeTax"), value: payslip.tax },
+    { label: t("payroll.payslips.pension"), value: payslip.pension },
+    { label: t("payroll.payslips.insurance"), value: payslip.insurance },
     ...(payslip.loanEmi > 0
-      ? [{ label: "Loan EMI", value: payslip.loanEmi }]
+      ? [{ label: t("payroll.payslips.loanEmi"), value: payslip.loanEmi }]
       : []),
   ];
 
@@ -104,14 +114,14 @@ export default async function PayslipDetailPage({
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
-            Payslips
+            {t("payroll.payslips.title")}
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
-              Payslip — {payslip.period}
+              {t("payroll.payslips.detailTitle", { period: payslip.period })}
             </h1>
             <Badge variant={payslip.status === "paid" ? "success" : "warning"}>
-              {payslip.status}
+              {t(`statusLabels.payslip.${payslip.status}` as TranslationKey)}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -123,7 +133,7 @@ export default async function PayslipDetailPage({
           className={cn(buttonVariants({ variant: "outline" }))}
         >
           <FileDown />
-          Download PDF
+          {t("payroll.payslips.downloadPdf")}
         </Link>
       </div>
 
@@ -133,9 +143,11 @@ export default async function PayslipDetailPage({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Receipt className="size-4 text-primary" />
-                Earnings
+                {t("payroll.payslips.earnings")}
               </CardTitle>
-              <CardDescription>Breakdown of gross pay.</CardDescription>
+              <CardDescription>
+                {t("payroll.payslips.earningsDescription")}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="divide-y divide-border">
@@ -151,7 +163,7 @@ export default async function PayslipDetailPage({
                   </div>
                 ))}
                 <div className="flex items-center justify-between py-2.5 text-sm font-semibold">
-                  <span>Gross pay</span>
+                  <span>{t("payroll.grossPay")}</span>
                   <span>{formatCurrency(payslip.gross)}</span>
                 </div>
               </div>
@@ -160,9 +172,9 @@ export default async function PayslipDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Deductions</CardTitle>
+              <CardTitle>{t("payroll.deductions")}</CardTitle>
               <CardDescription>
-                Taxes, pension and other deductions.
+                {t("payroll.payslips.deductionsDescription")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -179,7 +191,7 @@ export default async function PayslipDetailPage({
                   </div>
                 ))}
                 <div className="flex items-center justify-between py-2.5 text-sm font-semibold">
-                  <span>Total deductions</span>
+                  <span>{t("payroll.payslips.totalDeductions")}</span>
                   <span>−{formatCurrency(deductions)}</span>
                 </div>
               </div>
@@ -190,25 +202,29 @@ export default async function PayslipDetailPage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Summary</CardTitle>
-              <CardDescription>Net pay and YTD.</CardDescription>
+              <CardTitle>{t("payroll.payslips.summary")}</CardTitle>
+              <CardDescription>
+                {t("payroll.payslips.summaryDescription")}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="rounded-lg border border-success/30 bg-success/10 p-4 text-center">
-                <p className="text-xs text-muted-foreground">Net pay</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("payroll.payslips.netPay")}
+                </p>
                 <p className="mt-1 text-3xl font-bold text-success">
                   {formatCurrency(payslip.net)}
                 </p>
               </div>
               <div className="flex items-center justify-between text-muted-foreground">
-                <span>Year-to-date gross</span>
+                <span>{t("payroll.payslips.ytdGross")}</span>
                 <span className="font-medium text-foreground">
                   {formatCurrency(ytdGross)}
                 </span>
               </div>
               {payslip.loanEmi > 0 && (
                 <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Loan EMI included</span>
+                  <span>{t("payroll.payslips.loanEmiIncluded")}</span>
                   <span className="font-medium text-foreground">
                     {formatCurrency(payslip.loanEmi)}
                   </span>
@@ -219,8 +235,10 @@ export default async function PayslipDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Employee</CardTitle>
-              <CardDescription>Payslip recipient.</CardDescription>
+              <CardTitle>{t("payroll.payslips.employee")}</CardTitle>
+              <CardDescription>
+                {t("payroll.payslips.recipient")}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">

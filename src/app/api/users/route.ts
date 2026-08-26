@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import {
   asInt,
@@ -14,8 +14,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/users — admin: list admin users (all-tenant access), each with
- * the tenants they are an admin of. Supports ?q= and pagination.
+ * GET /api/users — admin: list team members with per-tenant access
+ * (roles admin + hr), each with the tenants they belong to and their
+ * highest role. Supports ?q= and pagination.
  */
 export const GET = route(async (request: Request) => {
   await requireRole(["admin"]);
@@ -27,7 +28,9 @@ export const GET = route(async (request: Request) => {
   const { db, pool } = await getDb();
   const { users, userTenants, tenants } = await import("@db/schema");
   try {
-    const conditions: (SQL | undefined)[] = [eq(userTenants.role, "admin")];
+    const conditions: (SQL | undefined)[] = [
+      inArray(userTenants.role, ["admin", "hr"]),
+    ];
     if (q) {
       conditions.push(
         or(ilike(users.name, `%${q}%`), ilike(users.email, `%${q}%`)),
@@ -44,12 +47,13 @@ export const GET = route(async (request: Request) => {
         createdAt: users.createdAt,
         tenantId: tenants.id,
         tenantName: tenants.name,
+        role: userTenants.role,
       })
       .from(userTenants)
       .innerJoin(users, eq(users.id, userTenants.userId))
       .innerJoin(tenants, eq(tenants.id, userTenants.tenantId))
       .where(and(...conditions))
-      .orderBy(desc(users.createdAt));
+      .orderBy(desc(users.createdAt), asc(tenants.name));
 
     const grouped = new Map<
       string,
@@ -60,6 +64,7 @@ export const GET = route(async (request: Request) => {
         status: string;
         superAdmin: boolean;
         createdAt: Date;
+        role: "admin" | "hr";
         tenants: { tenantId: string; name: string }[];
       }
     >();
@@ -73,10 +78,13 @@ export const GET = route(async (request: Request) => {
           status: r.status,
           superAdmin: r.superAdmin,
           createdAt: r.createdAt,
+          role: r.role === "hr" ? "hr" : "admin",
           tenants: [],
         };
         grouped.set(r.id, entry);
       }
+      // Highest role wins when a user holds multiple memberships.
+      if (r.role === "admin") entry.role = "admin";
       entry.tenants.push({ tenantId: r.tenantId, name: r.tenantName });
     }
 

@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
-import { useState, type ReactNode } from 'react';
-import { Check } from 'lucide-react';
-import { Button, type ButtonProps } from '@/components/ui/button';
+import { useState, type ReactNode } from "react";
+import { Check } from "lucide-react";
+import { Button, type ButtonProps } from "@/components/ui/button";
+import { useTranslations } from "@/lib/i18n/provider";
 
 /**
  * Button that briefly shows a success state after being pressed — used for
@@ -11,9 +12,15 @@ import { Button, type ButtonProps } from '@/components/ui/button';
 export function ActionButton({
   children,
   onAction,
-  doneLabel = 'Done',
+  doneLabel,
   ...props
-}: ButtonProps & { onAction?: () => void; doneLabel?: string; children: ReactNode }) {
+}: ButtonProps & {
+  onAction?: () => void;
+  doneLabel?: string;
+  children: ReactNode;
+}) {
+  const { t } = useTranslations();
+  const label = doneLabel ?? t("common.done");
   const [done, setDone] = useState(false);
 
   return (
@@ -28,7 +35,7 @@ export function ActionButton({
       {done ? (
         <>
           <Check />
-          {doneLabel}
+          {label}
         </>
       ) : (
         children

@@ -11,7 +11,12 @@
 import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 import type { SessionUser } from "./auth";
-import { sendOtpEmail, type OtpDelivery } from "./email";
+import {
+  getTenantEmailSettings,
+  sendOtpEmail,
+  type OtpDelivery,
+} from "./email";
+import { getTenantBranding } from "./email-template";
 import {
   generateOtpCode,
   hashToken,
@@ -184,10 +189,17 @@ async function requestOtpDb(email: string): Promise<OtpRequestResult> {
       attempts: 0,
     });
 
+    const settings = await getTenantEmailSettings(user.tenantId);
     const delivery = await sendOtpEmail({
       to: user.email,
       code,
       expiresInMinutes: OTP_CODE_TTL_MINUTES,
+      branding: await getTenantBranding(user.tenantId),
+      // Sign-in codes go through the user's tenant email configuration too.
+      provider: settings.provider,
+      credentials: settings.credentials,
+      fromName: settings.senderName,
+      fromEmail: settings.senderEmail,
     });
     return {
       ok: true,

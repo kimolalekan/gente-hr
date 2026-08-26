@@ -8,12 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
-import {
-  formatDate,
-  LEAVE_TYPE_LABELS,
-  type LeaveStatus,
-  type LeaveType,
-} from "@/lib/hr-data";
+import { useLocale } from "@/lib/i18n/use-locale";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
+import { formatDate, type LeaveStatus, type LeaveType } from "@/lib/hr-data";
 
 const STATUS_VARIANT: Record<
   LeaveStatus,
@@ -95,6 +93,8 @@ export function LeaveRequestsTable({
   const [extending, setExtending] = useState<LeaveRow | null>(null);
   const [extraDays, setExtraDays] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const locale = useLocale();
+  const { t } = useTranslations();
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const runAction = async (
@@ -114,7 +114,7 @@ export function LeaveRequestsTable({
         data?: ApiLeaveRow;
       } | null;
       if (!body?.ok || !body.data) {
-        setError(body?.error ?? `Could not ${action} this request`);
+        setError(body?.error ?? t("errors.actionFailed", { action }));
         return;
       }
       const row = body.data;
@@ -124,7 +124,7 @@ export function LeaveRequestsTable({
         ),
       );
     } catch {
-      setError(`Could not ${action} this request`);
+      setError(t("errors.actionFailed", { action }));
     } finally {
       setBusyId(null);
     }
@@ -141,7 +141,7 @@ export function LeaveRequestsTable({
     if (!extending) return;
     const days = Math.round(Number(extraDays));
     if (!Number.isFinite(days) || days < 1 || days > 60) {
-      setError("Enter a number of days between 1 and 60.");
+      setError(t("leave.invalidDays"));
       return;
     }
     setBusyId(extending.id);
@@ -158,7 +158,7 @@ export function LeaveRequestsTable({
         data?: ApiLeaveRow;
       } | null;
       if (!body?.ok || !body.data) {
-        setError(body?.error ?? "Could not extend this request");
+        setError(body?.error ?? t("errors.extendFailed"));
         return;
       }
       const row = body.data;
@@ -169,7 +169,7 @@ export function LeaveRequestsTable({
       );
       setExtending(null);
     } catch {
-      setError("Could not extend this request");
+      setError(t("errors.extendFailed"));
     } finally {
       setBusyId(null);
     }
@@ -186,12 +186,16 @@ export function LeaveRequestsTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th className="py-2.5 pr-4 font-medium">Employee</th>
-              <th className="px-4 py-2.5 font-medium">Type</th>
-              <th className="px-4 py-2.5 font-medium">Dates</th>
-              <th className="px-4 py-2.5 font-medium">Days</th>
-              <th className="px-4 py-2.5 font-medium">Status</th>
-              <th className="py-2.5 pl-4 text-right font-medium">Actions</th>
+              <th className="py-2.5 pr-4 font-medium">
+                {t("onboarding.employee")}
+              </th>
+              <th className="px-4 py-2.5 font-medium">{t("leave.type")}</th>
+              <th className="px-4 py-2.5 font-medium">{t("common.dates")}</th>
+              <th className="px-4 py-2.5 font-medium">{t("leave.days")}</th>
+              <th className="px-4 py-2.5 font-medium">{t("common.status")}</th>
+              <th className="py-2.5 pl-4 text-right font-medium">
+                {t("common.actions")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -211,22 +215,27 @@ export function LeaveRequestsTable({
                     </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {LEAVE_TYPE_LABELS[request.type]}
+                    {t(
+                      `statusLabels.leaveType.${request.type}` as TranslationKey,
+                    )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {formatDate(request.start)} → {formatDate(request.end)}
+                    {formatDate(request.start, locale)} →{" "}
+                    {formatDate(request.end, locale)}
                   </td>
                   <td className="px-4 py-3">{request.days}</td>
                   <td className="px-4 py-3">
                     <Badge variant={STATUS_VARIANT[request.status]}>
-                      {request.status}
+                      {t(
+                        `statusLabels.leaveStatus.${request.status}` as TranslationKey,
+                      )}
                     </Badge>
                   </td>
                   <td className="py-3 pl-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <Link href={`/leave/${request.id}`}>
                         <Button variant="outline" size="sm">
-                          View
+                          {t("common.view")}
                         </Button>
                       </Link>
                       {!readOnly && actionable && (
@@ -239,7 +248,7 @@ export function LeaveRequestsTable({
                               onClick={() => runAction(request.id, "approve")}
                             >
                               <Check className="size-3.5" />
-                              Approve
+                              {t("leave.approve")}
                             </Button>
                           )}
                           <Button
@@ -249,7 +258,7 @@ export function LeaveRequestsTable({
                             onClick={() => openExtend(request)}
                           >
                             <CalendarPlus className="size-3.5" />
-                            Extend
+                            {t("leave.extend")}
                           </Button>
                           <Button
                             variant="outline"
@@ -258,7 +267,7 @@ export function LeaveRequestsTable({
                             onClick={() => runAction(request.id, "cancel")}
                           >
                             <X className="size-3.5" />
-                            Cancel
+                            {t("common.cancel")}
                           </Button>
                         </>
                       )}
@@ -274,20 +283,26 @@ export function LeaveRequestsTable({
       <Modal
         open={extending !== null}
         onClose={() => setExtending(null)}
-        title="Extend leave"
+        title={t("leave.extendTitle")}
         description={
           extending
-            ? `${formatDate(extending.start)} → ${formatDate(extending.end)} · ${extending.days} days`
+            ? `${formatDate(extending.start, locale)} → ${formatDate(extending.end, locale)} · ${t(
+                "leave.daysCount",
+                {
+                  days: extending.days,
+                  s: extending.days === 1 ? "" : "s",
+                },
+              )}`
             : undefined
         }
         footer={
           <>
             <Button variant="outline" onClick={() => setExtending(null)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" form="extend-leave-form">
               <CalendarPlus className="size-4" />
-              Extend leave
+              {t("leave.extendTitle")}
             </Button>
           </>
         }
@@ -298,7 +313,7 @@ export function LeaveRequestsTable({
           className="space-y-4"
         >
           <div className="space-y-1.5">
-            <Label htmlFor="extend-days">Additional days</Label>
+            <Label htmlFor="extend-days">{t("leave.additionalDays")}</Label>
             <Input
               id="extend-days"
               type="number"
@@ -306,12 +321,12 @@ export function LeaveRequestsTable({
               max={60}
               value={extraDays}
               onChange={(event) => setExtraDays(event.target.value)}
-              placeholder="e.g. 3"
+              placeholder={t("leave.additionalDaysPlaceholder")}
               autoFocus
               required
             />
             <p className="text-xs text-muted-foreground">
-              The end date and day count are updated by this amount.
+              {t("leave.extendHint")}
             </p>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}

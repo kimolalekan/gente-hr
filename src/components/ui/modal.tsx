@@ -1,7 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useRef, type ReactNode } from "react";
+import { X } from "lucide-react";
+import { useTranslations } from "@/lib/i18n/provider";
 
 interface ModalProps {
   open: boolean;
@@ -16,30 +17,46 @@ interface ModalProps {
  * Accessible modal: closes on Escape / backdrop click, locks body scroll,
  * moves focus into the dialog on open and restores it on close.
  */
-export function Modal({ open, onClose, title, description, children, footer }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+}: ModalProps) {
+  const { t } = useTranslations();
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  // Keep the latest onClose without re-running the open/close effect — a
+  // parent re-render must not steal focus from fields inside the dialog.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
 
     previousFocusRef.current = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
+    // Focus the dialog unless focus already landed inside it (e.g. an
+    // auto-focused field).
+    if (!panelRef.current?.contains(document.activeElement)) {
+      panelRef.current?.focus();
+    }
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === "Escape") onCloseRef.current();
     };
-    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener("keydown", onKeyDown);
 
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
 
     return () => {
-      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
       previousFocusRef.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -63,12 +80,16 @@ export function Modal({ open, onClose, title, description, children, footer }: M
             <h2 id="modal-title" className="text-lg font-semibold">
               {title}
             </h2>
-            {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
+            {description && (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {description}
+              </p>
+            )}
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close dialog"
+            aria-label={t("common.closeDialog")}
             className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="size-4" />
@@ -78,7 +99,9 @@ export function Modal({ open, onClose, title, description, children, footer }: M
         <div className="overflow-y-auto px-5 py-4">{children}</div>
 
         {footer && (
-          <div className="flex justify-end gap-2 border-t border-border px-5 py-3">{footer}</div>
+          <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+            {footer}
+          </div>
         )}
       </div>
     </div>

@@ -27,9 +27,10 @@ export const config = {
      * onboarding completion page, first-run setup (linked from invite
      * emails / provisioning) and the public ATS apply page (candidate
      * applications to open jobs), API route handlers (they authenticate
-     * themselves), and static assets. The authenticated /onboarding pages are
-     * still guarded by the (app) layout.
+     * themselves), and static assets (favicon/icon + the vendored flag SVGs
+     * under /flags/*). The authenticated /onboarding pages are still guarded
+     * by the (app) layout.
      */
-    "/((?!api|login|setup|onboarding|apply|_next/static|_next/image|favicon.ico|icon.svg).*)",
+    "/((?!api|login|setup|onboarding|apply|flags|_next/static|_next/image|favicon.ico|icon.svg).*)",
   ],
 };

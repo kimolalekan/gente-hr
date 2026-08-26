@@ -15,7 +15,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency, LOAN_TYPE_LABELS, type Loan } from "@/lib/hr-data";
+import { formatCurrency, type Loan } from "@/lib/hr-data";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 
 const STATUS_VARIANT: Record<
   string,
@@ -42,6 +44,7 @@ export function MyLoans({
   from: string;
   to: string;
 }) {
+  const { t } = useTranslations();
   const [loans, setLoans] = useState(initialLoans);
   const [open, setOpen] = useState(false);
 
@@ -57,13 +60,13 @@ export function MyLoans({
   return (
     <>
       <PageHeader
-        title="My loans"
-        description="Your loans, advances and repayment."
+        title={t("payroll.loans.myTitle")}
+        description={t("payroll.loans.myDescription")}
       >
         <DateRangePicker from={from} to={to} />
         <Button onClick={() => setOpen(true)}>
           <HandCoins className="size-4" />
-          Request loan
+          {t("payroll.loans.request")}
         </Button>
       </PageHeader>
 
@@ -71,7 +74,7 @@ export function MyLoans({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <HandCoins className="size-4" /> Active loans
+              <HandCoins className="size-4" /> {t("payroll.loans.activeLoans")}
             </p>
             <p className="mt-1 text-2xl font-bold">{active}</p>
           </CardContent>
@@ -79,7 +82,8 @@ export function MyLoans({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Landmark className="size-4" /> Outstanding balance
+              <Landmark className="size-4" />{" "}
+              {t("payroll.loans.outstandingBalance")}
             </p>
             <p className="mt-1 text-2xl font-bold text-primary">
               {formatCurrency(outstanding)}
@@ -89,7 +93,8 @@ export function MyLoans({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Hourglass className="size-4" /> Pending approval
+              <Hourglass className="size-4" />{" "}
+              {t("payroll.loans.pendingApproval")}
             </p>
             <p className="mt-1 text-2xl font-bold text-warning">{pending}</p>
           </CardContent>
@@ -98,34 +103,40 @@ export function MyLoans({
 
       <Card>
         <CardHeader>
-          <CardTitle>My loans</CardTitle>
+          <CardTitle>{t("payroll.loans.myTitle")}</CardTitle>
           <CardDescription>
             {loans.length === 0
-              ? "No loans on file yet."
-              : "Your approved, active and repaid loans."}
+              ? t("payroll.loans.empty")
+              : t("payroll.loans.allDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {loans.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No loans yet — use &quot;Request loan&quot; to apply.
+              {t("payroll.loans.emptyAction")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                    <th className="py-2.5 pr-4 font-medium">Type</th>
-                    <th className="px-4 py-2.5 font-medium">Amount</th>
-                    <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
-                      EMI
+                    <th className="py-2.5 pr-4 font-medium">
+                      {t("payroll.loans.type")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("payroll.loans.amount")}
                     </th>
                     <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
-                      Remaining
+                      {t("payroll.loans.monthlyEmi")}
                     </th>
-                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
+                      {t("payroll.loans.remaining")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("common.status")}
+                    </th>
                     <th className="py-2.5 pl-4 text-right font-medium">
-                      Details
+                      {t("common.details")}
                     </th>
                   </tr>
                 </thead>
@@ -141,7 +152,9 @@ export function MyLoans({
                         className="border-b border-border last:border-0"
                       >
                         <td className="py-3 pr-4 font-medium">
-                          {LOAN_TYPE_LABELS[loan.type]}
+                          {t(
+                            `statusLabels.loanType.${loan.type}` as TranslationKey,
+                          )}
                         </td>
                         <td className="px-4 py-3 font-medium">
                           {formatCurrency(loan.amount)}
@@ -156,13 +169,15 @@ export function MyLoans({
                         </td>
                         <td className="px-4 py-3">
                           <Badge variant={STATUS_VARIANT[loan.status]}>
-                            {loan.status}
+                            {t(
+                              `statusLabels.loan.${loan.status}` as TranslationKey,
+                            )}
                           </Badge>
                         </td>
                         <td className="py-3 pl-4 text-right">
                           <Link href={`/payroll/loans/${loan.id}`}>
                             <Button variant="outline" size="sm">
-                              View details
+                              {t("common.viewDetails")}
                             </Button>
                           </Link>
                         </td>

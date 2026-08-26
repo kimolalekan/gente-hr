@@ -9,16 +9,27 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 
-const ITEMS: Array<{ href: string; label: string; icon: LucideIcon }> = [
-  { href: "/ats/jobs", label: "Jobs", icon: BriefcaseBusiness },
-  { href: "/ats/applications", label: "Applications", icon: ClipboardList },
-  { href: "/ats/quizzes", label: "Quizzes", icon: ListChecks },
+const ITEMS: Array<{
+  href: string;
+  labelKey: TranslationKey;
+  icon: LucideIcon;
+}> = [
+  { href: "/ats/jobs", labelKey: "ats.jobs.title", icon: BriefcaseBusiness },
+  {
+    href: "/ats/applications",
+    labelKey: "ats.applications.title",
+    icon: ClipboardList,
+  },
+  { href: "/ats/quizzes", labelKey: "ats.quizzes.title", icon: ListChecks },
 ];
 
 /** Recruiting sub-navigation — jobs and the application pipeline. */
 export function AtsNav() {
   const pathname = usePathname();
+  const { t } = useTranslations();
 
   return (
     <nav className="flex w-full shrink-0 flex-row gap-1 overflow-x-auto pb-2 lg:w-52 lg:flex-col lg:pb-0">
@@ -38,7 +49,7 @@ export function AtsNav() {
             )}
           >
             <Icon className="size-4" />
-            {item.label}
+            {t(item.labelKey)}
           </Link>
         );
       })}

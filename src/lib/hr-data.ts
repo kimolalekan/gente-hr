@@ -461,7 +461,14 @@ export const LOAN_TYPE_LABELS: Record<LoanType, string> = {
 
 export interface AppNotification {
   id: string;
-  type: "leave" | "onboarding" | "payroll" | "loan" | "performance" | "system";
+  type:
+    | "leave"
+    | "onboarding"
+    | "payroll"
+    | "loan"
+    | "performance"
+    | "interview"
+    | "system";
   title: string;
   body: string;
   time: string;
@@ -476,6 +483,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<AppNotification["type"], string> =
     payroll: "Payroll",
     loan: "Loans",
     performance: "Performance",
+    interview: "Interviews",
     system: "System",
   };
 
@@ -513,10 +521,4 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
-export function formatDate(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+export { formatDate } from "./i18n/dates";

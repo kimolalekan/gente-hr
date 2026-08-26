@@ -13,14 +13,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTranslator } from "@/lib/server/i18n";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
-import {
-  EMPLOYMENT_TYPE_LABELS,
-  type Job,
-  type JobStatus,
-} from "@/lib/hr-data";
+import type { TranslationKey } from "@/lib/i18n/types";
+import { type Job, type JobStatus } from "@/lib/hr-data";
 
-export const metadata = { title: "Jobs" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("ats.jobs.title") };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ function statusVariant(status: JobStatus): "success" | "warning" | "secondary" {
 }
 
 export default async function JobsPage() {
+  const t = await getTranslator();
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/");
 
@@ -49,15 +51,15 @@ export default async function JobsPage() {
   return (
     <>
       <PageHeader
-        title="Jobs"
-        description="Job postings and the applications they attract."
+        title={t("ats.jobs.title")}
+        description={t("ats.jobs.description")}
       >
         <Link
           href="/ats/jobs/new"
           className={buttonVariants({ variant: "default" })}
         >
           <Plus />
-          New job
+          {t("ats.jobs.newJob")}
         </Link>
       </PageHeader>
 
@@ -65,21 +67,23 @@ export default async function JobsPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-sm font-medium text-muted-foreground">
-              Open jobs
+              {t("ats.jobs.openJobs")}
             </p>
             <p className="mt-1 text-2xl font-bold text-success">{openCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm font-medium text-muted-foreground">Drafts</p>
+            <p className="text-sm font-medium text-muted-foreground">
+              {t("ats.jobs.draftJobs")}
+            </p>
             <p className="mt-1 text-2xl font-bold">{draftCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm font-medium text-muted-foreground">
-              Applications
+              {t("ats.jobs.applications")}
             </p>
             <p className="mt-1 text-2xl font-bold">{totalApplications}</p>
           </CardContent>
@@ -88,25 +92,23 @@ export default async function JobsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All jobs</CardTitle>
-          <CardDescription>
-            Open jobs accept applications via their public link.
-          </CardDescription>
+          <CardTitle>{t("ats.jobs.allJobs")}</CardTitle>
+          <CardDescription>{t("ats.jobs.publicLinkHint")}</CardDescription>
         </CardHeader>
         <CardContent>
           {jobs.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-center">
               <BriefcaseBusiness className="size-8 text-muted-foreground" />
-              <p className="font-medium">No jobs yet</p>
+              <p className="font-medium">{t("ats.jobs.empty")}</p>
               <p className="text-sm text-muted-foreground">
-                Create your first job posting to start recruiting.
+                {t("ats.jobs.emptyHint")}
               </p>
               <Link
                 href="/ats/jobs/new"
                 className={buttonVariants({ size: "sm" })}
               >
                 <Plus />
-                New job
+                {t("ats.jobs.newJob")}
               </Link>
             </div>
           ) : (
@@ -114,17 +116,23 @@ export default async function JobsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                    <th className="py-2.5 pr-4 font-medium">Job</th>
+                    <th className="py-2.5 pr-4 font-medium">
+                      {t("ats.applications.job")}
+                    </th>
                     <th className="hidden px-4 py-2.5 font-medium md:table-cell">
-                      Location
+                      {t("ats.jobs.location")}
                     </th>
                     <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
-                      Type
+                      {t("ats.jobs.type")}
                     </th>
-                    <th className="px-4 py-2.5 font-medium">Applications</th>
-                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("ats.jobs.applications")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("common.status")}
+                    </th>
                     <th className="py-2.5 pl-4 text-right font-medium">
-                      Actions
+                      {t("common.actions")}
                     </th>
                   </tr>
                 </thead>
@@ -142,7 +150,7 @@ export default async function JobsPage() {
                           {job.title}
                         </Link>
                         <p className="truncate text-xs text-muted-foreground">
-                          {job.department ?? "General"}
+                          {job.department ?? t("common.general")}
                         </p>
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
@@ -156,13 +164,16 @@ export default async function JobsPage() {
                         )}
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                        {EMPLOYMENT_TYPE_LABELS[job.employmentType] ??
-                          job.employmentType}
+                        {t(
+                          `statusLabels.employmentType.${job.employmentType}` as TranslationKey,
+                        )}
                       </td>
                       <td className="px-4 py-3">{job.applications}</td>
                       <td className="px-4 py-3">
                         <Badge variant={statusVariant(job.status)}>
-                          {job.status}
+                          {t(
+                            `statusLabels.job.${job.status}` as TranslationKey,
+                          )}
                         </Badge>
                       </td>
                       <td className="py-3 pl-4">
@@ -172,7 +183,7 @@ export default async function JobsPage() {
                             href={`/ats/jobs/${job.id}`}
                             className="text-xs font-medium text-primary hover:underline"
                           >
-                            View
+                            {t("common.view")}
                           </Link>
                         </div>
                       </td>

@@ -19,47 +19,65 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ThemeInfo } from "@/components/theme/theme-info";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/lib/server/auth";
 
 interface NavItem {
   id: string;
-  label: string;
+  /** Translation key for the label (nav.*). */
+  labelKey: TranslationKey;
   icon: LucideIcon;
   href: string;
 }
 
 const NAV: NavItem[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard, href: "/" },
-  { id: "employees", label: "Employees", icon: Users, href: "/employees" },
+  {
+    id: "overview",
+    labelKey: "nav.overview",
+    icon: LayoutDashboard,
+    href: "/",
+  },
+  {
+    id: "employees",
+    labelKey: "nav.employees",
+    icon: Users,
+    href: "/employees",
+  },
   {
     id: "recruiting",
-    label: "Recruiting",
+    labelKey: "nav.recruiting",
     icon: BriefcaseBusiness,
     href: "/ats",
   },
   {
     id: "attendance",
-    label: "Attendance",
+    labelKey: "nav.attendance",
     icon: CalendarCheck,
     href: "/attendance",
   },
-  { id: "payroll", label: "Payroll", icon: Wallet, href: "/payroll" },
-  { id: "leave", label: "Leave", icon: CalendarDays, href: "/leave" },
+  { id: "payroll", labelKey: "nav.payroll", icon: Wallet, href: "/payroll" },
+  { id: "leave", labelKey: "nav.leave", icon: CalendarDays, href: "/leave" },
   {
     id: "performance",
-    label: "Performance",
+    labelKey: "nav.performance",
     icon: Star,
     href: "/performance",
   },
-  { id: "onboarding", label: "Onboarding", icon: LogIn, href: "/onboarding" },
+  {
+    id: "onboarding",
+    labelKey: "nav.onboarding",
+    icon: LogIn,
+    href: "/onboarding",
+  },
   {
     id: "offboarding",
-    label: "Offboarding",
+    labelKey: "nav.offboarding",
     icon: LogOut,
     href: "/offboarding",
   },
-  { id: "reports", label: "Reports", icon: FileText, href: "/reports" },
+  { id: "reports", labelKey: "nav.reports", icon: FileText, href: "/reports" },
 ];
 
 /** Nav items visible per role — employees only see self-service pages. */
@@ -103,6 +121,7 @@ function SidebarContent({
   pathname: string;
   role: SessionUser["role"];
 }) {
+  const { t } = useTranslations();
   return (
     <>
       <Link
@@ -110,11 +129,13 @@ function SidebarContent({
         className="flex items-center gap-2.5 rounded-lg px-2 py-2.5"
       >
         <span className="flex size-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground shadow-sm">
-          G
+          {t("app.monogram")}
         </span>
         <div className="leading-tight">
-          <p className="text-sm font-bold">Gente</p>
-          <p className="text-[11px] text-muted-foreground">HR Platform</p>
+          <p className="text-sm font-bold">{t("app.name")}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {t("app.tagline")}
+          </p>
         </div>
       </Link>
 
@@ -135,7 +156,7 @@ function SidebarContent({
                 )}
               >
                 <Icon className="size-4" />
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             );
           },
@@ -154,7 +175,7 @@ function SidebarContent({
             )}
           >
             <UserRound className="size-4" />
-            My profile
+            {t("nav.myProfile")}
           </Link>
         )}
         {role === "admin" && (
@@ -168,7 +189,7 @@ function SidebarContent({
             )}
           >
             <Settings className="size-4" />
-            Settings
+            {t("nav.settings")}
           </Link>
         )}
         <ThemeInfo />

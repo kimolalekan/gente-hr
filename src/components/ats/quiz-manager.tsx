@@ -13,6 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 
 interface QuizRow {
   id: string;
@@ -26,12 +28,14 @@ interface QuizRow {
 /** Screening quiz library — list, create, edit and delete (admin, hr). */
 export function QuizzesManager({ quizzes }: { quizzes: QuizRow[] }) {
   const router = useRouter();
+  const { t } = useTranslations();
   const [editing, setEditing] = useState<QuizValues | null>(null);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const remove = async (quiz: QuizRow) => {
-    if (!window.confirm(`Delete quiz "${quiz.name}"?`)) return;
+    if (!window.confirm(t("ats.quizzes.deleteConfirm", { name: quiz.name })))
+      return;
     setDeletingId(quiz.id);
     try {
       await fetch(`/api/ats/quizzes/${quiz.id}`, { method: "DELETE" });
@@ -45,24 +49,23 @@ export function QuizzesManager({ quizzes }: { quizzes: QuizRow[] }) {
     <Card>
       <CardHeader className="flex-row items-start justify-between">
         <div>
-          <CardTitle>Screening quizzes</CardTitle>
+          <CardTitle>{t("ats.quizzes.libraryTitle")}</CardTitle>
           <CardDescription>
-            Multiple-choice assessments you can attach to jobs.
+            {t("ats.quizzes.libraryDescription")}
           </CardDescription>
         </div>
         <Button onClick={() => setCreating(true)}>
           <Plus />
-          New quiz
+          {t("ats.quizzes.newQuiz")}
         </Button>
       </CardHeader>
       <CardContent>
         {quizzes.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
             <ListChecks className="size-8 text-muted-foreground" />
-            <p className="font-medium">No quizzes yet</p>
+            <p className="font-medium">{t("ats.quizzes.empty")}</p>
             <p className="text-sm text-muted-foreground">
-              Create a quiz, then attach it to a job so candidates take it when
-              they apply.
+              {t("ats.quizzes.emptyHint")}
             </p>
           </div>
         ) : (
@@ -75,7 +78,11 @@ export function QuizzesManager({ quizzes }: { quizzes: QuizRow[] }) {
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 font-medium">
                     {quiz.name}
-                    {!quiz.active && <Badge variant="secondary">Inactive</Badge>}
+                    {!quiz.active && (
+                      <Badge variant="secondary">
+                        {t(`statusLabels.quiz.inactive` as TranslationKey)}
+                      </Badge>
+                    )}
                   </p>
                   {quiz.description && (
                     <p className="mt-0.5 text-sm text-muted-foreground">
@@ -83,16 +90,19 @@ export function QuizzesManager({ quizzes }: { quizzes: QuizRow[] }) {
                     </p>
                   )}
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {quiz.questions.length} question
-                    {quiz.questions.length === 1 ? "" : "s"} · used by{" "}
-                    {quiz.usedBy} job{quiz.usedBy === 1 ? "" : "s"}
+                    {t("ats.quizzes.meta", {
+                      questions: quiz.questions.length,
+                      s: quiz.questions.length === 1 ? "" : "s",
+                      jobs: quiz.usedBy,
+                      s2: quiz.usedBy === 1 ? "" : "s",
+                    })}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label={`Edit ${quiz.name}`}
+                    aria-label={t("ats.quizzes.editQuiz")}
                     onClick={() =>
                       setEditing({
                         id: quiz.id,
@@ -107,7 +117,9 @@ export function QuizzesManager({ quizzes }: { quizzes: QuizRow[] }) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label={`Delete ${quiz.name}`}
+                    aria-label={t("ats.quizzes.deleteConfirm", {
+                      name: quiz.name,
+                    })}
                     disabled={deletingId === quiz.id}
                     onClick={() => remove(quiz)}
                   >

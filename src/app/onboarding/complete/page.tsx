@@ -1,7 +1,11 @@
 import { EmployeeOnboardingForm } from "@/components/hr/employee-onboarding-form";
 import { Card, CardContent } from "@/components/ui/card";
+import { getTranslator } from "@/lib/server/i18n";
 
-export const metadata = { title: "Complete your onboarding" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("onboarding.completeTitle") };
+}
 
 /** Public page linked from the invite email — no authentication required. */
 export default async function CompleteOnboardingPage({
@@ -9,6 +13,7 @@ export default async function CompleteOnboardingPage({
 }: {
   searchParams: Promise<{ name?: string; email?: string }>;
 }) {
+  const t = await getTranslator();
   const { name, email } = await searchParams;
 
   return (
@@ -18,16 +23,11 @@ export default async function CompleteOnboardingPage({
           G
         </span>
         <h1 className="mt-3 text-2xl font-bold tracking-tight">
-          Complete your onboarding
+          {t("onboarding.completeTitle")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {name ? (
-            <>
-              Welcome,{" "}
-              <span className="font-medium text-foreground">{name}</span>.{" "}
-            </>
-          ) : null}
-          Fill in the details below to finish setting up your profile.
+          {name && <>{t("onboarding.completeWelcome", { name })} </>}
+          {t("onboarding.completeDescription")}
         </p>
       </div>
 

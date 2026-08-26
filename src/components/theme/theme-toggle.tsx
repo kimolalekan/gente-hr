@@ -1,18 +1,36 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { Check, ChevronDown, Monitor, Moon, Palette, Sun, type LucideIcon } from 'lucide-react';
-import { useState } from 'react';
-import { useTheme } from '@/components/theme/theme-provider';
-import { DropdownItem, DropdownLink, DropdownMenu } from '@/components/ui/dropdown-menu';
-import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
-import type { ThemeMode } from '@/lib/theme-config';
+import Link from "next/link";
+import {
+  Check,
+  ChevronDown,
+  Monitor,
+  Moon,
+  Palette,
+  Sun,
+  type LucideIcon,
+} from "lucide-react";
+import { useState } from "react";
+import { useTheme } from "@/components/theme/theme-provider";
+import {
+  DropdownItem,
+  DropdownLink,
+  DropdownMenu,
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
+import { cn } from "@/lib/utils";
+import type { ThemeMode } from "@/lib/theme-config";
 
-const OPTIONS: Array<{ value: ThemeMode; label: string; icon: LucideIcon }> = [
-  { value: 'system', label: 'System default', icon: Monitor },
-  { value: 'light', label: 'Light mode', icon: Sun },
-  { value: 'dark', label: 'Dark mode', icon: Moon },
+const OPTIONS: Array<{
+  value: ThemeMode;
+  labelKey: TranslationKey;
+  icon: LucideIcon;
+}> = [
+  { value: "system", labelKey: "common.modeSystem", icon: Monitor },
+  { value: "light", labelKey: "common.modeLight", icon: Sun },
+  { value: "dark", labelKey: "common.modeDark", icon: Moon },
 ];
 
 /**
@@ -22,6 +40,7 @@ const OPTIONS: Array<{ value: ThemeMode; label: string; icon: LucideIcon }> = [
  */
 export function ThemeToggle({ isAdmin }: { isAdmin: boolean }) {
   const { userMode, setUserMode, isDark } = useTheme();
+  const { t } = useTranslations();
   const [busy, setBusy] = useState(false);
   const ModeIcon = isDark ? Moon : Sun;
 
@@ -30,11 +49,13 @@ export function ThemeToggle({ isAdmin }: { isAdmin: boolean }) {
       trigger={
         <button
           type="button"
-          aria-label="Change color mode"
+          aria-label={t("theme.changeColorModeAria")}
           className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted/60"
         >
           <ModeIcon className="size-4" />
-          <span className="hidden sm:inline">{isDark ? 'Dark' : 'Light'}</span>
+          <span className="hidden sm:inline">
+            {isDark ? t("common.dark") : t("common.light")}
+          </span>
           <ChevronDown className="size-3.5 text-muted-foreground" />
         </button>
       }
@@ -56,8 +77,8 @@ export function ThemeToggle({ isAdmin }: { isAdmin: boolean }) {
                 }
               }}
             >
-              <Icon className={cn('size-4', active && 'text-primary')} />
-              <span className="flex-1">{option.label}</span>
+              <Icon className={cn("size-4", active && "text-primary")} />
+              <span className="flex-1">{t(option.labelKey)}</span>
               {active && <Check className="size-4 text-primary" />}
             </DropdownItem>
           );
@@ -70,7 +91,9 @@ export function ThemeToggle({ isAdmin }: { isAdmin: boolean }) {
             <Link href="/settings/branding">
               <DropdownLink>
                 <Palette className="size-4" />
-                <span className="flex-1">Company theme settings</span>
+                <span className="flex-1">
+                  {t("settings.branding.companyThemeSettings")}
+                </span>
               </DropdownLink>
             </Link>
           </div>

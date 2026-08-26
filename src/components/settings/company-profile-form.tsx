@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, Save, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Select } from "@/components/ui/select";
 import { CountryFlag } from "@/components/ui/country-flag";
 import { CURRENCY_OPTIONS, getCurrencyMeta } from "@/lib/currencies";
+import { useTranslations } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 export interface CompanyProfile {
@@ -59,6 +61,8 @@ const DAY_OPTIONS = [
 
 /** Company profile form — loaded from /api/settings/company, saved via PATCH. */
 export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
+  const router = useRouter();
+  const { t } = useTranslations();
   const [values, setValues] = useState({
     companyName: initial.name,
     website: initial.website,
@@ -90,7 +94,7 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (values.officeDays.length === 0) {
-      setError("Select at least one office day.");
+      setError(t("settings.general.officeDaysRequired"));
       return;
     }
     setSaving(true);
@@ -115,15 +119,18 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
       });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.ok) {
-        throw new Error(body?.error ?? "Failed to save company profile");
+        throw new Error(body?.error ?? t("settings.general.saveFailed"));
       }
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
+      // Re-render the whole app (incl. the root layout) so the saved tenant
+      // language takes effect immediately — labels, dates and the <html lang>.
+      router.refresh();
     } catch (saveError) {
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "Failed to save company profile",
+          : t("settings.general.saveFailed"),
       );
     } finally {
       setSaving(false);
@@ -134,7 +141,9 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="companyName">Company name</Label>
+          <Label htmlFor="companyName">
+            {t("settings.general.companyName")}
+          </Label>
           <Input
             id="companyName"
             value={values.companyName}
@@ -143,7 +152,7 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="website">Website</Label>
+          <Label htmlFor="website">{t("settings.general.website")}</Label>
           <Input
             id="website"
             value={values.website}
@@ -151,7 +160,9 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="supportEmail">Support email</Label>
+          <Label htmlFor="supportEmail">
+            {t("settings.general.supportEmail")}
+          </Label>
           <Input
             id="supportEmail"
             type="email"
@@ -160,7 +171,9 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="supportPhone">Support phone</Label>
+          <Label htmlFor="supportPhone">
+            {t("settings.general.supportPhone")}
+          </Label>
           <Input
             id="supportPhone"
             type="tel"
@@ -170,7 +183,7 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="language">Language</Label>
+          <Label htmlFor="language">{t("settings.general.language")}</Label>
           <Select
             id="language"
             value={values.language}
@@ -183,11 +196,11 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
             ))}
           </Select>
           <p className="text-xs text-muted-foreground">
-            Organization language — used across the workspace.
+            {t("settings.general.languageHint")}
           </p>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="timezone">Timezone</Label>
+          <Label htmlFor="timezone">{t("settings.general.timezone")}</Label>
           <Select
             id="timezone"
             value={values.timezone}
@@ -201,13 +214,13 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="currency">Base currency</Label>
+          <Label htmlFor="currency">{t("settings.general.baseCurrency")}</Label>
           <Select
             id="currency"
             value={values.currency}
             onChange={update("currency")}
-            searchPlaceholder="Search currency or country…"
-            emptyText="No currency matches that search"
+            searchPlaceholder={t("settings.general.currencySearchPlaceholder")}
+            emptyText={t("settings.general.currencyNoResults")}
             renderOption={(option) => {
               const meta = getCurrencyMeta(option.value);
               return meta ? <CountryFlag code={meta.flag} /> : null;
@@ -228,29 +241,34 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
               const meta = getCurrencyMeta(values.currency);
               if (!meta) return null;
               const count = meta.countries.length;
-              return `${count} ${count === 1 ? "country" : "countries"} use${count === 1 ? "s" : ""} ${values.currency}`;
+              return t("settings.general.currencyUsage", {
+                n: count,
+                currency: values.currency,
+              });
             })()}
           </p>
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="about">About organization</Label>
+        <Label htmlFor="about">{t("settings.general.about")}</Label>
         <RichTextEditor
           id="about"
           value={values.about}
           onChange={(html) =>
             setValues((current) => ({ ...current, about: html }))
           }
-          placeholder="What does your organization do? A short company description…"
+          placeholder={t("setup.aboutPlaceholder")}
         />
         <p className="text-xs text-muted-foreground">
-          Shown on company profiles, reports and public job pages.
+          {t("settings.general.aboutHint")}
         </p>
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="employeePrefix">Employee ID prefix</Label>
+        <Label htmlFor="employeePrefix">
+          {t("settings.general.employeePrefix")}
+        </Label>
         <Input
           id="employeePrefix"
           value={values.employeePrefix}
@@ -259,13 +277,12 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
           maxLength={6}
         />
         <p className="text-xs text-muted-foreground">
-          Used to generate employee IDs (e.g. EMP-014). Letters and numbers only
-          — max 6 characters.
+          {t("settings.general.employeePrefixHint")}
         </p>
       </div>
 
       <div className="space-y-1.5">
-        <Label>Office / business days</Label>
+        <Label>{t("settings.general.officeDays")}</Label>
         <div className="flex flex-wrap gap-2">
           {DAY_OPTIONS.map((day) => {
             const active = values.officeDays.includes(day.key);
@@ -288,7 +305,7 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
           })}
         </div>
         <p className="text-xs text-muted-foreground">
-          Days the office is open. At least one day is required.
+          {t("settings.general.officeDaysHint")}
         </p>
       </div>
 
@@ -299,12 +316,12 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
           ) : (
             <Save className="size-4" />
           )}
-          Save changes
+          {t("settings.branding.saveChanges")}
         </Button>
         {saved && (
           <span className="flex items-center gap-1.5 text-sm text-success">
             <CheckCircle2 className="size-4" />
-            Saved
+            {t("common.saved")}
           </span>
         )}
         {error && (

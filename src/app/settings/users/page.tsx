@@ -15,8 +15,13 @@ import {
 } from "@/components/ui/card";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 
-export const metadata = { title: "User management" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("metadata.userManagement") };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -26,12 +31,15 @@ export interface AdminUser {
   email: string;
   status: "active" | "inactive";
   superAdmin: boolean;
+  role: "admin" | "hr";
   createdAt: string;
   tenants: { tenantId: string; name: string }[];
 }
 
 export default async function UsersSettingsPage() {
   const user = await getCurrentUser();
+  const locale = await getTenantLocale();
+  const t = await getTranslator();
   const data = await apiGet<Paginated<AdminUser>>("/api/users", {
     page: 1,
     pageSize: 100,
@@ -41,18 +49,20 @@ export default async function UsersSettingsPage() {
   return (
     <>
       <PageHeader
-        title="Users"
-        description="Company admins — they have access to every organization."
+        title={t("settings.users.title")}
+        description={t("settings.users.description")}
       >
         <InviteUserModal existingEmails={users.map((entry) => entry.email)} />
       </PageHeader>
 
       <Card>
         <CardHeader>
-          <CardTitle>Admin users</CardTitle>
+          <CardTitle>{t("settings.users.teamMembers")}</CardTitle>
           <CardDescription>
-            {users.length} {users.length === 1 ? "account" : "accounts"} · all
-            with access to every organization
+            {t("settings.users.accountCount", {
+              n: users.length,
+              s: users.length === 1 ? "" : "s",
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -60,14 +70,23 @@ export default async function UsersSettingsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="py-2.5 pr-4 font-medium">User</th>
-                  <th className="px-4 py-2.5 font-medium">Organizations</th>
-                  <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
-                    Created
+                  <th className="py-2.5 pr-4 font-medium">
+                    {t("settings.users.user")}
                   </th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("settings.users.role")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("tenant.organizations")}
+                  </th>
+                  <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
+                    {t("common.createdAt")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("common.status")}
+                  </th>
                   <th className="py-2.5 pl-4 text-right font-medium">
-                    Actions
+                    {t("common.actions")}
                   </th>
                 </tr>
               </thead>
@@ -87,7 +106,7 @@ export default async function UsersSettingsPage() {
                               {entry.name}
                               {isSelf && (
                                 <span className="ml-2 text-xs text-muted-foreground">
-                                  (you)
+                                  {t("settings.users.you")}
                                 </span>
                               )}
                             </p>
@@ -98,17 +117,28 @@ export default async function UsersSettingsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
+                        <Badge
+                          variant={
+                            entry.role === "admin" ? "default" : "secondary"
+                          }
+                        >
+                          {entry.role === "admin"
+                            ? t("tenant.roleAdmin")
+                            : t("tenant.roleHr")}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
                         <Badge variant="secondary">
                           <Building2 className="size-3.5" />
                           {entry.tenants.length === 0
-                            ? "No orgs"
+                            ? t("settings.users.noOrgs")
                             : entry.tenants[0].name}
                           {entry.tenants.length > 1 &&
                             ` +${entry.tenants.length - 1}`}
                         </Badge>
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                        {new Date(entry.createdAt).toLocaleDateString("en-US", {
+                        {new Date(entry.createdAt).toLocaleDateString(locale, {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
@@ -120,7 +150,9 @@ export default async function UsersSettingsPage() {
                             entry.status === "active" ? "success" : "secondary"
                           }
                         >
-                          {entry.status}
+                          {t(
+                            `statusLabels.users.${entry.status}` as TranslationKey,
+                          )}
                         </Badge>
                       </td>
                       <td className="py-3 pl-4 text-right">

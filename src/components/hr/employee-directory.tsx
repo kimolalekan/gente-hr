@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import {
   formatAddress,
   type Employee,
@@ -34,12 +36,15 @@ interface DirectoryEmployee {
 
 const STATUS_LABELS: Record<
   DirectoryStatus,
-  { label: string; variant: "success" | "warning" | "info" | "secondary" }
+  {
+    labelKey: TranslationKey | null;
+    variant: "success" | "warning" | "info" | "secondary";
+  }
 > = {
-  active: { label: "Active", variant: "success" },
-  on_leave: { label: "On leave", variant: "warning" },
-  pending: { label: "Pending onboarding", variant: "info" },
-  inactive: { label: "Archived", variant: "secondary" },
+  active: { labelKey: "statusLabels.employee.active", variant: "success" },
+  on_leave: { labelKey: "statusLabels.employee.on_leave", variant: "warning" },
+  pending: { labelKey: "statusLabels.employee.pending", variant: "info" },
+  inactive: { labelKey: null, variant: "secondary" },
 };
 
 function toDirectoryEmployee(employee: Employee): DirectoryEmployee {
@@ -62,6 +67,7 @@ export function EmployeeDirectory({
   userRole?: "admin" | "hr" | "member" | null;
   initialDepartment?: string;
 }) {
+  const { t } = useTranslations();
   const [items] = useState<DirectoryEmployee[]>(() =>
     employees.map(toDirectoryEmployee),
   );
@@ -97,19 +103,19 @@ export function EmployeeDirectory({
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by name, email or role…"
+            placeholder={t("employees.searchByText")}
             className="pl-9"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
         <Select
-          aria-label="Filter by department"
+          aria-label={t("employees.filterByDepartment")}
           className="sm:w-56"
           value={department}
           onChange={(event) => setDepartment(event.target.value)}
         >
-          <option value="all">All departments</option>
+          <option value="all">{t("employees.allDepartments")}</option>
           {departments.map((item) => (
             <option key={item} value={item}>
               {item}
@@ -123,16 +129,22 @@ export function EmployeeDirectory({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
-                <th className="px-4 py-3 font-medium">Employee</th>
-                <th className="px-4 py-3 font-medium">Role</th>
+                <th className="px-4 py-3 font-medium">
+                  {t("onboarding.employee")}
+                </th>
+                <th className="px-4 py-3 font-medium">
+                  {t("settings.users.role")}
+                </th>
                 <th className="hidden px-4 py-3 font-medium md:table-cell">
-                  Department
+                  {t("employees.department")}
                 </th>
                 <th className="hidden px-4 py-3 font-medium lg:table-cell">
-                  Location
+                  {t("employees.location")}
                 </th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Actions</th>
+                <th className="px-4 py-3 font-medium">{t("common.status")}</th>
+                <th className="px-4 py-3 text-right font-medium">
+                  {t("common.actions")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -166,20 +178,24 @@ export function EmployeeDirectory({
                       {formatAddress(employee.address) || "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant={status.variant}>{status.label}</Badge>
+                      <Badge variant={status.variant}>
+                        {status.labelKey
+                          ? t(status.labelKey)
+                          : t("statusLabels.employee.archived")}
+                      </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Link href={`/employees/${employee.id}`}>
                           <Button variant="outline" size="sm">
-                            View details
+                            {t("common.viewDetails")}
                           </Button>
                         </Link>
                         {userRole !== "member" && (
                           <Link href={`/employees/${employee.id}/edit`}>
                             <Button variant="outline" size="sm">
                               <Pencil className="size-3.5" />
-                              Edit
+                              {t("common.edit")}
                             </Button>
                           </Link>
                         )}
@@ -194,7 +210,7 @@ export function EmployeeDirectory({
                     colSpan={6}
                     className="px-4 py-10 text-center text-sm text-muted-foreground"
                   >
-                    No employees match your search.
+                    {t("employees.noMatch")}
                   </td>
                 </tr>
               )}
@@ -203,7 +219,10 @@ export function EmployeeDirectory({
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Showing {filtered.length} of {items.length} employees
+        {t("employees.showingCount", {
+          shown: filtered.length,
+          total: items.length,
+        })}
       </p>
     </div>
   );

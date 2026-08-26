@@ -15,25 +15,56 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 
-const ITEMS: Array<{ href: string; label: string; icon: LucideIcon }> = [
-  { href: "/settings/general", label: "General", icon: Settings2 },
-  { href: "/settings/branding", label: "Branding & Theme", icon: Palette },
-  { href: "/settings/users", label: "Users", icon: Users },
-  { href: "/settings/departments", label: "Departments", icon: Building2 },
+const ITEMS: Array<{
+  href: string;
+  labelKey: TranslationKey;
+  icon: LucideIcon;
+}> = [
+  {
+    href: "/settings/general",
+    labelKey: "settings.general.title",
+    icon: Settings2,
+  },
+  {
+    href: "/settings/branding",
+    labelKey: "settings.branding.title",
+    icon: Palette,
+  },
+  { href: "/settings/users", labelKey: "settings.users.title", icon: Users },
+  {
+    href: "/settings/departments",
+    labelKey: "settings.departments.title",
+    icon: Building2,
+  },
   {
     href: "/settings/employee-config",
-    label: "Employee Config",
+    labelKey: "settings.employeeConfig.title",
     icon: UserCog,
   },
-  { href: "/settings/payroll", label: "Payroll", icon: Wallet },
-  { href: "/settings/audit-logs", label: "Audit Logs", icon: FileClock },
-  { href: "/settings/email", label: "Email", icon: Mail },
-  { href: "/settings/notifications", label: "Notifications", icon: Bell },
+  {
+    href: "/settings/payroll",
+    labelKey: "settings.payroll.title",
+    icon: Wallet,
+  },
+  {
+    href: "/settings/audit-logs",
+    labelKey: "settings.auditLogs.title",
+    icon: FileClock,
+  },
+  { href: "/settings/email", labelKey: "settings.email.title", icon: Mail },
+  {
+    href: "/settings/notifications",
+    labelKey: "settings.notifications.title",
+    icon: Bell,
+  },
 ];
 
 export function SettingsNav() {
   const pathname = usePathname();
+  const { t } = useTranslations();
 
   return (
     <nav className="flex w-full shrink-0 flex-row gap-1 overflow-x-auto pb-2 lg:w-56 lg:flex-col lg:pb-0">
@@ -52,7 +83,7 @@ export function SettingsNav() {
             )}
           >
             <Icon className="size-4" />
-            {item.label}
+            {t(item.labelKey)}
           </Link>
         );
       })}

@@ -19,13 +19,18 @@ import {
 import {
   formatCurrency,
   formatDate,
-  LOAN_TYPE_LABELS,
+  type LoanStatus,
   type LoanType,
 } from "@/lib/hr-data";
 import { getCurrentUser } from "@/lib/server/auth";
 import { apiGet } from "@/lib/server/api-client";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 
-export const metadata = { title: "Loan" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("payroll.loans.loanTitle") };
+}
 
 /** Loan detail from `GET /api/payroll/loans/[id]` (+ repayment schedule). */
 interface LoanDetail {
@@ -49,8 +54,28 @@ interface LoanDetail {
   }>;
 }
 
-function loanTypeLabel(type: string): string {
-  return LOAN_TYPE_LABELS[type as LoanType] ?? type;
+function loanTypeLabel(
+  type: string,
+  t: (key: TranslationKey) => string,
+): string {
+  return isLoanType(type)
+    ? t(`statusLabels.loanType.${type}` as TranslationKey)
+    : type;
+}
+
+const LOAN_TYPES: LoanType[] = ["personal", "advance", "vehicle", "other"];
+
+function isLoanType(value: string): value is LoanType {
+  return LOAN_TYPES.includes(value as LoanType);
+}
+
+function isLoanStatus(value: string): value is LoanStatus {
+  return (
+    value === "pending" ||
+    value === "approved" ||
+    value === "active" ||
+    value === "paid"
+  );
 }
 
 export default async function LoanDetailPage({
@@ -64,6 +89,9 @@ export default async function LoanDetailPage({
     () => null,
   );
   if (!loan) notFound();
+
+  const t = await getTranslator();
+  const locale = await getTenantLocale();
 
   // Employees can only open their own loans (the API also enforces this).
   if (user?.role === "member") {
@@ -94,11 +122,14 @@ export default async function LoanDetailPage({
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
-            Loans
+            {t("payroll.loans.title")}
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
-              {loanTypeLabel(loan.type)} loan — {loan.employeeName ?? loan.id}
+              {t("payroll.loans.loanTitleNamed", {
+                type: loanTypeLabel(loan.type, t),
+                name: loan.employeeName ?? loan.id,
+              })}
             </h1>
             <Badge
               variant={
@@ -111,19 +142,21 @@ export default async function LoanDetailPage({
                       : "warning"
               }
             >
-              {loan.status}
+              {isLoanStatus(loan.status)
+                ? t(`statusLabels.loan.${loan.status}` as TranslationKey)
+                : loan.status}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {loan.disbursedAt
-              ? `Disbursed ${formatDate(loan.disbursedAt.slice(0, 10))} · `
+              ? `${t("payroll.loans.disbursedAt")} ${formatDate(loan.disbursedAt.slice(0, 10), locale)} · `
               : ""}
-            {loan.termMonths} months
+            {t("common.months", { n: loan.termMonths })}
           </p>
         </div>
         {user?.role !== "member" && (
           <Link href={`/employees/${loan.employeeId}`}>
-            <Button variant="outline">View employee profile</Button>
+            <Button variant="outline">{t("employees.viewProfile")}</Button>
           </Link>
         )}
       </div>
@@ -132,7 +165,7 @@ export default async function LoanDetailPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Banknote className="size-4" /> Principal
+              <Banknote className="size-4" /> {t("payroll.loans.amount")}
             </p>
             <p className="mt-1 text-2xl font-bold">
               {formatCurrency(loan.amount)}
@@ -142,7 +175,7 @@ export default async function LoanDetailPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Percent className="size-4" /> Interest
+              <Percent className="size-4" /> {t("payroll.loans.interestRate")}
             </p>
             <p className="mt-1 text-2xl font-bold">{loan.interestRate}%</p>
           </CardContent>
@@ -150,7 +183,7 @@ export default async function LoanDetailPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Wallet className="size-4" /> EMI
+              <Wallet className="size-4" /> {t("payroll.loans.monthlyEmi")}
             </p>
             <p className="mt-1 text-2xl font-bold">{formatCurrency(monthly)}</p>
           </CardContent>
@@ -158,7 +191,8 @@ export default async function LoanDetailPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <CalendarRange className="size-4" /> Outstanding
+              <CalendarRange className="size-4" />{" "}
+              {t("payroll.loans.outstandingShort")}
             </p>
             <p className="mt-1 text-2xl font-bold text-primary">
               {loan.status === "paid" ? "$0" : formatCurrency(remaining)}
@@ -169,10 +203,13 @@ export default async function LoanDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Repayment schedule</CardTitle>
+          <CardTitle>{t("payroll.loans.repaymentSchedule")}</CardTitle>
           <CardDescription>
-            {loan.paidMonths} of {loan.termMonths} payments made · total
-            interest {formatCurrency(totalInterest)}
+            {t("payroll.loans.paymentsSummary", {
+              paid: loan.paidMonths,
+              total: loan.termMonths,
+              interest: formatCurrency(totalInterest),
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -180,12 +217,24 @@ export default async function LoanDetailPage({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="py-2.5 pr-4 font-medium">Month</th>
-                  <th className="px-4 py-2.5 font-medium">Principal</th>
-                  <th className="px-4 py-2.5 font-medium">Interest</th>
-                  <th className="px-4 py-2.5 font-medium">EMI</th>
-                  <th className="px-4 py-2.5 font-medium">Balance</th>
-                  <th className="py-2.5 pl-4 text-right font-medium">Status</th>
+                  <th className="py-2.5 pr-4 font-medium">
+                    {t("common.month")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("payroll.loans.principal")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("payroll.loans.interest")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("payroll.loans.monthlyEmi")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("payroll.loans.balance")}
+                  </th>
+                  <th className="py-2.5 pl-4 text-right font-medium">
+                    {t("common.status")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -211,7 +260,9 @@ export default async function LoanDetailPage({
                     </td>
                     <td className="py-2.5 pl-4 text-right">
                       <Badge variant={row.paid ? "success" : "secondary"}>
-                        {row.paid ? "Paid" : "Upcoming"}
+                        {row.paid
+                          ? t("statusLabels.loan.paid")
+                          : t("statusLabels.loan.upcoming")}
                       </Badge>
                     </td>
                   </tr>

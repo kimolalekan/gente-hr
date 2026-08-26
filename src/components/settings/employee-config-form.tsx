@@ -5,10 +5,13 @@ import { CheckCircle2, Loader2, Save, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 
 interface FieldDef {
   id: string;
   label: string;
+  labelKey?: TranslationKey;
   /** Always optional (e.g. Swift / routing numbers) — no required toggle. */
   fixedOptional?: boolean;
 }
@@ -16,7 +19,9 @@ interface FieldDef {
 interface GroupDef {
   id: string;
   title: string;
+  titleKey?: TranslationKey;
   description: string;
+  descriptionKey?: TranslationKey;
   fields: FieldDef[];
 }
 
@@ -24,58 +29,114 @@ const GROUPS: GroupDef[] = [
   {
     id: "bank",
     title: "Bank account",
+    titleKey: "settings.employeeConfig.groups.bank.title",
     description: "Where salary is paid.",
+    descriptionKey: "employees.bankDetailsDescription",
     fields: [
-      { id: "bank_name", label: "Bank name" },
-      { id: "account_number", label: "Account number" },
-      { id: "account_name", label: "Account name" },
-      { id: "swift", label: "Swift number", fixedOptional: true },
-      { id: "routing", label: "Routing number", fixedOptional: true },
+      { id: "bank_name", label: "Bank name", labelKey: "employees.bankName" },
+      {
+        id: "account_number",
+        label: "Account number",
+        labelKey: "employees.accountNumber",
+      },
+      {
+        id: "account_name",
+        label: "Account name",
+        labelKey: "employees.accountName",
+      },
+      {
+        id: "swift",
+        label: "Swift number",
+        labelKey: "employees.swiftNumber",
+        fixedOptional: true,
+      },
+      {
+        id: "routing",
+        label: "Routing number",
+        labelKey: "employees.routingNumber",
+        fixedOptional: true,
+      },
     ],
   },
   {
     id: "government_id",
     title: "Government ID",
+    titleKey: "employees.governmentId",
     description: "Official identification document.",
+    descriptionKey: "employees.governmentIdDescription",
     fields: [
-      { id: "id_name", label: "ID name" },
-      { id: "id_value", label: "ID value" },
+      { id: "id_name", label: "ID name", labelKey: "employees.idName" },
+      { id: "id_value", label: "ID value", labelKey: "employees.idValue" },
     ],
   },
   {
     id: "emergency_contact",
     title: "Emergency contact",
+    titleKey: "employees.emergencyContact",
     description: "Who to contact in an emergency.",
+    descriptionKey: "employees.emergencyContactDescription",
     fields: [
-      { id: "name", label: "Name" },
-      { id: "email", label: "Email" },
-      { id: "phone", label: "Phone" },
+      { id: "name", label: "Name", labelKey: "common.name" },
+      { id: "email", label: "Email", labelKey: "common.email" },
+      { id: "phone", label: "Phone", labelKey: "common.phone" },
     ],
   },
   {
     id: "tax",
     title: "Tax ID",
+    titleKey: "employees.taxId",
     description: "Tax ID or number.",
-    fields: [{ id: "tax_id", label: "Tax ID / Number" }],
+    descriptionKey: "employees.taxIdDescription",
+    fields: [
+      { id: "tax_id", label: "Tax ID / Number", labelKey: "employees.taxId" },
+    ],
   },
   {
     id: "health_insurance",
     title: "Health Coverage",
+    titleKey: "employees.healthInsurance",
     description: "Provider details or policy file — managed by HR.",
+    descriptionKey: "employees.healthInsuranceDescription",
     fields: [
-      { id: "provider", label: "Provider name" },
-      { id: "insurance_id", label: "Insurance ID" },
-      { id: "contact_name", label: "Contact name" },
-      { id: "contact_email", label: "Contact email" },
+      {
+        id: "provider",
+        label: "Provider name",
+        labelKey: "employees.providerName",
+      },
+      {
+        id: "insurance_id",
+        label: "Insurance ID",
+        labelKey: "employees.insuranceId",
+      },
+      {
+        id: "contact_name",
+        label: "Contact name",
+        labelKey: "employees.contactName",
+      },
+      {
+        id: "contact_email",
+        label: "Contact email",
+        labelKey: "employees.contactEmail",
+      },
     ],
   },
   {
     id: "pension",
     title: "Pension",
+    titleKey: "employees.pension",
     description: "Retirement savings provider details.",
+    descriptionKey: "employees.pensionDescription",
     fields: [
-      { id: "provider", label: "Provider name" },
-      { id: "pension_id", label: "Pension ID" },
+      {
+        id: "provider",
+        label: "Provider name",
+        labelKey: "employees.providerName",
+      },
+      {
+        id: "pension_id",
+        label: "Pension ID",
+        labelKey: "employees.pensionId",
+      },
     ],
   },
 ];
@@ -111,6 +172,7 @@ export function EmployeeConfigForm({
 }: {
   initialConfig: ConfigShape;
 }) {
+  const { t } = useTranslations();
   const [groups, setGroups] = useState(() => initialState(initialConfig));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -150,7 +212,7 @@ export function EmployeeConfigForm({
       });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.ok) {
-        throw new Error(body?.error ?? "Failed to save configuration");
+        throw new Error(body?.error ?? t("settings.email.saveFailed"));
       }
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
@@ -158,7 +220,7 @@ export function EmployeeConfigForm({
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "Failed to save configuration",
+          : t("settings.email.saveFailed"),
       );
     } finally {
       setSaving(false);
@@ -168,8 +230,7 @@ export function EmployeeConfigForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <p className="text-sm text-muted-foreground">
-        These fields appear on the create-employee form. Disable a group to hide
-        it entirely, or toggle individual fields between required and optional.
+        {t("settings.employeeConfig.formHint")}
       </p>
 
       <div className="space-y-4">
@@ -182,15 +243,21 @@ export function EmployeeConfigForm({
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium">{group.title}</p>
+                  <p className="text-sm font-medium">
+                    {group.titleKey ? t(group.titleKey) : group.title}
+                  </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {group.description}
+                    {group.descriptionKey
+                      ? t(group.descriptionKey)
+                      : group.description}
                   </p>
                 </div>
                 <Switch
                   checked={state.enabled}
                   onCheckedChange={(checked) => toggleGroup(group.id, checked)}
-                  aria-label={`Enable ${group.title}`}
+                  aria-label={t("settings.employeeConfig.enableGroupAria", {
+                    group: group.titleKey ? t(group.titleKey) : group.title,
+                  })}
                 />
               </div>
 
@@ -204,16 +271,18 @@ export function EmployeeConfigForm({
                         className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
                       >
                         <span className="flex min-w-0 items-center gap-2">
-                          <span className="truncate">{field.label}</span>
+                          <span className="truncate">
+                            {field.labelKey ? t(field.labelKey) : field.label}
+                          </span>
                           {field.fixedOptional && (
                             <Badge variant="secondary" className="shrink-0">
-                              Optional
+                              {t("common.optional")}
                             </Badge>
                           )}
                         </span>
                         {field.fixedOptional ? (
                           <span className="text-xs text-muted-foreground">
-                            Always optional
+                            {t("settings.employeeConfig.alwaysOptional")}
                           </span>
                         ) : (
                           <span className="flex items-center gap-2">
@@ -224,14 +293,23 @@ export function EmployeeConfigForm({
                                   : "text-xs text-muted-foreground"
                               }
                             >
-                              {required ? "Required" : "Optional"}
+                              {required
+                                ? t("common.required")
+                                : t("common.optional")}
                             </span>
                             <Switch
                               checked={required}
                               onCheckedChange={(checked) =>
                                 toggleRequired(group.id, field.id, checked)
                               }
-                              aria-label={`Require ${field.label}`}
+                              aria-label={t(
+                                "settings.employeeConfig.requireFieldAria",
+                                {
+                                  field: field.labelKey
+                                    ? t(field.labelKey)
+                                    : field.label,
+                                },
+                              )}
                             />
                           </span>
                         )}
@@ -252,12 +330,12 @@ export function EmployeeConfigForm({
           ) : (
             <Save className="size-4" />
           )}
-          Save configuration
+          {t("settings.email.saveConfig")}
         </Button>
         {saved && (
           <span className="flex items-center gap-1.5 text-sm text-success">
             <CheckCircle2 className="size-4" />
-            Saved
+            {t("common.saved")}
           </span>
         )}
         {error && (

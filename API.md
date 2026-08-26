@@ -343,7 +343,6 @@ in-app notification row for the relevant user.
 | GET    | `/api/settings/email`      | admin | Provider + credentials (masked) + sender/tracking/batch config |
 | PUT    | `/api/settings/email`      | admin | Save provider credentials (encrypted) + config                 |
 | POST   | `/api/settings/email/test` | admin | Send test email with chosen provider                           |
-| GET    | `/api/settings/email/logs` | admin | Delivery log                                                   |
 
 ### Billing
 

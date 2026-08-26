@@ -3,8 +3,12 @@ import { PerformanceTemplatesManager } from "@/components/hr/performance-templat
 import { PageHeader } from "@/components/hr/page-header";
 import { getCurrentUser } from "@/lib/server/auth";
 import { apiGet } from "@/lib/server/api-client";
+import { getTranslator } from "@/lib/server/i18n";
 
-export const metadata = { title: "Performance templates" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("performance.templatesTitle") };
+}
 
 /** Template row from `GET /api/performance/templates`. */
 interface TemplateRow {
@@ -22,13 +26,14 @@ export default async function PerformanceTemplatesPage() {
   if (!user) redirect("/login");
   if (user.role === "member") redirect("/performance");
 
+  const t = await getTranslator();
   const templates = await apiGet<TemplateRow[]>("/api/performance/templates");
 
   return (
     <>
       <PageHeader
-        title="Performance templates"
-        description="Review templates — sections and questions. HR and Admin only."
+        title={t("performance.templatesTitle")}
+        description={t("performance.templatesDescription")}
       />
       <PerformanceTemplatesManager templates={templates} />
     </>

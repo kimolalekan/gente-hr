@@ -11,11 +11,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTranslator } from "@/lib/server/i18n";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Branding & Theme" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("settings.branding.title") };
+}
 
 export default async function BrandingPage() {
+  const t = await getTranslator();
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -29,14 +34,14 @@ export default async function BrandingPage() {
           <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
             <ShieldAlert className="size-5" />
           </div>
-          <CardTitle>Admin access required</CardTitle>
+          <CardTitle>{t("settings.branding.adminAccessRequired")}</CardTitle>
           <CardDescription>
-            Only company administrators can change branding and theme settings.
+            {t("settings.branding.adminAccessDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Link href="/">
-            <Button variant="outline">Back to dashboard</Button>
+            <Button variant="outline">{t("common.backToDashboard")}</Button>
           </Link>
         </CardContent>
       </Card>

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
+import { useTranslations } from "@/lib/i18n/provider";
 
 const PAGE_SIZE = 8;
 
@@ -29,6 +30,7 @@ interface DepartmentsManagerProps {
  * All mutations go to `/api/departments` and the list is refetched afterwards.
  */
 export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
+  const { t } = useTranslations();
   const [list, setList] = useState<DepartmentRow[]>(departments);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -88,7 +90,7 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
     event.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
-      setError("A department name is required.");
+      setError(t("settings.departments.nameRequired"));
       return;
     }
     setSaving(true);
@@ -114,7 +116,9 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
       await refresh();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to save department.",
+        err instanceof Error
+          ? err.message
+          : t("settings.departments.saveFailed"),
       );
     } finally {
       setSaving(false);
@@ -137,7 +141,9 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
       await refresh();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to update department.",
+        err instanceof Error
+          ? err.message
+          : t("settings.departments.updateFailed"),
       );
     } finally {
       setBusyId(null);
@@ -158,7 +164,9 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
       await refresh();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to delete department.",
+        err instanceof Error
+          ? err.message
+          : t("settings.departments.deleteFailed"),
       );
     } finally {
       setBusyId(null);
@@ -172,7 +180,7 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search by name or description…"
+            placeholder={t("settings.departments.searchPlaceholder")}
             className="pl-9"
             value={query}
             onChange={(event) => {
@@ -183,7 +191,7 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
         </div>
         <Button onClick={openAddModal}>
           <Plus className="size-4" />
-          Add department
+          {t("settings.departments.newDepartment")}
         </Button>
       </div>
 
@@ -198,12 +206,16 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
-                <th className="px-4 py-3 font-medium">Department</th>
-                <th className="hidden px-4 py-3 font-medium md:table-cell">
-                  Employees
+                <th className="px-4 py-3 font-medium">
+                  {t("employees.department")}
                 </th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Actions</th>
+                <th className="hidden px-4 py-3 font-medium md:table-cell">
+                  {t("payroll.employees")}
+                </th>
+                <th className="px-4 py-3 font-medium">{t("common.status")}</th>
+                <th className="px-4 py-3 text-right font-medium">
+                  {t("common.actions")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -236,7 +248,9 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
                       <Badge
                         variant={department.active ? "success" : "secondary"}
                       >
-                        {department.active ? "Active" : "Disabled"}
+                        {department.active
+                          ? t("settings.departments.active")
+                          : t("settings.departments.disabled")}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -247,7 +261,7 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
                           onClick={() => openEditModal(department)}
                         >
                           <Pencil className="size-3.5" />
-                          Edit
+                          {t("common.edit")}
                         </Button>
                         {department.active ? (
                           <Button
@@ -310,10 +324,10 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
             disabled={safePage <= 1}
             onClick={() => setPage(safePage - 1)}
           >
-            Previous
+            {t("common.previous")}
           </Button>
           <span className="text-xs text-muted-foreground">
-            Page {safePage} of {pageCount}
+            {t("common.pageOf", { current: safePage, total: pageCount })}
           </span>
           <Button
             variant="outline"
@@ -321,7 +335,7 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
             disabled={safePage >= pageCount}
             onClick={() => setPage(safePage + 1)}
           >
-            Next
+            {t("common.next")}
           </Button>
         </div>
       </div>
@@ -329,11 +343,17 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
       <Modal
         open={modalOpen}
         onClose={() => !saving && setModalOpen(false)}
-        title={editing ? "Edit department" : "Add department"}
+        title={
+          editing
+            ? t("settings.departments.editDepartment")
+            : t("settings.departments.newDepartment")
+        }
         description={
           editing
-            ? `Update ${editing.name} — name and description.`
-            : "Create a new department for your organization."
+            ? t("settings.departments.editDescription", {
+                name: editing.name,
+              })
+            : t("settings.departments.addDescription")
         }
         footer={
           <>
@@ -343,7 +363,7 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
               onClick={() => setModalOpen(false)}
               disabled={saving}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" form="department-form" disabled={saving}>
               {editing ? (
@@ -351,7 +371,11 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
               ) : (
                 <Plus className="size-4" />
               )}
-              {saving ? "Saving…" : editing ? "Save changes" : "Add department"}
+              {saving
+                ? t("common.saving")
+                : editing
+                  ? t("settings.branding.saveChanges")
+                  : t("settings.departments.newDepartment")}
             </Button>
           </>
         }
@@ -362,23 +386,23 @@ export function DepartmentsManager({ departments }: DepartmentsManagerProps) {
           className="space-y-4"
         >
           <div className="space-y-1.5">
-            <Label htmlFor="dept-name">Name</Label>
+            <Label htmlFor="dept-name">{t("common.name")}</Label>
             <Input
               id="dept-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="e.g. Customer Success"
+              placeholder={t("settings.departments.namePlaceholder")}
               autoFocus
               required
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="dept-description">Description</Label>
+            <Label htmlFor="dept-description">{t("common.description")}</Label>
             <Textarea
               id="dept-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="What does this department do?"
+              placeholder={t("settings.departments.descriptionPlaceholder")}
               rows={3}
             />
           </div>

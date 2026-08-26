@@ -14,10 +14,14 @@ import {
 import { ApiClientError, apiGet } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
 import { formatCurrency } from "@/lib/hr-data";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
 import { parseRange } from "@/lib/report-dates";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Report" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("reports.reportTitle") };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +31,17 @@ interface ReportDetail {
   summary: Record<string, unknown>;
 }
 
-function formatCell(value: unknown, key: string, reportId: string): string {
+function formatCell(
+  value: unknown,
+  key: string,
+  reportId: string,
+  locale: string,
+): string {
   if (value === null || value === undefined) return "—";
   if (/date/i.test(key) && typeof value === "string") {
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toLocaleDateString("en-US", {
+      return parsed.toLocaleDateString(locale, {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -66,6 +75,9 @@ export default async function ReportDetailPage({
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/");
 
+  const locale = await getTenantLocale();
+  const t = await getTranslator();
+
   let data: ReportDetail;
   try {
     data = await apiGet<ReportDetail>(`/api/reports/${id}`, { from, to });
@@ -87,7 +99,7 @@ export default async function ReportDetailPage({
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
-            Reports
+            {t("reports.title")}
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
@@ -108,7 +120,7 @@ export default async function ReportDetailPage({
             className={cn(buttonVariants({ variant: "outline" }))}
           >
             <FileDown />
-            Export CSV
+            {t("reports.exportCsv")}
           </Link>
         </div>
       </div>
@@ -121,7 +133,7 @@ export default async function ReportDetailPage({
                 {humanizeKey(key)}
               </p>
               <p className="mt-1 text-2xl font-bold">
-                {formatCell(value, key, report.id)}
+                {formatCell(value, key, report.id, locale)}
               </p>
             </CardContent>
           </Card>
@@ -132,16 +144,19 @@ export default async function ReportDetailPage({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="size-4 text-primary" />
-            Results
+            {t("reports.results")}
           </CardTitle>
           <CardDescription>
-            {rows.length} {rows.length === 1 ? "row" : "rows"}
+            {t("reports.rowCount", {
+              n: rows.length,
+              s: rows.length === 1 ? "" : "s",
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {columns.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No data available for this report yet.
+              {t("reports.noData")}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -169,7 +184,7 @@ export default async function ReportDetailPage({
                           key={column}
                           className="py-3 pr-4 text-muted-foreground last:text-right"
                         >
-                          {formatCell(row[column], column, report.id)}
+                          {formatCell(row[column], column, report.id, locale)}
                         </td>
                       ))}
                     </tr>

@@ -69,6 +69,15 @@ export function ThemeProvider({
   userModeRef.current = userMode;
   themeRef.current = theme;
 
+  // Follow the server-rendered tenant: when the layout re-renders with a
+  // different org (tenant switch), adopt its theme + default mode instead of
+  // keeping the previous org's state.
+  useEffect(() => {
+    setUserModeState(initialMode);
+    setThemeState(initialTheme);
+    setPreviewTheme(null);
+  }, [initialMode, initialTheme]);
+
   // Track the OS/browser color-scheme preference for "system" mode.
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");

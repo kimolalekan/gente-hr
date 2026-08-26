@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { EXIT_REASON_LABELS, type ExitReason } from "@/lib/hr-data";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
+import type { ExitReason } from "@/lib/hr-data";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -33,6 +35,7 @@ export function OffboardingActions({
   };
 }) {
   const router = useRouter();
+  const { t } = useTranslations();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,9 +66,12 @@ export function OffboardingActions({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/api/offboarding/${offboarding.id}/complete`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/offboarding/${offboarding.id}/complete`,
+        {
+          method: "POST",
+        },
+      );
       const body = await response.json();
       if (!body?.ok) {
         throw new Error(body?.error ?? `Request failed (${response.status})`);
@@ -73,7 +79,7 @@ export function OffboardingActions({
       router.refresh();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to complete the exit process.",
+        err instanceof Error ? err.message : t("offboarding.completeFailed"),
       );
     } finally {
       setBusy(false);
@@ -103,7 +109,7 @@ export function OffboardingActions({
       router.refresh();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to update the exit process.",
+        err instanceof Error ? err.message : t("offboarding.updateFailed"),
       );
     } finally {
       setBusy(false);
@@ -121,13 +127,15 @@ export function OffboardingActions({
         {!completed && (
           <Button variant="outline" onClick={openModal} disabled={busy}>
             <Pencil className="size-4" />
-            Edit details
+            {t("offboarding.editDetails")}
           </Button>
         )}
         {!completed && (
           <Button variant="success" onClick={complete} disabled={busy}>
             <CheckCircle2 className="size-4" />
-            {busy ? "Completing…" : "Complete exit"}
+            {busy
+              ? t("offboarding.completing")
+              : t("offboarding.completeProcess")}
           </Button>
         )}
       </div>
@@ -135,8 +143,8 @@ export function OffboardingActions({
       <Modal
         open={open}
         onClose={() => !busy && setOpen(false)}
-        title="Edit exit details"
-        description="Update the reason, last working day and notes."
+        title={t("offboarding.editExitDetails")}
+        description={t("offboarding.editExitDescription")}
         footer={
           <>
             <Button
@@ -144,10 +152,10 @@ export function OffboardingActions({
               onClick={() => setOpen(false)}
               disabled={busy}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" form="offboarding-edit-form" disabled={busy}>
-              {busy ? "Saving…" : "Save changes"}
+              {busy ? t("common.saving") : t("settings.branding.saveChanges")}
             </Button>
           </>
         }
@@ -159,7 +167,9 @@ export function OffboardingActions({
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="offboard-edit-reason">Exit reason</Label>
+              <Label htmlFor="offboard-edit-reason">
+                {t("offboarding.reason")}
+              </Label>
               <Select
                 id="offboard-edit-reason"
                 value={reason}
@@ -167,17 +177,24 @@ export function OffboardingActions({
                   setReason(event.target.value as ExitReason)
                 }
               >
-                {(Object.keys(EXIT_REASON_LABELS) as ExitReason[]).map(
-                  (item) => (
-                    <option key={item} value={item}>
-                      {EXIT_REASON_LABELS[item]}
-                    </option>
-                  ),
-                )}
+                {(
+                  [
+                    "resignation",
+                    "termination",
+                    "retirement",
+                    "contract_end",
+                  ] as ExitReason[]
+                ).map((item) => (
+                  <option key={item} value={item}>
+                    {t(`statusLabels.exitReason.${item}` as TranslationKey)}
+                  </option>
+                ))}
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="offboard-edit-last-day">Last working day</Label>
+              <Label htmlFor="offboard-edit-last-day">
+                {t("offboarding.lastWorkingDay")}
+              </Label>
               <DatePicker
                 id="offboard-edit-last-day"
                 value={lastWorkingDay}
@@ -187,20 +204,22 @@ export function OffboardingActions({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="offboard-edit-notes">Notes</Label>
+            <Label htmlFor="offboard-edit-notes">{t("common.notes")}</Label>
             <Textarea
               id="offboard-edit-notes"
-              placeholder="Handover notes, reason details…"
+              placeholder={t("offboarding.notesPlaceholder")}
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               rows={3}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="offboard-edit-interview">Exit interview notes</Label>
+            <Label htmlFor="offboard-edit-interview">
+              {t("offboarding.exitInterviewNotes")}
+            </Label>
             <Textarea
               id="offboard-edit-interview"
-              placeholder="Key takeaways from the exit interview…"
+              placeholder={t("offboarding.exitInterviewPlaceholder")}
               value={exitInterviewNotes}
               onChange={(event) => setExitInterviewNotes(event.target.value)}
               rows={3}

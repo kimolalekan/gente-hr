@@ -84,9 +84,16 @@ export const POST = route(async (request: Request) => {
 
       // (c) Tenant row: theme sanitized + defaults merged, settings from org.
       const themeDefaults: TenantTheme = { themeId: "default", mode: "system" };
+      const rawTheme = {
+        ...(theme && typeof theme === "object"
+          ? (theme as Record<string, unknown>)
+          : {}),
+        // Logo picked during setup → theme config so emails use it too.
+        ...(org.logoUrl ? { logoUrl: asString(org.logoUrl) } : {}),
+      };
       const themeConfig: TenantTheme = {
         ...themeDefaults,
-        ...sanitizeThemeConfig(theme),
+        ...sanitizeThemeConfig(rawTheme),
       };
       const settings: Record<string, unknown> = { supportEmail: adminEmail };
       if (website) settings.website = website;

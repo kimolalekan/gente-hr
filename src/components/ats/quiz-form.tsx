@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
+import { useTranslations } from "@/lib/i18n/provider";
 import type { QuizQuestion } from "@/lib/hr-data";
 
 export interface QuizValues {
@@ -34,6 +35,7 @@ export function QuizForm({
   onClose?: () => void;
   onSaved?: () => void;
 }) {
+  const { t } = useTranslations();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<QuizValues>(() => ({
@@ -99,7 +101,7 @@ export function QuizForm({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!form.name.trim()) {
-      setError("Quiz name is required.");
+      setError(t("ats.quizzes.nameRequired"));
       return;
     }
     const questions = form.questions
@@ -110,7 +112,7 @@ export function QuizForm({
       }))
       .filter((q) => q.question && q.options.some((option) => option));
     if (questions.length === 0) {
-      setError("Add at least one question with options.");
+      setError(t("ats.quizzes.questionsRequired"));
       return;
     }
     setSaving(true);
@@ -134,7 +136,9 @@ export function QuizForm({
       }
       onSaved?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save quiz.");
+      setError(
+        err instanceof Error ? err.message : t("ats.quizzes.saveFailed"),
+      );
     } finally {
       setSaving(false);
     }
@@ -144,13 +148,13 @@ export function QuizForm({
     <Modal
       open
       onClose={onClose ?? (() => {})}
-      title={initial?.id ? "Edit quiz" : "New quiz"}
-      description="Multiple-choice screening questions — candidates see these during the application."
+      title={initial?.id ? t("ats.quizzes.editQuiz") : t("ats.quizzes.newQuiz")}
+      description={t("ats.quizzes.formDescription")}
       footer={
         <>
           {onClose && (
             <Button variant="outline" onClick={onClose}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           )}
           <Button type="submit" form="quiz-form" disabled={saving}>
@@ -159,30 +163,30 @@ export function QuizForm({
             ) : (
               <Save className="size-4" />
             )}
-            {saving ? "Saving…" : "Save quiz"}
+            {saving ? t("common.saving") : t("common.save")}
           </Button>
         </>
       }
     >
       <form id="quiz-form" onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="quiz-name">Quiz name</Label>
+          <Label htmlFor="quiz-name">{t("ats.quizzes.quizName")}</Label>
           <Input
             id="quiz-name"
             value={form.name}
             onChange={(event) => updateName(event.target.value)}
-            placeholder="e.g. Design fundamentals"
+            placeholder={t("ats.quizzes.namePlaceholder")}
             required
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="quiz-description">Description</Label>
+          <Label htmlFor="quiz-description">{t("common.description")}</Label>
           <Textarea
             id="quiz-description"
             rows={2}
             value={form.description}
             onChange={(event) => updateDescription(event.target.value)}
-            placeholder="What does this assessment cover?"
+            placeholder={t("ats.quizzes.descriptionPlaceholder")}
           />
         </div>
 
@@ -195,7 +199,7 @@ export function QuizForm({
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <Label htmlFor={`quiz-q-${qIndex}`}>
-                    Question {qIndex + 1}
+                    {t("ats.quizzes.question")} {qIndex + 1}
                   </Label>
                   <Input
                     id={`quiz-q-${qIndex}`}
@@ -203,14 +207,16 @@ export function QuizForm({
                     onChange={(event) =>
                       updateQuestion(qIndex, event.target.value)
                     }
-                    placeholder="e.g. Which principle is core to accessible design?"
+                    placeholder={t("ats.quizzes.questionPlaceholder")}
                   />
                 </div>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  aria-label={`Remove question ${qIndex + 1}`}
+                  aria-label={t("ats.jobs.removeQuestion", {
+                    n: qIndex + 1,
+                  })}
                   onClick={() => removeQuestion(qIndex)}
                   disabled={form.questions.length === 1}
                 >
@@ -225,7 +231,9 @@ export function QuizForm({
                       name={`quiz-correct-${qIndex}`}
                       checked={question.correctIndex === oIndex}
                       onChange={() => setCorrect(qIndex, oIndex)}
-                      aria-label={`Mark option ${oIndex + 1} as correct`}
+                      aria-label={t("ats.quizzes.markCorrect", {
+                        n: oIndex + 1,
+                      })}
                       className="size-4 shrink-0 accent-[var(--primary)]"
                     />
                     <Input
@@ -233,20 +241,25 @@ export function QuizForm({
                       onChange={(event) =>
                         updateOption(qIndex, oIndex, event.target.value)
                       }
-                      placeholder={`Option ${oIndex + 1}`}
-                      aria-label={`Question ${qIndex + 1} option ${oIndex + 1}`}
+                      placeholder={t("ats.quizzes.optionPlaceholder", {
+                        n: oIndex + 1,
+                      })}
+                      aria-label={t("ats.quizzes.optionAria", {
+                        q: qIndex + 1,
+                        o: oIndex + 1,
+                      })}
                     />
                   </div>
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Select the radio next to the correct answer.
+                {t("ats.quizzes.correctHint")}
               </p>
             </div>
           ))}
           <Button type="button" variant="outline" onClick={addQuestion}>
             <Plus />
-            Add question
+            {t("ats.jobs.addQuestion")}
           </Button>
         </div>
 

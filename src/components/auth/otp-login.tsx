@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OtpInput } from "@/components/ui/otp-input";
+import { useTranslations } from "@/lib/i18n/provider";
 
 /** Only allow internal relative paths (prevents open redirects). */
 function getSafeNext(value: string | null): string {
@@ -29,6 +30,7 @@ interface OtpResponse {
 }
 
 export function OtpLogin() {
+  const { t } = useTranslations();
   const router = useRouter();
   const params = useSearchParams();
   const next = getSafeNext(params.get("next"));
@@ -58,28 +60,26 @@ export function OtpLogin() {
           setError(
             data.error ??
               (data.reason === "rate_limited"
-                ? "Please wait a minute before requesting another code."
-                : "Could not send a code. Please try again."),
+                ? t("auth.rateLimited")
+                : t("auth.sendFailed")),
           );
           return false;
         }
         if (data.exists === false) {
-          setError(
-            "No account found for that email. Ask your administrator for an invite.",
-          );
+          setError(t("auth.noAccount"));
           return false;
         }
         setStep("code");
         setChannel(data.channel ?? null);
         return true;
       } catch {
-        setError("Network error — please try again.");
+        setError(t("common.networkError"));
         return false;
       } finally {
         setBusy(false);
       }
     },
-    [email],
+    [email, t],
   );
 
   /** Resend: clear the entered code and remount the input so it re-focuses. */
@@ -108,23 +108,23 @@ export function OtpLogin() {
         setError(
           data.error ??
             (data.reason === "expired"
-              ? "That code expired. Request a new one."
+              ? t("auth.codeExpired")
               : data.reason === "locked"
-                ? "Too many attempts. Request a new code."
+                ? t("auth.tooManyAttempts")
                 : channel === "console"
-                  ? "That code didn't match. Enter the most recent code printed in the server console, or tap Resend code."
-                  : "That code didn't match. Check it and try again."),
+                  ? t("auth.codeMismatchConsole")
+                  : t("auth.codeMismatch")),
         );
         return;
       }
       router.push(next);
       router.refresh();
     } catch {
-      setError("Network error — please try again.");
+      setError(t("common.networkError"));
     } finally {
       setBusy(false);
     }
-  }, [email, code, next, router, channel]);
+  }, [email, code, next, router, channel, t]);
 
   const handleVerifySubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -134,18 +134,18 @@ export function OtpLogin() {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Sign in to Gente</CardTitle>
+        <CardTitle>{t("auth.signInTitle")}</CardTitle>
         <CardDescription>
           {step === "email"
-            ? "Enter your work email and we’ll send you a one-time sign-in code."
-            : `Enter the 6-digit code sent to ${email}.`}
+            ? t("auth.signInDescription")
+            : t("auth.enterCodeDescription", { email })}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {step === "email" ? (
           <form onSubmit={requestCode} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">Work email</Label>
+              <Label htmlFor="email">{t("auth.workEmail")}</Label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -167,7 +167,7 @@ export function OtpLogin() {
               ) : (
                 <KeyRound className="size-4" />
               )}
-              Send sign-in code
+              {t("auth.sendCode")}
             </Button>
           </form>
         ) : (
@@ -188,8 +188,7 @@ export function OtpLogin() {
             </div>
             {channel === "console" && (
               <p className="text-xs text-muted-foreground">
-                Your code is printed in the server console — use the most recent
-                one shown there.
+                {t("auth.codeConsoleHint")}
               </p>
             )}
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -203,7 +202,7 @@ export function OtpLogin() {
               ) : (
                 <KeyRound className="size-4" />
               )}
-              Verify &amp; sign in
+              {t("auth.verify")}
             </Button>
             <div className="flex items-center justify-between text-sm">
               <Button
@@ -217,7 +216,7 @@ export function OtpLogin() {
                 }}
               >
                 <ArrowLeft className="size-3.5" />
-                Change email
+                {t("auth.changeEmail")}
               </Button>
               <Button
                 type="button"
@@ -226,7 +225,7 @@ export function OtpLogin() {
                 disabled={busy}
                 onClick={() => void resendCode()}
               >
-                Resend code
+                {t("auth.resendCode")}
               </Button>
             </div>
           </form>

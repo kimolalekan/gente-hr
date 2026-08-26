@@ -28,13 +28,12 @@ export const POST = route(async (request: Request) => {
     const senderEmail = row?.senderEmail ?? "noreply@gente.dev";
     const to = asString(body?.to).trim() || senderEmail;
 
-    await recordEmail({
+    const delivery = await recordEmail({
       tenantId: user.tenantId,
       to,
       templateKey: "email_test",
-      provider: row?.provider ?? "console",
     });
-    return ok({ sent: true, to });
+    return ok({ sent: true, to, channel: delivery.channel });
   } finally {
     await pool.end();
   }

@@ -1,11 +1,17 @@
-'use client';
+"use client";
 
-import { Download, Upload } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { ContrastPanel } from '@/components/theme/contrast-panel';
-import { ColorField } from '@/components/theme/color-field';
-import { THEME_VARS, THEME_VAR_LABELS, type ThemePalette, type ThemeVar } from '@/lib/theme-config';
+import { Download, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { ContrastPanel } from "@/components/theme/contrast-panel";
+import { ColorField } from "@/components/theme/color-field";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
+import {
+  THEME_VARS,
+  type ThemePalette,
+  type ThemeVar,
+} from "@/lib/theme-config";
 
 export function CustomThemeEditor({
   enabled,
@@ -31,20 +37,22 @@ export function CustomThemeEditor({
   onImport: () => void;
   canSave: boolean;
 }) {
+  const { t } = useTranslations();
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-background/50 p-4">
         <div>
-          <p className="text-sm font-medium">Enable custom theme</p>
+          <p className="text-sm font-medium">
+            {t("settings.branding.enableCustomTheme")}
+          </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Define your own palette. Custom colors apply to both light and dark mode — the editor
-            checks WCAG 2.1 contrast for you.
+            {t("settings.branding.customThemeEnableHint")}
           </p>
         </div>
         <Switch
           checked={enabled}
           onCheckedChange={onToggle}
-          aria-label="Enable custom theme"
+          aria-label={t("settings.branding.enableCustomTheme")}
         />
       </div>
 
@@ -55,33 +63,35 @@ export function CustomThemeEditor({
               <ColorField
                 key={variable}
                 variable={variable}
-                label={THEME_VAR_LABELS[variable]}
-                value={colors[variable] ?? ''}
+                label={t(`theme.varLabels.${variable}` as TranslationKey)}
+                value={colors[variable] ?? ""}
                 onChange={(value) => onChangeColor(variable, value)}
               />
             ))}
           </div>
 
           <div className="rounded-lg border border-border bg-background/50 p-4">
-            <h3 className="mb-3 text-sm font-medium">WCAG 2.1 contrast check</h3>
+            <h3 className="mb-3 text-sm font-medium">
+              {t("settings.branding.contrastCheck")}
+            </h3>
             <ContrastPanel palette={palette} />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={onSave} disabled={!canSave}>
-              Save changes
+              {t("settings.branding.saveChanges")}
             </Button>
             <Button variant="ghost" onClick={onCancel}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <div className="flex-1" />
             <Button variant="outline" size="sm" onClick={onExport}>
               <Download />
-              Export JSON
+              {t("settings.branding.exportJson")}
             </Button>
             <Button variant="outline" size="sm" onClick={onImport}>
               <Upload />
-              Import JSON
+              {t("settings.branding.importJson")}
             </Button>
           </div>
         </div>

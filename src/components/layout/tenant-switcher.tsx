@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Building2, Check, ChevronDown, Loader2, Plus } from "lucide-react";
 import { DropdownItem, DropdownMenu } from "@/components/ui/dropdown-menu";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import type { TenantSummary } from "@/lib/server/tenant-store";
 
-const ROLE_LABELS: Record<TenantSummary["role"], string> = {
-  admin: "Admin",
-  hr: "HR",
-  member: "Member",
+const ROLE_LABEL_KEYS: Record<TenantSummary["role"], TranslationKey> = {
+  admin: "tenant.roleAdmin",
+  hr: "tenant.roleHr",
+  member: "tenant.roleMember",
 };
 
 /**
@@ -29,7 +30,7 @@ export function TenantSwitcher({
   canCreate?: boolean;
   onCreate?: () => void;
 }) {
-  const router = useRouter();
+  const { t } = useTranslations();
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,12 +51,20 @@ export function TenantSwitcher({
       });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        setError(data.error ?? "Could not switch organization.");
+        setError(data.error ?? t("tenant.couldNotSwitch"));
         return;
       }
-      router.refresh();
+      // The session cookie now points at the new org. Reload the current page
+      // so the server re-renders everything for it: tenant settings, branding
+      // and the theme (colors/mode/logo). `router.refresh()` is not enough —
+      // client state (ThemeProvider, header caches) would keep the old org.
+      window.location.assign(
+        window.location.pathname +
+          window.location.search +
+          window.location.hash,
+      );
     } catch {
-      setError("Network error — please try again.");
+      setError(t("common.networkError"));
     } finally {
       setSwitchingTo(null);
     }
@@ -67,7 +76,7 @@ export function TenantSwitcher({
         trigger={
           <button
             type="button"
-            aria-label="Switch organization"
+            aria-label={t("tenant.switchOrganization")}
             className="inline-flex h-9 max-w-52 items-center gap-2 rounded-md border border-border bg-background px-2.5 text-sm font-medium shadow-sm transition-colors hover:bg-muted/60"
           >
             <Building2 className="size-4 shrink-0 text-primary" />
@@ -77,7 +86,7 @@ export function TenantSwitcher({
         }
       >
         <p className="px-2.5 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Organizations
+          {t("tenant.organizations")}
         </p>
         {tenants.map((tenant) => {
           const active = tenant.tenantId === currentTenantId;
@@ -95,7 +104,7 @@ export function TenantSwitcher({
               <span className="min-w-0 flex-1 truncate text-left">
                 {tenant.name}
                 <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                  {ROLE_LABELS[tenant.role]}
+                  {t(ROLE_LABEL_KEYS[tenant.role])}
                 </span>
               </span>
               {busy ? (
@@ -112,7 +121,7 @@ export function TenantSwitcher({
             <DropdownItem onClick={onCreate}>
               <Plus className="size-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate text-left">
-                New organization
+                {t("tenant.newOrganization")}
               </span>
             </DropdownItem>
           </>

@@ -16,6 +16,7 @@ const config = [
       "playwright-report/**",
       "test-results/**",
       "blob-report/**",
+      "public/flags/**",
     ],
   },
 ];

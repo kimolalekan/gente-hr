@@ -19,6 +19,9 @@ import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocale } from "@/lib/i18n/use-locale";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import {
   EXIT_REASON_LABELS,
   formatDate,
@@ -62,6 +65,8 @@ export function OffboardingManager({
 }) {
   const [items, setItems] = useState(offboardings);
   const [open, setOpen] = useState(false);
+  const locale = useLocale();
+  const { t } = useTranslations();
 
   const [employeeId, setEmployeeId] = useState("");
   const [reason, setReason] = useState<ExitReason>("resignation");
@@ -117,11 +122,11 @@ export function OffboardingManager({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!employeeId) {
-      setError("Select an employee to offboard.");
+      setError(t("offboarding.selectEmployeeError"));
       return;
     }
     if (selectedChecklist.length === 0) {
-      setError("Select at least one checklist item.");
+      setError(t("offboarding.selectItemError"));
       return;
     }
     setSaving(true);
@@ -164,7 +169,7 @@ export function OffboardingManager({
       setOpen(false);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to start offboarding.",
+        err instanceof Error ? err.message : t("offboarding.startFailed"),
       );
     } finally {
       setSaving(false);
@@ -177,7 +182,7 @@ export function OffboardingManager({
         <Card>
           <CardContent className="p-4">
             <p className="text-sm font-medium text-muted-foreground">
-              Active exits
+              {t("offboarding.activeExits")}
             </p>
             <p className="mt-1 text-2xl font-bold">{inProgress}</p>
           </CardContent>
@@ -185,7 +190,7 @@ export function OffboardingManager({
         <Card>
           <CardContent className="p-4">
             <p className="text-sm font-medium text-muted-foreground">
-              Completed
+              {t("offboarding.statusCompleted")}
             </p>
             <p className="mt-1 text-2xl font-bold">{completed}</p>
           </CardContent>
@@ -193,7 +198,7 @@ export function OffboardingManager({
         <Card>
           <CardContent className="p-4">
             <p className="text-sm font-medium text-muted-foreground">
-              Checklist items open
+              {t("offboarding.openChecklistItems")}
             </p>
             <p className="mt-1 text-2xl font-bold">{openChecklistItems}</p>
           </CardContent>
@@ -210,12 +215,14 @@ export function OffboardingManager({
         <CardHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <CardTitle>Exit processes</CardTitle>
-              <CardDescription>Employees leaving the company.</CardDescription>
+              <CardTitle>{t("offboarding.processes")}</CardTitle>
+              <CardDescription>
+                {t("offboarding.processesHint")}
+              </CardDescription>
             </div>
             <Button onClick={openModal}>
               <UserMinus />
-              Start offboarding
+              {t("offboarding.startProcess")}
             </Button>
           </div>
         </CardHeader>
@@ -224,17 +231,23 @@ export function OffboardingManager({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="py-2.5 pr-4 font-medium">Employee</th>
+                  <th className="py-2.5 pr-4 font-medium">
+                    {t("onboarding.employee")}
+                  </th>
                   <th className="hidden px-4 py-2.5 font-medium md:table-cell">
-                    Reason
+                    {t("offboarding.reason")}
                   </th>
-                  <th className="px-4 py-2.5 font-medium">Last working day</th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("offboarding.lastWorkingDay")}
+                  </th>
                   <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
-                    Checklist
+                    {t("offboarding.checklist")}
                   </th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("common.status")}
+                  </th>
                   <th className="py-2.5 pl-4 text-right font-medium">
-                    Details
+                    {t("common.details")}
                   </th>
                 </tr>
               </thead>
@@ -261,10 +274,12 @@ export function OffboardingManager({
                         </div>
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                        {EXIT_REASON_LABELS[item.reason] ?? item.reason}
+                        {t(
+                          `statusLabels.exitReason.${item.reason}` as TranslationKey,
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        {formatDate(item.lastWorkingDay)}
+                        {formatDate(item.lastWorkingDay, locale)}
                       </td>
                       <td className="hidden px-4 py-3 sm:table-cell">
                         {done}/{total}
@@ -275,13 +290,15 @@ export function OffboardingManager({
                             item.status === "completed" ? "success" : "warning"
                           }
                         >
-                          {item.status}
+                          {t(
+                            `statusLabels.offboarding.${item.status}` as TranslationKey,
+                          )}
                         </Badge>
                       </td>
                       <td className="py-3 pl-4 text-right">
                         <Link href={`/offboarding/${item.id}`}>
                           <Button variant="outline" size="sm">
-                            View details
+                            {t("common.viewDetails")}
                           </Button>
                         </Link>
                       </td>
@@ -294,7 +311,7 @@ export function OffboardingManager({
                       colSpan={6}
                       className="px-4 py-10 text-center text-sm text-muted-foreground"
                     >
-                      No exit processes yet.
+                      {t("offboarding.empty")}
                     </td>
                   </tr>
                 )}
@@ -307,8 +324,8 @@ export function OffboardingManager({
       <Modal
         open={open}
         onClose={() => !saving && setOpen(false)}
-        title="Start offboarding"
-        description="Initiate an exit process for an employee."
+        title={t("offboarding.startProcess")}
+        description={t("offboarding.startDescription")}
         footer={
           <>
             <Button
@@ -316,7 +333,7 @@ export function OffboardingManager({
               onClick={() => setOpen(false)}
               disabled={saving}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               type="submit"
@@ -325,21 +342,23 @@ export function OffboardingManager({
               disabled={saving}
             >
               <LogOut />
-              {saving ? "Starting…" : "Start offboarding"}
+              {saving ? t("common.starting") : t("offboarding.startProcess")}
             </Button>
           </>
         }
       >
         <form id="offboarding-form" onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="offboard-employee">Employee</Label>
+            <Label htmlFor="offboard-employee">
+              {t("onboarding.employee")}
+            </Label>
             <Select
               id="offboard-employee"
               value={employeeId}
               onChange={(event) => setEmployeeId(event.target.value)}
-              placeholder="Select an employee…"
+              placeholder={t("offboarding.selectEmployee")}
             >
-              <option value="">Select an employee…</option>
+              <option value="">{t("offboarding.selectEmployee")}</option>
               {available.map((employee) => (
                 <option key={employee.id} value={employee.id}>
                   {employee.name} — {employee.role}
@@ -349,7 +368,7 @@ export function OffboardingManager({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="offboard-reason">Exit reason</Label>
+              <Label htmlFor="offboard-reason">{t("offboarding.reason")}</Label>
               <Select
                 id="offboard-reason"
                 value={reason}
@@ -360,14 +379,16 @@ export function OffboardingManager({
                 {(Object.keys(EXIT_REASON_LABELS) as ExitReason[]).map(
                   (item) => (
                     <option key={item} value={item}>
-                      {EXIT_REASON_LABELS[item]}
+                      {t(`statusLabels.exitReason.${item}` as TranslationKey)}
                     </option>
                   ),
                 )}
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="offboard-last-day">Last working day</Label>
+              <Label htmlFor="offboard-last-day">
+                {t("offboarding.lastWorkingDay")}
+              </Label>
               <DatePicker
                 id="offboard-last-day"
                 value={lastWorkingDay}
@@ -377,7 +398,7 @@ export function OffboardingManager({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Offboarding checklist</Label>
+            <Label>{t("offboarding.checklist")}</Label>
             <div className="space-y-1 rounded-lg border border-border bg-background/50 p-2">
               {EXIT_CHECKLIST_NAMES.map((item) => (
                 <div
@@ -388,20 +409,20 @@ export function OffboardingManager({
                   <Switch
                     checked={selectedChecklist.includes(item)}
                     onCheckedChange={() => toggleChecklistItem(item)}
-                    aria-label={`Include: ${item}`}
+                    aria-label={t("offboarding.includeItem", { item })}
                   />
                 </div>
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              Only the selected items are added to the exit process.
+              {t("offboarding.checklistHint")}
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="offboard-notes">Notes</Label>
+            <Label htmlFor="offboard-notes">{t("common.notes")}</Label>
             <Textarea
               id="offboard-notes"
-              placeholder="Handover notes, exit interview, reason details…"
+              placeholder={t("offboarding.notesPlaceholder")}
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
             />

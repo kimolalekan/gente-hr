@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import {
-  TASK_STATUS_LABELS,
-  type OnboardingTask,
-  type TaskStatus,
-} from "@/lib/hr-data";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
+import type { OnboardingTask, TaskStatus } from "@/lib/hr-data";
 
 const NEXT_STATUS: Record<TaskStatus, TaskStatus> = {
   pending: "in_progress",
@@ -31,6 +29,7 @@ export function OnboardingTasks({
   tasks: OnboardingTask[];
 }) {
   const router = useRouter();
+  const { t } = useTranslations();
   const [tasks, setTasks] = useState(initial);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +58,9 @@ export function OnboardingTasks({
       );
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update task.");
+      setError(
+        err instanceof Error ? err.message : t("onboarding.taskUpdateFailed"),
+      );
     } finally {
       setBusyId(null);
     }
@@ -92,7 +93,8 @@ export function OnboardingTasks({
           <span
             className={cn(
               "flex-1",
-              task.status === "completed" && "text-muted-foreground line-through",
+              task.status === "completed" &&
+                "text-muted-foreground line-through",
             )}
           >
             {task.name}
@@ -101,14 +103,13 @@ export function OnboardingTasks({
             {task.department}
           </Badge>
           <span className="text-xs text-muted-foreground">
-            {TASK_STATUS_LABELS[task.status]}
+            {t(`statusLabels.task.${task.status}` as TranslationKey)}
           </span>
         </button>
       ))}
       {tasks.length === 0 && (
         <p className="py-2 text-sm text-muted-foreground">
-          No tasks assigned yet — they are created when the new hire submits
-          their details.
+          {t("onboarding.noTasks")}
         </p>
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}

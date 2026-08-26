@@ -25,8 +25,9 @@ import {
 } from "@/components/ui/card";
 import { ApiClientError, apiGet } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 import {
-  APPLICATION_STAGE_LABELS,
   formatCurrency,
   formatDate,
   type ApplicationStage,
@@ -34,7 +35,10 @@ import {
   type OfferStatus,
 } from "@/lib/hr-data";
 
-export const metadata = { title: "Application" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("ats.applications.applicationTitle") };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +56,7 @@ interface InterviewRow {
   round: number;
   scheduledAt: string;
   interviewer: string | null;
+  panelists: Array<{ id: string; name: string; email: string }>;
   feedback: string | null;
   status: InterviewStatus;
 }
@@ -108,8 +113,8 @@ function stageVariant(stage: ApplicationStage) {
   return "secondary";
 }
 
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("en-US", {
+function formatDateTime(value: string, locale: string): string {
+  return new Date(value).toLocaleString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -126,6 +131,8 @@ export default async function ApplicationDetailPage({
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/");
 
+  const t = await getTranslator();
+  const locale = await getTenantLocale();
   const { id } = await params;
   let application: ApplicationDetail;
   try {
@@ -146,18 +153,25 @@ export default async function ApplicationDetailPage({
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
-            Applications
+            {t("ats.applications.title")}
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
               {application.name}
             </h1>
             <Badge variant={stageVariant(application.stage)}>
-              {APPLICATION_STAGE_LABELS[application.stage] ?? application.stage}
+              {t(
+                `statusLabels.applicationStage.${application.stage}` as TranslationKey,
+              )}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Applied {formatDate(String(application.createdAt).slice(0, 10))}
+            {t("ats.applications.appliedDate", {
+              date: formatDate(
+                String(application.createdAt).slice(0, 10),
+                locale,
+              ),
+            })}
             {application.jobTitle && (
               <>
                 {" "}
@@ -180,10 +194,9 @@ export default async function ApplicationDetailPage({
             application.stage !== "rejected" && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Pipeline actions</CardTitle>
+                  <CardTitle>{t("ats.applications.pipelineActions")}</CardTitle>
                   <CardDescription>
-                    Move the candidate forward, schedule interviews or send an
-                    offer.
+                    {t("ats.applications.pipelineDescription")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -198,13 +211,15 @@ export default async function ApplicationDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Timeline</CardTitle>
-              <CardDescription>Stage change history.</CardDescription>
+              <CardTitle>{t("ats.applications.timeline")}</CardTitle>
+              <CardDescription>
+                {t("ats.applications.timelineHint")}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {application.history.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Application received — no stage changes yet.
+                  {t("ats.applications.noStageChanges")}
                 </p>
               ) : (
                 <ol className="relative space-y-4 border-l border-border pl-4">
@@ -212,7 +227,15 @@ export default async function ApplicationDetailPage({
                     <li key={row.id} className="relative">
                       <span className="absolute left-[-21.5px] top-1.5 size-2.5 rounded-full border-2 border-background bg-primary" />
                       <p className="text-sm font-medium">
-                        {row.fromStage} → {row.toStage}
+                        {row.fromStage
+                          ? t(
+                              `statusLabels.applicationStage.${row.fromStage as ApplicationStage}` as TranslationKey,
+                            )
+                          : ""}{" "}
+                        →{" "}
+                        {t(
+                          `statusLabels.applicationStage.${row.toStage as ApplicationStage}` as TranslationKey,
+                        )}
                       </p>
                       {row.note && (
                         <p className="mt-0.5 text-sm text-muted-foreground">
@@ -220,8 +243,8 @@ export default async function ApplicationDetailPage({
                         </p>
                       )}
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {row.actorName ?? "System"} ·{" "}
-                        {formatDateTime(row.createdAt)}
+                        {row.actorName ?? t("common.system")} ·{" "}
+                        {formatDateTime(row.createdAt, locale)}
                       </p>
                     </li>
                   ))}
@@ -232,13 +255,15 @@ export default async function ApplicationDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Interviews</CardTitle>
-              <CardDescription>Scheduled rounds and feedback.</CardDescription>
+              <CardTitle>{t("ats.applications.interviews")}</CardTitle>
+              <CardDescription>
+                {t("ats.applications.interviewsHint")}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {application.interviews.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No interviews scheduled yet.
+                  {t("ats.applications.noInterviews")}
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -250,7 +275,9 @@ export default async function ApplicationDetailPage({
                       <div className="flex items-center justify-between gap-3">
                         <p className="flex items-center gap-1.5 font-medium">
                           <CalendarClock className="size-4 text-primary" />
-                          Round {interview.round}
+                          {t("ats.interview.round", {
+                            round: interview.round,
+                          })}
                         </p>
                         <Badge
                           variant={
@@ -261,13 +288,21 @@ export default async function ApplicationDetailPage({
                                 : "warning"
                           }
                         >
-                          {interview.status}
+                          {t(
+                            `statusLabels.interview.${interview.status}` as TranslationKey,
+                          )}
                         </Badge>
                       </div>
                       <p className="mt-1.5 text-muted-foreground">
-                        {formatDateTime(interview.scheduledAt)}
-                        {interview.interviewer && (
-                          <> · {interview.interviewer}</>
+                        {formatDateTime(interview.scheduledAt, locale)}
+                        {interview.panelists.length > 0 && (
+                          <>
+                            {" "}
+                            ·{" "}
+                            {interview.panelists
+                              .map((panelist) => panelist.name)
+                              .join(", ")}
+                          </>
                         )}
                       </p>
                       {interview.feedback && (
@@ -286,9 +321,11 @@ export default async function ApplicationDetailPage({
             Object.keys(application.answers).length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Screening answers</CardTitle>
+                  <CardTitle>
+                    {t("ats.applications.screeningAnswers")}
+                  </CardTitle>
                   <CardDescription>
-                    Answers to the job&apos;s screening questions.
+                    {t("ats.applications.screeningAnswersHint")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
@@ -311,7 +348,7 @@ export default async function ApplicationDetailPage({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  Quiz result
+                  {t("ats.applications.quizResult")}
                   <Badge
                     variant={
                       application.quizResult.score ===
@@ -346,7 +383,7 @@ export default async function ApplicationDetailPage({
                         )}
                       </p>
                       <p className="mt-1 text-muted-foreground">
-                        Candidate:{" "}
+                        {t("ats.applications.candidateAnswer")}{" "}
                         <span className={correct ? "" : "text-destructive"}>
                           {chosen >= 0 && chosen < question.options.length
                             ? question.options[chosen]
@@ -355,7 +392,7 @@ export default async function ApplicationDetailPage({
                         {!correct && (
                           <>
                             {" "}
-                            · Correct:{" "}
+                            · {t("ats.applications.correctAnswer")}{" "}
                             <span className="text-success">
                               {question.options[question.correctIndex]}
                             </span>
@@ -373,7 +410,7 @@ export default async function ApplicationDetailPage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Candidate</CardTitle>
+              <CardTitle>{t("ats.applications.candidate")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center gap-3">
@@ -418,7 +455,7 @@ export default async function ApplicationDetailPage({
                       rel="noreferrer"
                       className="truncate text-primary hover:underline"
                     >
-                      Resume
+                      {t("ats.applications.resume")}
                     </a>
                   </p>
                 )}
@@ -426,7 +463,7 @@ export default async function ApplicationDetailPage({
               {application.coverLetter && (
                 <div className="rounded-lg border border-border bg-background/50 p-3">
                   <p className="text-xs font-medium text-muted-foreground">
-                    Cover letter
+                    {t("ats.applications.coverLetter")}
                   </p>
                   <p className="mt-1 whitespace-pre-wrap">
                     {application.coverLetter}
@@ -439,14 +476,19 @@ export default async function ApplicationDetailPage({
           {application.offer && (
             <Card>
               <CardHeader>
-                <CardTitle>Offer</CardTitle>
+                <CardTitle>{t("ats.applications.offer")}</CardTitle>
                 <CardDescription>
-                  {formatDate(String(application.offer.createdAt).slice(0, 10))}
+                  {formatDate(
+                    String(application.offer.createdAt).slice(0, 10),
+                    locale,
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2.5 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Salary</span>
+                  <span className="text-muted-foreground">
+                    {t("employees.salary")}
+                  </span>
                   <span className="font-medium">
                     {application.offer.salary != null
                       ? formatCurrency(application.offer.salary)
@@ -454,15 +496,19 @@ export default async function ApplicationDetailPage({
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Start date</span>
+                  <span className="text-muted-foreground">
+                    {t("modals.offer.startDate")}
+                  </span>
                   <span className="font-medium">
                     {application.offer.startDate
-                      ? formatDate(application.offer.startDate)
+                      ? formatDate(application.offer.startDate, locale)
                       : "—"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Status</span>
+                  <span className="text-muted-foreground">
+                    {t("common.status")}
+                  </span>
                   <Badge
                     variant={
                       application.offer.status === "accepted"
@@ -472,7 +518,9 @@ export default async function ApplicationDetailPage({
                           : "warning"
                     }
                   >
-                    {application.offer.status}
+                    {t(
+                      `statusLabels.offer.${application.offer.status}` as TranslationKey,
+                    )}
                   </Badge>
                 </div>
                 {application.offer.terms && (
@@ -487,9 +535,9 @@ export default async function ApplicationDetailPage({
           {application.employee && (
             <Card>
               <CardHeader>
-                <CardTitle>Employee</CardTitle>
+                <CardTitle>{t("onboarding.employee")}</CardTitle>
                 <CardDescription>
-                  Created from this application.
+                  {t("ats.applications.employeeHint")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -503,7 +551,7 @@ export default async function ApplicationDetailPage({
                       href={`/employees/${application.employee.id}`}
                       className="text-xs text-primary hover:underline"
                     >
-                      View employee profile
+                      {t("employees.viewProfile")}
                     </Link>
                   </div>
                 </div>
@@ -513,7 +561,7 @@ export default async function ApplicationDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Job</CardTitle>
+              <CardTitle>{t("ats.applications.job")}</CardTitle>
             </CardHeader>
             <CardContent>
               {application.jobTitle ? (
@@ -526,7 +574,7 @@ export default async function ApplicationDetailPage({
                 </Link>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Job no longer exists.
+                  {t("ats.applications.jobGone")}
                 </p>
               )}
               <Link
@@ -537,7 +585,7 @@ export default async function ApplicationDetailPage({
                   className: "mt-3",
                 })}
               >
-                Open job posting
+                {t("ats.jobs.openJobPosting")}
               </Link>
             </CardContent>
           </Card>

@@ -2,6 +2,7 @@ import { OnboardingManager } from "@/components/hr/onboarding-manager";
 import { PageHeader } from "@/components/hr/page-header";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTranslator } from "@/lib/server/i18n";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
 import type {
   Employee,
@@ -10,7 +11,10 @@ import type {
   TaskStatus,
 } from "@/lib/hr-data";
 
-export const metadata = { title: "Onboarding" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("onboarding.title") };
+}
 
 interface OnboardingPlanRow {
   id: string;
@@ -67,6 +71,7 @@ function mapPlan(
 }
 
 export default async function OnboardingPage() {
+  const t = await getTranslator();
   // Employees don't manage onboarding — it's an HR/admin workspace.
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/");
@@ -92,8 +97,8 @@ export default async function OnboardingPage() {
   return (
     <>
       <PageHeader
-        title="Onboarding"
-        description="Welcome new hires with a structured task checklist."
+        title={t("onboarding.title")}
+        description={t("onboarding.description")}
       />
       <OnboardingManager plans={plans} employees={employeesPage.items} />
     </>

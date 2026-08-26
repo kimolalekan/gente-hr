@@ -13,11 +13,15 @@ import { PageHeader } from "@/components/hr/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTranslator } from "@/lib/server/i18n";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
 import { cn } from "@/lib/utils";
 import type { Employee } from "@/lib/hr-data";
 
-export const metadata = { title: "Employees" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("employees.title") };
+}
 
 interface OnboardingStatusRow {
   status: string;
@@ -35,6 +39,7 @@ export default async function EmployeesPage({
   // Employees don't see the org directory — they have their own profile.
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/profile");
+  const t = await getTranslator();
 
   const { department } = await searchParams;
 
@@ -68,15 +73,15 @@ export default async function EmployeesPage({
   return (
     <>
       <PageHeader
-        title="Employees"
-        description="Directory of everyone at your company."
+        title={t("employees.title")}
+        description={t("employees.description")}
       >
         <Link
           href={exportUrl}
           className={cn(buttonVariants({ variant: "outline" }))}
         >
           <FileDown />
-          Export
+          {t("reports.export")}
         </Link>
       </PageHeader>
 
@@ -84,7 +89,7 @@ export default async function EmployeesPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Users className="size-4" /> Total
+              <Users className="size-4" /> {t("employees.total")}
             </p>
             <p className="mt-1 text-2xl font-bold">{employees.length}</p>
           </CardContent>
@@ -92,7 +97,8 @@ export default async function EmployeesPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <UserCheck className="size-4" /> Active
+              <UserCheck className="size-4" />{" "}
+              {t("statusLabels.employee.active")}
             </p>
             <p className="mt-1 text-2xl font-bold text-success">{active}</p>
           </CardContent>
@@ -100,7 +106,7 @@ export default async function EmployeesPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Plane className="size-4" /> On leave
+              <Plane className="size-4" /> {t("statusLabels.employee.on_leave")}
             </p>
             <p className="mt-1 text-2xl font-bold text-warning">{onLeave}</p>
           </CardContent>
@@ -110,7 +116,8 @@ export default async function EmployeesPage({
             <CardContent className="p-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                  <UserPlus className="size-4" /> Pending onboarding
+                  <UserPlus className="size-4" />{" "}
+                  {t("employees.pendingOnboarding")}
                 </p>
               </div>
               <p className="mt-1 text-2xl font-bold text-info">
@@ -124,7 +131,8 @@ export default async function EmployeesPage({
             <CardContent className="p-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                  <UserMinus className="size-4" /> Pending offboarding
+                  <UserMinus className="size-4" />{" "}
+                  {t("employees.pendingOffboarding")}
                 </p>
               </div>
               <p className="mt-1 text-2xl font-bold text-warning">

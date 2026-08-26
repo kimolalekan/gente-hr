@@ -12,6 +12,7 @@ import {
   Underline,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "@/lib/i18n/provider";
 
 interface RichTextEditorProps {
   value: string;
@@ -40,6 +41,7 @@ export function RichTextEditor({
   placeholder,
   className,
 }: RichTextEditorProps) {
+  const { t } = useTranslations();
   const ref = useRef<HTMLDivElement>(null);
   const lastValue = useRef(value);
 
@@ -66,36 +68,40 @@ export function RichTextEditor({
   };
 
   const makeLink = () => {
-    const url = window.prompt("Link URL", "https://");
+    const url = window.prompt(t("common.linkUrl"), "https://");
     if (url) exec("createLink", url);
   };
 
   const buttons: ToolbarButton[] = [
-    { label: "Bold", icon: <Bold />, action: () => exec("bold") },
-    { label: "Italic", icon: <Italic />, action: () => exec("italic") },
+    { label: t("common.bold"), icon: <Bold />, action: () => exec("bold") },
     {
-      label: "Underline",
+      label: t("common.italic"),
+      icon: <Italic />,
+      action: () => exec("italic"),
+    },
+    {
+      label: t("common.underline"),
       icon: <Underline />,
       action: () => exec("underline"),
     },
     {
-      label: "Heading",
+      label: t("common.heading"),
       icon: <Heading2 />,
       action: () => exec("formatBlock", "h2"),
     },
     {
-      label: "Bullet list",
+      label: t("common.bulletList"),
       icon: <List />,
       action: () => exec("insertUnorderedList"),
     },
     {
-      label: "Numbered list",
+      label: t("common.numberedList"),
       icon: <ListOrdered />,
       action: () => exec("insertOrderedList"),
     },
-    { label: "Link", icon: <LinkIcon />, action: makeLink },
+    { label: t("common.link"), icon: <LinkIcon />, action: makeLink },
     {
-      label: "Remove formatting",
+      label: t("common.removeFormatting"),
       icon: <RemoveFormatting />,
       action: () => exec("removeFormat"),
     },
@@ -110,7 +116,7 @@ export function RichTextEditor({
     >
       <div
         role="toolbar"
-        aria-label="Formatting"
+        aria-label={t("common.formatting")}
         className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/40 px-1.5 py-1"
       >
         {buttons.map((button) => (

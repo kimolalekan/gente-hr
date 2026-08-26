@@ -2,9 +2,10 @@
   "name": "gente",
   "version": "0.1.0",
   "private": true,
-  "description": "Gente HR — company branding & theme settings (8 predefined themes, custom themes, light/dark/system modes)",
+  "license": "MIT",
+  "description": "Gente HR, simple multi tenant HR management system",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 4001",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -15,11 +16,16 @@
     "db:migrate": "tsx db/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx db/seed.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "i18n:validate": "node scripts/validate-i18n.mjs",
+    "prod": "pnpm build && pm2 start ecosystem.config.js",
+    "prod:restart": "pnpm build && pm2 reload ecosystem.config.js --update-env"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dayjs": "^1.11.23",
+    "dotenv": "^17.4.2",
     "drizzle-orm": "^0.44.0",
     "lucide-react": "^0.525.0",
     "next": "^15.3.3",

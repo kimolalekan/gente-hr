@@ -323,6 +323,11 @@ export const interviews = pgTable(
     round: integer("round").notNull().default(1),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
     interviewer: text("interviewer"),
+    /** Interviewer panel (employee id + name + email), for invites. */
+    panelists: jsonb("panelists")
+      .$type<Array<{ id: string; name: string; email: string }>>()
+      .notNull()
+      .default([]),
     feedback: text("feedback"),
     status: text("status").notNull().default("scheduled"), // scheduled | completed | cancelled
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -914,28 +919,8 @@ export const emailSettings = pgTable("email_settings", {
     .defaultNow(),
 });
 
-/** Email delivery log (status tracking, bounce/complaint handling). */
-export const emailLogs = pgTable(
-  "email_logs",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    tenantId: uuid("tenant_id")
-      .notNull()
-      .references(() => tenants.id, { onDelete: "cascade" }),
-    recipient: text("recipient").notNull(),
-    templateKey: text("template_key"),
-    provider: text("provider"),
-    status: text("status").notNull().default("queued"), // queued | sent | failed | bounced
-    error: text("error"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [index("email_logs_tenant_idx").on(table.tenantId)],
-);
-
 /* ------------------------------------------------------------------ */
-/* Files & uploads                                                     */
+/* Files                                                               */
 /* ------------------------------------------------------------------ */
 
 /** Uploaded files (passport photos, offer letters, documents…). */
@@ -998,6 +983,5 @@ export type Payslip = typeof payslips.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type EmailSetting = typeof emailSettings.$inferSelect;
-export type EmailLog = typeof emailLogs.$inferSelect;
 export type FileRecord = typeof files.$inferSelect;
 export type PerformanceTemplate = typeof performanceTemplates.$inferSelect;

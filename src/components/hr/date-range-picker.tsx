@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { CalendarRange, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/datepicker";
+import { useTranslations } from "@/lib/i18n/provider";
 import { defaultRange, todayIso } from "@/lib/report-dates";
 
 /**
@@ -14,6 +15,7 @@ import { defaultRange, todayIso } from "@/lib/report-dates";
 export function DateRangePicker({ from, to }: { from: string; to: string }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { t } = useTranslations();
 
   const apply = (nextFrom: string, nextTo: string) => {
     const params = new URLSearchParams();
@@ -31,21 +33,23 @@ export function DateRangePicker({ from, to }: { from: string; to: string }) {
     <div className="flex flex-wrap items-center gap-2">
       <span className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
         <CalendarRange className="size-4" />
-        Date range
+        {t("common.dateRange")}
       </span>
       <DatePicker
         value={from}
         onChange={(value) => apply(value, to)}
-        aria-label="From date"
-        placeholder="From"
+        aria-label={t("common.fromDate")}
+        placeholder={t("common.from")}
         max={to}
       />
-      <span className="text-xs text-muted-foreground">to</span>
+      <span className="text-xs text-muted-foreground">
+        {t("common.toSeparator")}
+      </span>
       <DatePicker
         value={to}
         onChange={(value) => apply(from, value)}
-        aria-label="To date"
-        placeholder="To"
+        aria-label={t("common.toDate")}
+        placeholder={t("common.to")}
         min={from}
         max={todayIso()}
       />
@@ -56,7 +60,7 @@ export function DateRangePicker({ from, to }: { from: string; to: string }) {
         className="gap-1.5 text-muted-foreground"
       >
         <RotateCcw className="size-3.5" />
-        Last 7 days
+        {t("common.last7Days")}
       </Button>
     </div>
   );

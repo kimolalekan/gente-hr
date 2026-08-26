@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { useRef, useState } from 'react';
-import { Building2, ImageIcon, Trash2, Upload } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { useRef, useState } from "react";
+import { Building2, ImageIcon, Trash2, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/lib/i18n/provider";
+import { cn } from "@/lib/utils";
 
 const MAX_SIZE = 512 * 1024; // 512KB — production should upload to CDN and store the URL.
 
@@ -23,22 +24,23 @@ export function LogoUploader({
   square?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslations();
   const [error, setError] = useState<string | null>(null);
 
   const handleFile = (file: File | undefined) => {
     setError(null);
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setError('Please choose an image file.');
+    if (!file.type.startsWith("image/")) {
+      setError(t("settings.branding.logoInvalidType"));
       return;
     }
     if (file.size > MAX_SIZE) {
-      setError('Image must be under 512KB. Use a compressed PNG.');
+      setError(t("settings.branding.logoTooLarge"));
       return;
     }
     const reader = new FileReader();
     reader.onload = () => onUpload(String(reader.result));
-    reader.onerror = () => setError('Could not read the file.');
+    reader.onerror = () => setError(t("settings.branding.logoReadError"));
     reader.readAsDataURL(file);
   };
 
@@ -50,8 +52,8 @@ export function LogoUploader({
       <div className="mt-3 flex items-center gap-3">
         <div
           className={cn(
-            'flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted/50',
-            square ? 'size-12' : 'size-20',
+            "flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted/50",
+            square ? "size-12" : "size-20",
           )}
         >
           {value ? (
@@ -62,14 +64,20 @@ export function LogoUploader({
           )}
         </div>
         <div className="flex flex-col gap-1.5">
-          <Button size="sm" variant="secondary" onClick={() => inputRef.current?.click()}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => inputRef.current?.click()}
+          >
             <Upload />
-            {value ? 'Replace' : 'Upload'}
+            {value
+              ? t("settings.branding.replaceLogo")
+              : t("settings.branding.uploadLogo")}
           </Button>
           {value && (
             <Button size="sm" variant="ghost" onClick={onRemove}>
               <Trash2 />
-              Remove
+              {t("common.remove")}
             </Button>
           )}
           <input
@@ -79,7 +87,7 @@ export function LogoUploader({
             className="hidden"
             onChange={(event) => {
               handleFile(event.target.files?.[0]);
-              event.target.value = '';
+              event.target.value = "";
             }}
           />
         </div>
@@ -88,7 +96,8 @@ export function LogoUploader({
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       {!value && (
         <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-          <Building2 className="size-3" /> A default placeholder is used until you upload one.
+          <Building2 className="size-3" />{" "}
+          {t("settings.branding.logoPlaceholderHint")}
         </p>
       )}
     </div>

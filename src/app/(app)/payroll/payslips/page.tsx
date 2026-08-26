@@ -16,8 +16,13 @@ import { formatCurrency } from "@/lib/hr-data";
 import { parseRange } from "@/lib/report-dates";
 import { getCurrentUser } from "@/lib/server/auth";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
+import { getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 
-export const metadata = { title: "Payslips" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("payroll.payslips.title") };
+}
 
 /** Payslip row from `GET /api/payroll/payslips` (member-scoped for members). */
 interface PayslipRow {
@@ -47,6 +52,7 @@ export default async function PayslipsPage({
 }) {
   const user = await getCurrentUser();
   const isMember = user?.role === "member";
+  const t = await getTranslator();
 
   const { from: fromParam, to: toParam } = await searchParams;
   const { from, to } = parseRange(fromParam, toParam);
@@ -65,11 +71,13 @@ export default async function PayslipsPage({
   return (
     <>
       <PageHeader
-        title={isMember ? "My payslips" : "Payslips"}
+        title={
+          isMember ? t("payroll.payslips.myTitle") : t("payroll.payslips.title")
+        }
         description={
           isMember
-            ? "Your monthly payslips."
-            : "Monthly payslips for all employees."
+            ? t("payroll.payslips.myDescription")
+            : t("payroll.payslips.description")
         }
       >
         <DateRangePicker from={from} to={to} />
@@ -79,7 +87,7 @@ export default async function PayslipsPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <CalendarDays className="size-4" /> Period
+              <CalendarDays className="size-4" /> {t("payroll.period")}
             </p>
             <p className="mt-1 text-2xl font-bold">{periodLabel}</p>
           </CardContent>
@@ -87,7 +95,7 @@ export default async function PayslipsPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <FileText className="size-4" /> Payslips
+              <FileText className="size-4" /> {t("payroll.payslips.title")}
             </p>
             <p className="mt-1 text-2xl font-bold">{payslips.length}</p>
           </CardContent>
@@ -95,7 +103,7 @@ export default async function PayslipsPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Banknote className="size-4" /> Net total
+              <Banknote className="size-4" /> {t("payroll.payslips.netTotal")}
             </p>
             <p className="mt-1 text-2xl font-bold text-success">
               {formatCurrency(netTotal)}
@@ -106,9 +114,9 @@ export default async function PayslipsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Payslips</CardTitle>
+          <CardTitle>{t("payroll.payslips.title")}</CardTitle>
           <CardDescription>
-            Earnings and deductions per employee in the selected date range.
+            {t("payroll.payslips.listDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -116,17 +124,23 @@ export default async function PayslipsPage({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="py-2.5 pr-4 font-medium">Employee</th>
+                  <th className="py-2.5 pr-4 font-medium">
+                    {t("payroll.payslips.employee")}
+                  </th>
                   <th className="hidden px-4 py-2.5 font-medium md:table-cell">
-                    Gross
+                    {t("payroll.gross")}
                   </th>
                   <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
-                    Deductions
+                    {t("payroll.deductions")}
                   </th>
-                  <th className="px-4 py-2.5 font-medium">Net</th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("payroll.net")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("common.status")}
+                  </th>
                   <th className="py-2.5 pl-4 text-right font-medium">
-                    Details
+                    {t("common.details")}
                   </th>
                 </tr>
               </thead>
@@ -173,13 +187,15 @@ export default async function PayslipsPage({
                             payslip.status === "paid" ? "success" : "warning"
                           }
                         >
-                          {payslip.status}
+                          {t(
+                            `statusLabels.payslip.${payslip.status}` as TranslationKey,
+                          )}
                         </Badge>
                       </td>
                       <td className="py-3 pl-4 text-right">
                         <Link href={`/payroll/payslips/${payslip.id}`}>
                           <Button variant="outline" size="sm">
-                            View details
+                            {t("common.viewDetails")}
                           </Button>
                         </Link>
                       </td>

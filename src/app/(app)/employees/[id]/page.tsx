@@ -11,6 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmployeeProfileCard } from "@/components/hr/employee-profile-card";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 import {
   apiGet,
   ApiClientError,
@@ -19,7 +21,6 @@ import {
 import {
   formatCurrency,
   formatDate,
-  LEAVE_TYPE_LABELS,
   type AttendanceStatus,
   type Employee,
   type EmployeeStatus,
@@ -28,16 +29,13 @@ import {
 
 const ATTENDANCE_META: Record<
   AttendanceStatus,
-  {
-    label: string;
-    variant: "success" | "warning" | "info" | "secondary" | "destructive";
-  }
+  { variant: "success" | "warning" | "info" | "secondary" | "destructive" }
 > = {
-  present: { label: "Present", variant: "success" },
-  late: { label: "Late", variant: "warning" },
-  remote: { label: "Remote", variant: "info" },
-  on_leave: { label: "On leave", variant: "secondary" },
-  absent: { label: "Absent", variant: "destructive" },
+  present: { variant: "success" },
+  late: { variant: "warning" },
+  remote: { variant: "info" },
+  on_leave: { variant: "secondary" },
+  absent: { variant: "destructive" },
 };
 
 /** Full employee row from GET /api/employees/[id]. */
@@ -125,7 +123,10 @@ function currentWeekRange(): { start: string; end: string } {
   return { start: toIso(monday), end: toIso(sunday) };
 }
 
-export const metadata = { title: "Employee profile" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("metadata.employeeProfile") };
+}
 
 export default async function EmployeeDetailPage({
   params,
@@ -133,6 +134,8 @@ export default async function EmployeeDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const locale = await getTenantLocale();
+  const t = await getTranslator();
 
   // Employees only see their own profile — the directory is admin/HR.
   const user = await getCurrentUser();
@@ -223,16 +226,16 @@ export default async function EmployeeDetailPage({
         <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Documents</CardTitle>
+              <CardTitle>{t("employees.documents")}</CardTitle>
               <CardDescription>
-                Records on file for this employee.
+                {t("employees.documentsDescription")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="divide-y divide-border">
                 {documents.length === 0 && (
                   <p className="py-2 text-sm text-muted-foreground">
-                    No documents on file.
+                    {t("employees.noDocuments")}
                   </p>
                 )}
                 {documents.map((document) => (
@@ -243,8 +246,13 @@ export default async function EmployeeDetailPage({
                     <div className="min-w-0">
                       <p className="truncate font-medium">{document.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {document.category} · uploaded{" "}
-                        {formatDate(String(document.uploadedAt).slice(0, 10))}
+                        {document.category} ·{" "}
+                        {t("employees.uploadedOn", {
+                          date: formatDate(
+                            String(document.uploadedAt).slice(0, 10),
+                            locale,
+                          ),
+                        })}
                       </p>
                     </div>
                     <Badge
@@ -256,7 +264,12 @@ export default async function EmployeeDetailPage({
                             : "destructive"
                       }
                     >
-                      {document.status}
+                      {document.status === "verified" ||
+                      document.status === "pending"
+                        ? t(
+                            `statusLabels.document.${document.status}` as TranslationKey,
+                          )
+                        : document.status}
                     </Badge>
                   </div>
                 ))}
@@ -266,27 +279,37 @@ export default async function EmployeeDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Leave history</CardTitle>
+              <CardTitle>{t("employees.leaveHistory")}</CardTitle>
               <CardDescription>
-                Recent requests from {employee.name.split(" ")[0]}.
+                {t("employees.recentRequestsFrom", {
+                  name: employee.name.split(" ")[0],
+                })}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {requests.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No leave requests yet.
+                  {t("employees.noLeaveRequests")}
                 </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                        <th className="py-2.5 pr-4 font-medium">Type</th>
-                        <th className="px-4 py-2.5 font-medium">Dates</th>
-                        <th className="px-4 py-2.5 font-medium">Days</th>
-                        <th className="px-4 py-2.5 font-medium">Status</th>
+                        <th className="py-2.5 pr-4 font-medium">
+                          {t("leave.type")}
+                        </th>
+                        <th className="px-4 py-2.5 font-medium">
+                          {t("common.dates")}
+                        </th>
+                        <th className="px-4 py-2.5 font-medium">
+                          {t("leave.days")}
+                        </th>
+                        <th className="px-4 py-2.5 font-medium">
+                          {t("common.status")}
+                        </th>
                         <th className="py-2.5 pl-4 text-right font-medium">
-                          Details
+                          {t("common.details")}
                         </th>
                       </tr>
                     </thead>
@@ -297,11 +320,13 @@ export default async function EmployeeDetailPage({
                           className="border-b border-border last:border-0"
                         >
                           <td className="py-3 pr-4">
-                            {LEAVE_TYPE_LABELS[request.type]}
+                            {t(
+                              `statusLabels.leaveType.${request.type}` as TranslationKey,
+                            )}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
-                            {formatDate(request.start)} →{" "}
-                            {formatDate(request.end)}
+                            {formatDate(request.start, locale)} →{" "}
+                            {formatDate(request.end, locale)}
                           </td>
                           <td className="px-4 py-3">{request.days}</td>
                           <td className="px-4 py-3">
@@ -314,13 +339,15 @@ export default async function EmployeeDetailPage({
                                     : "destructive"
                               }
                             >
-                              {request.status}
+                              {t(
+                                `statusLabels.leaveStatus.${request.status}` as TranslationKey,
+                              )}
                             </Badge>
                           </td>
                           <td className="py-3 pl-4 text-right">
                             <Link href={`/leave/${request.id}`}>
                               <Button variant="outline" size="sm">
-                                View details
+                                {t("common.viewDetails")}
                               </Button>
                             </Link>
                           </td>
@@ -337,26 +364,32 @@ export default async function EmployeeDetailPage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Attendance this week</CardTitle>
+              <CardTitle>{t("attendance.thisWeekTitle")}</CardTitle>
               <CardDescription>
-                Check-ins · {attendanceWeek.length} workdays
+                {t("attendance.workdaysCount", { n: attendanceWeek.length })}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {attendanceWeek.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No attendance records this week.
+                  {t("attendance.noRecordsThisWeek")}
                 </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                        <th className="py-2 pr-3 font-medium">Day</th>
-                        <th className="px-3 py-2 font-medium">In</th>
-                        <th className="px-3 py-2 font-medium">Out</th>
+                        <th className="py-2 pr-3 font-medium">
+                          {t("common.day")}
+                        </th>
+                        <th className="px-3 py-2 font-medium">
+                          {t("attendance.in")}
+                        </th>
+                        <th className="px-3 py-2 font-medium">
+                          {t("attendance.out")}
+                        </th>
                         <th className="py-2 pl-3 text-right font-medium">
-                          Status
+                          {t("common.status")}
                         </th>
                       </tr>
                     </thead>
@@ -367,14 +400,14 @@ export default async function EmployeeDetailPage({
                           ATTENDANCE_META.absent;
                         const weekday = new Date(
                           `${record.date}T00:00:00`,
-                        ).toLocaleDateString("en-US", { weekday: "short" });
+                        ).toLocaleDateString(locale, { weekday: "short" });
                         return (
                           <tr
                             key={record.date}
                             className="border-b border-border last:border-0"
                           >
                             <td className="py-2 pr-3 text-xs font-medium">
-                              {weekday} {formatDate(record.date)}
+                              {weekday} {formatDate(record.date, locale)}
                             </td>
                             <td className="px-3 py-2 font-mono text-xs">
                               {record.checkIn ?? "—"}
@@ -387,7 +420,9 @@ export default async function EmployeeDetailPage({
                                 variant={meta.variant}
                                 className="text-[10px]"
                               >
-                                {meta.label}
+                                {t(
+                                  `statusLabels.attendance.${record.status}` as TranslationKey,
+                                )}
                               </Badge>
                             </td>
                           </tr>
@@ -402,9 +437,11 @@ export default async function EmployeeDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Leave balance</CardTitle>
+              <CardTitle>{t("leave.balanceTitle")}</CardTitle>
               <CardDescription>
-                Current year{balanceRow ? ` (${balanceRow.year})` : ""}.
+                {balanceRow
+                  ? t("leave.currentYearWithYear", { year: balanceRow.year })
+                  : t("leave.currentYear")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -420,7 +457,10 @@ export default async function EmployeeDetailPage({
                           {kind}
                         </span>
                         <span className="font-medium">
-                          {remaining} of {entry.total} left
+                          {t("leave.balanceLeft", {
+                            remaining,
+                            total: entry.total,
+                          })}
                         </span>
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -434,7 +474,7 @@ export default async function EmployeeDetailPage({
                 })
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No balance data.
+                  {t("leave.noBalance")}
                 </p>
               )}
             </CardContent>
@@ -442,13 +482,15 @@ export default async function EmployeeDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Payslips</CardTitle>
-              <CardDescription>Recent payslips on file.</CardDescription>
+              <CardTitle>{t("payroll.payslips.title")}</CardTitle>
+              <CardDescription>
+                {t("payroll.payslips.recentDescription")}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               {payslips.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No payslips yet.
+                  {t("payroll.payslips.noPayslips")}
                 </p>
               ) : (
                 payslips.map((payslip) => (
@@ -459,10 +501,16 @@ export default async function EmployeeDetailPage({
                     <div className="min-w-0">
                       <p className="truncate font-medium">{payslip.period}</p>
                       <p className="text-xs text-muted-foreground">
-                        Net {formatCurrency(payslip.net)}
+                        {t("payroll.net")} {formatCurrency(payslip.net)}
                       </p>
                     </div>
-                    <Badge variant="outline">{payslip.status}</Badge>
+                    <Badge variant="outline">
+                      {payslip.status === "draft" || payslip.status === "paid"
+                        ? t(
+                            `statusLabels.payslip.${payslip.status}` as TranslationKey,
+                          )
+                        : payslip.status}
+                    </Badge>
                   </div>
                 ))
               )}

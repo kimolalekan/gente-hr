@@ -17,16 +17,20 @@ import {
   type Paginated,
 } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 import {
   APPLICATION_STAGE_LABELS,
-  EMPLOYMENT_TYPE_LABELS,
   formatCurrency,
   formatDate,
   type Application,
   type JobStatus,
 } from "@/lib/hr-data";
 
-export const metadata = { title: "Job" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("metadata.job") };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -53,8 +57,11 @@ export default async function JobDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = await getTranslator();
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/");
+
+  const locale = await getTenantLocale();
 
   const { id } = await params;
   let job: JobDetail;
@@ -87,7 +94,7 @@ export default async function JobDetailPage({
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
-            Jobs
+            {t("ats.jobs.title")}
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">{job.title}</h1>
@@ -100,13 +107,13 @@ export default async function JobDetailPage({
                     : "secondary"
               }
             >
-              {job.status}
+              {t(`statusLabels.job.${job.status}` as TranslationKey)}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {[job.department, job.location && `📍 ${job.location}`]
               .filter(Boolean)
-              .join(" · ") || "General"}
+              .join(" · ") || t("common.general")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -116,7 +123,7 @@ export default async function JobDetailPage({
               target="_blank"
               className={buttonVariants({ variant: "outline" })}
             >
-              Public link
+              {t("ats.jobs.publicLink")}
             </Link>
           )}
           <Link
@@ -124,7 +131,7 @@ export default async function JobDetailPage({
             className={buttonVariants({ variant: "outline" })}
           >
             <Pencil />
-            Edit
+            {t("common.edit")}
           </Link>
         </div>
       </div>
@@ -133,9 +140,9 @@ export default async function JobDetailPage({
         <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Applications</CardTitle>
+              <CardTitle>{t("ats.jobs.applications")}</CardTitle>
               <CardDescription>
-                Candidates who applied to this job.
+                {t("ats.applications.appliedHint")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -143,10 +150,9 @@ export default async function JobDetailPage({
                 <div className="flex flex-col items-center gap-2 py-8 text-center">
                   <Users className="size-8 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">
-                    No applications yet
                     {job.status === "open"
-                      ? " — share the public link to start receiving them."
-                      : "."}
+                      ? t("ats.jobs.noApplicationsHint")
+                      : t("ats.jobs.noApplicationsShort")}
                   </p>
                 </div>
               ) : (
@@ -154,13 +160,17 @@ export default async function JobDetailPage({
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                        <th className="py-2.5 pr-4 font-medium">Candidate</th>
-                        <th className="px-4 py-2.5 font-medium">Stage</th>
+                        <th className="py-2.5 pr-4 font-medium">
+                          {t("ats.applications.candidate")}
+                        </th>
+                        <th className="px-4 py-2.5 font-medium">
+                          {t("ats.applications.stage")}
+                        </th>
                         <th className="hidden px-4 py-2.5 font-medium md:table-cell">
-                          Applied
+                          {t("ats.applications.applied")}
                         </th>
                         <th className="py-2.5 pl-4 text-right font-medium">
-                          Details
+                          {t("common.details")}
                         </th>
                       </tr>
                     </thead>
@@ -195,13 +205,15 @@ export default async function JobDetailPage({
                                       : "secondary"
                               }
                             >
-                              {APPLICATION_STAGE_LABELS[application.stage] ??
-                                application.stage}
+                              {t(
+                                `statusLabels.applicationStage.${application.stage}` as TranslationKey,
+                              )}
                             </Badge>
                           </td>
                           <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                             {formatDate(
                               String(application.createdAt).slice(0, 10),
+                              locale,
                             )}
                           </td>
                           <td className="py-3 pl-4 text-right">
@@ -209,7 +221,7 @@ export default async function JobDetailPage({
                               href={`/ats/applications/${application.id}`}
                               className="text-xs font-medium text-primary hover:underline"
                             >
-                              View
+                              {t("common.view")}
                             </Link>
                           </td>
                         </tr>
@@ -224,7 +236,7 @@ export default async function JobDetailPage({
           {job.description && (
             <Card>
               <CardHeader>
-                <CardTitle>Description</CardTitle>
+                <CardTitle>{t("common.description")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div
@@ -238,16 +250,16 @@ export default async function JobDetailPage({
           {(job.questions.length > 0 || job.quizName) && (
             <Card>
               <CardHeader>
-                <CardTitle>Screening</CardTitle>
+                <CardTitle>{t("ats.applications.screening")}</CardTitle>
                 <CardDescription>
-                  What candidates answer when they apply.
+                  {t("ats.applications.screeningHint")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {job.questions.length > 0 && (
                   <div className="space-y-1.5">
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Questions
+                      {t("ats.jobs.questionsList")}
                     </p>
                     <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
                       {job.questions.map((question, index) => (
@@ -259,7 +271,9 @@ export default async function JobDetailPage({
                 {job.quizName && (
                   <div className="flex items-center gap-2">
                     <ListChecks className="size-4 text-primary" />
-                    <span className="font-medium">Quiz:</span>
+                    <span className="font-medium">
+                      {t("ats.jobs.quizLabel")}
+                    </span>
                     <Link
                       href={`/ats/quizzes`}
                       className="text-primary hover:underline"
@@ -276,19 +290,24 @@ export default async function JobDetailPage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Details</CardTitle>
-              <CardDescription>Posting information.</CardDescription>
+              <CardTitle>{t("common.details")}</CardTitle>
+              <CardDescription>{t("common.detailsHint")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2.5 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Type</span>
+                <span className="text-muted-foreground">
+                  {t("ats.jobs.type")}
+                </span>
                 <span className="font-medium">
-                  {EMPLOYMENT_TYPE_LABELS[job.employmentType] ??
-                    job.employmentType}
+                  {t(
+                    `statusLabels.employmentType.${job.employmentType}` as TranslationKey,
+                  )}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Location</span>
+                <span className="text-muted-foreground">
+                  {t("ats.jobs.location")}
+                </span>
                 <span className="flex items-center gap-1 font-medium">
                   {job.location ? (
                     <>
@@ -301,13 +320,17 @@ export default async function JobDetailPage({
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Salary range</span>
+                <span className="text-muted-foreground">
+                  {t("ats.jobs.salaryRange")}
+                </span>
                 <span className="font-medium">{salaryRange ?? "—"}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Created</span>
+                <span className="text-muted-foreground">
+                  {t("common.createdAt")}
+                </span>
                 <span className="font-medium">
-                  {formatDate(job.createdAt.slice(0, 10))}
+                  {formatDate(job.createdAt.slice(0, 10), locale)}
                 </span>
               </div>
             </CardContent>
@@ -315,23 +338,24 @@ export default async function JobDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Pipeline</CardTitle>
-              <CardDescription>Applications by stage.</CardDescription>
+              <CardTitle>{t("ats.applications.pipeline")}</CardTitle>
+              <CardDescription>
+                {t("ats.applications.pipelineHint")}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {Object.entries(APPLICATION_STAGE_LABELS).map(
-                ([stage, label]) => (
-                  <div
-                    key={stage}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className="font-medium">
-                      {job.stageCounts?.[stage] ?? 0}
-                    </span>
-                  </div>
-                ),
-              )}
+              {Object.keys(APPLICATION_STAGE_LABELS).map((stage) => (
+                <div key={stage} className="flex items-center justify-between">
+                  <span className="text-muted-foreground">
+                    {t(
+                      `statusLabels.applicationStage.${stage}` as TranslationKey,
+                    )}
+                  </span>
+                  <span className="font-medium">
+                    {job.stageCounts?.[stage] ?? 0}
+                  </span>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </div>

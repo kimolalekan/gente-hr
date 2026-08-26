@@ -4,9 +4,10 @@ import type * as React from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Popover } from "@/components/ui/popover";
+import { useTranslations } from "@/lib/i18n/provider";
+import { formatMonthYear } from "@/lib/i18n/dates";
+import { useLocale } from "@/lib/i18n/use-locale";
 import { cn } from "@/lib/utils";
-
-const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 function parseIso(value: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -37,10 +38,10 @@ function dayTime(date: Date): number {
   ).getTime();
 }
 
-function formatDisplay(value: string): string {
+function formatDisplay(value: string, locale: string): string {
   const date = parseIso(value);
   return date
-    ? date.toLocaleDateString("en-US", {
+    ? date.toLocaleDateString(locale, {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -69,7 +70,7 @@ interface DatePickerProps {
 export function DatePicker({
   value,
   onChange,
-  placeholder = "Select a date",
+  placeholder,
   min,
   max,
   "aria-label": ariaLabel,
@@ -77,6 +78,9 @@ export function DatePicker({
   className,
   disabled = false,
 }: DatePickerProps) {
+  const { t } = useTranslations();
+  const resolvedPlaceholder = placeholder ?? t("common.selectDate");
+  const locale = useLocale();
   const selected = parseIso(value);
   const [open, setOpen] = useState(false);
 
@@ -167,11 +171,18 @@ export function DatePicker({
     }
   };
 
-  const monthLabel = view.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  const monthLabel = formatMonthYear(view, locale);
   const today = new Date();
+
+  // Localized weekday headers (Monday-first week for the given locale).
+  const weekdays = useMemo(() => {
+    // 2026-01-05 is a Monday.
+    return Array.from({ length: 7 }, (_, index) =>
+      new Date(2026, 0, 5 + index).toLocaleDateString(locale, {
+        weekday: "short",
+      }),
+    );
+  }, [locale]);
 
   return (
     <Popover
@@ -191,7 +202,7 @@ export function DatePicker({
           )}
         >
           <span className={cn("truncate", !value && "text-muted-foreground")}>
-            {value ? formatDisplay(value) : placeholder}
+            {value ? formatDisplay(value, locale) : resolvedPlaceholder}
           </span>
           <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
         </button>
@@ -202,7 +213,7 @@ export function DatePicker({
           <button
             type="button"
             onClick={() => shiftMonth(-1)}
-            aria-label="Previous month"
+            aria-label={t("common.previousMonth")}
             className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronLeft className="size-4" />
@@ -211,7 +222,7 @@ export function DatePicker({
           <button
             type="button"
             onClick={() => shiftMonth(1)}
-            aria-label="Next month"
+            aria-label={t("common.nextMonth")}
             className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronRight className="size-4" />
@@ -221,12 +232,12 @@ export function DatePicker({
         <div
           ref={gridRef}
           role="grid"
-          aria-label="Calendar"
+          aria-label={t("common.calendar")}
           tabIndex={0}
           onKeyDown={onGridKeyDown}
           className="grid grid-cols-7 gap-1 outline-none"
         >
-          {WEEKDAYS.map((weekday) => (
+          {weekdays.map((weekday) => (
             <div
               key={weekday}
               className="pb-1 text-center text-[10px] font-medium uppercase text-muted-foreground"
@@ -250,7 +261,7 @@ export function DatePicker({
                 style={
                   day === 1 ? { gridColumnStart: startOffset + 1 } : undefined
                 }
-                aria-label={date.toLocaleDateString("en-US", {
+                aria-label={date.toLocaleDateString(locale, {
                   weekday: "short",
                   month: "short",
                   day: "numeric",

@@ -23,6 +23,8 @@ import {
 import { OnboardingTasks } from "@/components/hr/onboarding-tasks";
 import { getCurrentUser } from "@/lib/server/auth";
 import { apiGet, ApiClientError } from "@/lib/server/api-client";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 import {
   formatDate,
   getOnboardingProgress,
@@ -31,7 +33,10 @@ import {
   type TaskStatus,
 } from "@/lib/hr-data";
 
-export const metadata = { title: "Onboarding plan" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("onboarding.planTitle") };
+}
 
 interface OnboardingDetailRow {
   id: string;
@@ -63,10 +68,13 @@ export default async function OnboardingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const t = await getTranslator();
 
   // Employees don't manage onboarding — it's an HR/admin workspace.
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/");
+
+  const locale = await getTenantLocale();
 
   let row: OnboardingDetailRow;
   try {
@@ -109,11 +117,11 @@ export default async function OnboardingDetailPage({
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
-            Onboarding
+            {t("onboarding.title")}
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
-              Onboarding — {plan.fullName}
+              {t("onboarding.title")} — {plan.fullName}
             </h1>
             <Badge
               variant={
@@ -124,14 +132,16 @@ export default async function OnboardingDetailPage({
                     : "secondary"
               }
             >
-              {plan.status}
+              {t(
+                `statusLabels.onboardingPlan.${plan.status}` as TranslationKey,
+              )}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">{plan.email}</p>
         </div>
         {plan.employeeId && (
           <Link href={`/employees/${plan.employeeId}`}>
-            <Button variant="outline">View employee profile</Button>
+            <Button variant="outline">{t("employees.viewProfile")}</Button>
           </Link>
         )}
       </div>
@@ -140,10 +150,8 @@ export default async function OnboardingDetailPage({
         <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Task checklist</CardTitle>
-              <CardDescription>
-                Assigned to HR, IT and Admin — tap a task to change its status.
-              </CardDescription>
+              <CardTitle>{t("onboarding.taskChecklist")}</CardTitle>
+              <CardDescription>{t("onboarding.tasksHint")}</CardDescription>
             </CardHeader>
             <CardContent>
               <OnboardingTasks planId={plan.id} tasks={plan.tasks} />
@@ -152,16 +160,16 @@ export default async function OnboardingDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Offer letter</CardTitle>
+              <CardTitle>{t("onboarding.offerLetter")}</CardTitle>
               <CardDescription>
-                Signed copy submitted by the employee.
+                {t("onboarding.offerLetterHint")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/50 px-3 py-2.5">
                 <span className="flex items-center gap-2 text-muted-foreground">
                   <UserRound className="size-4 shrink-0" />
-                  Signed offer letter
+                  {t("onboarding.signedOfferLetter")}
                 </span>
                 {plan.signedOfferLetter ? (
                   <span className="flex min-w-0 items-center gap-1.5 font-medium text-success">
@@ -171,13 +179,12 @@ export default async function OnboardingDetailPage({
                 ) : (
                   <span className="flex items-center gap-1.5 text-warning">
                     <Clock className="size-3.5 shrink-0" />
-                    Awaiting employee signature
+                    {t("onboarding.awaitingSignature")}
                   </span>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Submitted by the employee through the link in their invite
-                email.
+                {t("onboarding.offerLetterSubmitted")}
               </p>
             </CardContent>
           </Card>
@@ -186,10 +193,8 @@ export default async function OnboardingDetailPage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>New hire</CardTitle>
-              <CardDescription>
-                Personal details for the invite.
-              </CardDescription>
+              <CardTitle>{t("onboarding.newHire")}</CardTitle>
+              <CardDescription>{t("onboarding.newHireHint")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center gap-3">
@@ -203,7 +208,7 @@ export default async function OnboardingDetailPage({
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <UserRound className="size-4 shrink-0" />
-                Phone: {plan.phone || "—"}
+                {t("onboarding.phone")}: {plan.phone || "—"}
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Mail className="size-4 shrink-0" />
@@ -221,15 +226,16 @@ export default async function OnboardingDetailPage({
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <CalendarClock className="size-4 shrink-0" />
-                {formatDate(plan.startDate)} → {formatDate(plan.targetDate)}
+                {formatDate(plan.startDate, locale)} →{" "}
+                {formatDate(plan.targetDate, locale)}
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Progress</CardTitle>
-              <CardDescription>Overall completion.</CardDescription>
+              <CardTitle>{t("onboarding.progress")}</CardTitle>
+              <CardDescription>{t("onboarding.progressHint")}</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-primary">{progress}%</p>
@@ -240,11 +246,11 @@ export default async function OnboardingDetailPage({
                 />
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                {
-                  plan.tasks.filter((task) => task.status === "completed")
-                    .length
-                }{" "}
-                of {plan.tasks.length} tasks completed
+                {t("onboarding.tasksCompleted", {
+                  done: plan.tasks.filter((task) => task.status === "completed")
+                    .length,
+                  total: plan.tasks.length,
+                })}
               </p>
             </CardContent>
           </Card>

@@ -1,5 +1,7 @@
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { getDb, ok, requireRole, route } from "@/lib/server/api";
+import { getTenantLocale } from "@/lib/server/i18n";
+import { formatWeekdayShort } from "@/lib/i18n/dates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,11 +15,6 @@ function addDays(dateStr: string, days: number): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d + days));
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
-}
-
-function weekdayShort(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short" });
 }
 
 /** Last 7 days: { date, day, presentPct } of active headcount present. */
@@ -66,13 +63,14 @@ export const GET = route(async () => {
     }
 
     const active = activeCountRows[0]?.count ?? 0;
+    const locale = await getTenantLocale();
     const days = [];
     for (let offset = 6; offset >= 0; offset--) {
       const date = addDays(today, -offset);
       const present = perDay.get(date) ?? 0;
       days.push({
         date,
-        day: weekdayShort(date),
+        day: formatWeekdayShort(date, locale),
         presentPct: active > 0 ? Math.round((present / active) * 100) : 0,
       });
     }

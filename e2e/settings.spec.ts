@@ -39,15 +39,18 @@ test.describe("Settings", () => {
     await page.getByLabel("Language").click();
     await page.getByRole("option", { name: "French" }).click();
     await page.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+    // The app re-renders in the new language immediately after saving.
+    await expect(page.getByText("Enregistré", { exact: true })).toBeVisible();
 
     await page.reload();
-    await expect(page.getByLabel("Language")).toContainText("French");
+    await expect(page.getByLabel("Langue")).toContainText("Français");
 
     // Restore the default so re-runs stay deterministic.
-    await page.getByLabel("Language").click();
-    await page.getByRole("option", { name: "English" }).click();
-    await page.getByRole("button", { name: "Save changes" }).click();
+    await page.getByLabel("Langue").click();
+    await page.getByRole("option", { name: "Anglais" }).click();
+    await page
+      .getByRole("button", { name: "Enregistrer les modifications" })
+      .click();
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   });
 

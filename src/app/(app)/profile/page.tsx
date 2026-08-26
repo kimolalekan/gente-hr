@@ -12,8 +12,13 @@ import { EmployeeProfileCard } from "@/components/hr/employee-profile-card";
 import { ApiClientError, apiGet } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
 import { formatDate, type Employee } from "@/lib/hr-data";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 
-export const metadata = { title: "My profile" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("metadata.myProfile") };
+}
 
 /** Shape of `GET /api/employees/me`. */
 interface MyEmployee {
@@ -53,6 +58,9 @@ export default async function ProfilePage() {
   if (!user) redirect("/login");
   // Employees only — admins/HR manage profiles through the directory.
   if (user.role !== "member") redirect("/");
+
+  const locale = await getTenantLocale();
+  const t = await getTranslator();
 
   let me: MyEmployee;
   try {
@@ -111,14 +119,16 @@ export default async function ProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Documents</CardTitle>
-          <CardDescription>Records on file for you.</CardDescription>
+          <CardTitle>{t("employees.documents")}</CardTitle>
+          <CardDescription>
+            {t("employees.documentsMineDescription")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="divide-y divide-border">
             {documents.length === 0 ? (
               <p className="py-2.5 text-sm text-muted-foreground">
-                No documents on file yet.
+                {t("employees.noDocuments")}
               </p>
             ) : (
               documents.map((document) => (
@@ -129,8 +139,13 @@ export default async function ProfilePage() {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{document.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {document.category} · uploaded{" "}
-                      {formatDate(document.uploadedAt.slice(0, 10))}
+                      {document.category} ·{" "}
+                      {t("employees.uploadedOn", {
+                        date: formatDate(
+                          document.uploadedAt.slice(0, 10),
+                          locale,
+                        ),
+                      })}
                     </p>
                   </div>
                   <Badge
@@ -142,7 +157,12 @@ export default async function ProfilePage() {
                           : "destructive"
                     }
                   >
-                    {document.status}
+                    {document.status === "verified" ||
+                    document.status === "pending"
+                      ? t(
+                          `statusLabels.document.${document.status}` as TranslationKey,
+                        )
+                      : document.status}
                   </Badge>
                 </div>
               ))

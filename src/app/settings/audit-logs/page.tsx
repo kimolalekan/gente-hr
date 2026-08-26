@@ -11,12 +11,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
+import { getTranslator } from "@/lib/server/i18n";
 
-export const metadata = { title: "Audit logs" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("settings.auditLogs.title") };
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function AuditLogsPage() {
+  const t = await getTranslator();
   const data = await apiGet<Paginated<AuditLogItem>>("/api/audit-logs", {
     page: 1,
     pageSize: 50,
@@ -26,14 +31,16 @@ export default async function AuditLogsPage() {
   return (
     <>
       <PageHeader
-        title="Audit logs"
-        description="Who did what — login, payroll, leave and settings changes."
+        title={t("settings.auditLogs.title")}
+        description={t("settings.auditLogs.description")}
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Activity log</CardTitle>
-          <CardDescription>{logs.length} events · newest first</CardDescription>
+          <CardTitle>{t("settings.auditLogs.activityLog")}</CardTitle>
+          <CardDescription>
+            {t("settings.auditLogs.eventsCount", { n: logs.length })}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <AuditLogTable logs={logs} />

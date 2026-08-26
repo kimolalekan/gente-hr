@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, TrendingUp, type LucideIcon } from "lucide-react";
+import { getTranslator } from "@/lib/server/i18n";
 import type { ButtonProps } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -104,25 +105,32 @@ export function DashboardHeader({
   );
 }
 
-export function AttendanceChart({ days }: { days: AttendanceTrendDay[] }) {
+export async function AttendanceChart({
+  days,
+}: {
+  days: AttendanceTrendDay[];
+}) {
+  const t = await getTranslator();
   return (
     <Card className="lg:col-span-2">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Attendance this week</CardTitle>
-            <CardDescription>Headcount per day</CardDescription>
+            <CardTitle>{t("dashboard.attendanceThisWeek")}</CardTitle>
+            <CardDescription>
+              {t("dashboard.attendanceHeadcount")}
+            </CardDescription>
           </div>
           <Badge variant="secondary">
             <ArrowUpRight className="size-3" />
-            On track
+            {t("dashboard.onTrack")}
           </Badge>
         </div>
       </CardHeader>
       <CardContent>
         {days.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            No attendance data for this week yet.
+            {t("dashboard.noAttendanceThisWeek")}
           </p>
         ) : (
           <div className="flex h-40 items-end justify-between gap-2">
@@ -138,7 +146,9 @@ export function AttendanceChart({ days }: { days: AttendanceTrendDay[] }) {
                       : "w-full max-w-10 rounded-md bg-primary/20"
                   }
                   style={{ height: `${Math.max(4, bar.presentPct)}%` }}
-                  title={`${bar.presentPct}% present`}
+                  title={t("attendance.percentPresent", {
+                    pct: bar.presentPct,
+                  })}
                 />
                 <span
                   className={
@@ -158,25 +168,28 @@ export function AttendanceChart({ days }: { days: AttendanceTrendDay[] }) {
   );
 }
 
-export function RecentEmployeesTable({
+export async function RecentEmployeesTable({
   employees,
 }: {
   employees: RecentEmployee[];
 }) {
+  const t = await getTranslator();
   const recent = employees.slice(0, 5);
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Recent employees</CardTitle>
-            <CardDescription>Latest hires and status updates</CardDescription>
+            <CardTitle>{t("dashboard.recentEmployees")}</CardTitle>
+            <CardDescription>
+              {t("dashboard.recentEmployeesDescription")}
+            </CardDescription>
           </div>
           <Link
             href="/employees"
             className="text-sm font-medium text-primary hover:underline"
           >
-            View all
+            {t("common.viewAll")}
           </Link>
         </div>
       </CardHeader>
@@ -185,13 +198,21 @@ export function RecentEmployeesTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="py-2.5 pr-4 font-medium">Employee</th>
-                <th className="px-4 py-2.5 font-medium">Role</th>
-                <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
-                  Department
+                <th className="py-2.5 pr-4 font-medium">
+                  {t("payroll.payslips.employee")}
                 </th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="py-2.5 pl-4 text-right font-medium">Details</th>
+                <th className="px-4 py-2.5 font-medium">
+                  {t("settings.users.role")}
+                </th>
+                <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
+                  {t("employees.department")}
+                </th>
+                <th className="px-4 py-2.5 font-medium">
+                  {t("common.status")}
+                </th>
+                <th className="py-2.5 pl-4 text-right font-medium">
+                  {t("common.details")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -201,7 +222,7 @@ export function RecentEmployeesTable({
                     colSpan={5}
                     className="py-6 text-center text-sm text-muted-foreground"
                   >
-                    No employees yet.
+                    {t("employees.noEmployeesYet")}
                   </td>
                 </tr>
               )}
@@ -236,16 +257,16 @@ export function RecentEmployeesTable({
                       }
                     >
                       {employee.status === "active"
-                        ? "Active"
+                        ? t("statusLabels.employee.active")
                         : employee.status === "on_leave"
-                          ? "On leave"
-                          : "Pending onboarding"}
+                          ? t("statusLabels.employee.on_leave")
+                          : t("employees.pendingOnboarding")}
                     </Badge>
                   </td>
                   <td className="py-3 pl-4 text-right">
                     <Link href={`/employees/${employee.id}`}>
                       <Button variant="outline" size="sm">
-                        View details
+                        {t("common.viewDetails")}
                       </Button>
                     </Link>
                   </td>
@@ -267,12 +288,15 @@ export interface QuickActionItem {
 }
 
 /** Compact list of common task links (admin / HR dashboards). */
-export function QuickActions({ items }: { items: QuickActionItem[] }) {
+export async function QuickActions({ items }: { items: QuickActionItem[] }) {
+  const t = await getTranslator();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Quick actions</CardTitle>
-        <CardDescription>Common HR tasks</CardDescription>
+        <CardTitle>{t("dashboard.quickActions")}</CardTitle>
+        <CardDescription>
+          {t("dashboard.quickActionsDescription")}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         {items.map((item) => {
@@ -294,12 +318,11 @@ export function QuickActions({ items }: { items: QuickActionItem[] }) {
   );
 }
 
-export function ThemeFooter({ themeName }: { themeName: string }) {
+export async function ThemeFooter({ themeName }: { themeName: string }) {
+  const t = await getTranslator();
   return (
     <p className="text-center text-xs text-muted-foreground">
-      Company theme:{" "}
-      <span className="font-medium text-foreground">{themeName}</span> · saved
-      in Administration → Company Settings → Branding &amp; Theme
+      {t("dashboard.themeFooter", { themeName })}
     </p>
   );
 }

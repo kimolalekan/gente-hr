@@ -19,6 +19,8 @@ import {
   type PayrollBreakdown,
 } from "@/lib/hr-data";
 import { COUNTRY_NAMES, REGIONS, getStatesFor } from "@/lib/regions";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import { cn } from "@/lib/utils";
 
 function Section({
@@ -52,13 +54,14 @@ function Field({
   label: string;
   optional?: boolean;
 }) {
+  const { t } = useTranslations();
   return (
     <div className={cn("space-y-1.5", className)}>
       <Label htmlFor={id}>
         {label}
         {optional && (
           <span className="ml-1 text-xs font-normal text-muted-foreground">
-            (optional)
+            {t("common.optional")}
           </span>
         )}
       </Label>
@@ -67,17 +70,20 @@ function Field({
   );
 }
 
-const STATUS_OPTIONS: Array<{ value: EmployeeStatus; label: string }> = [
-  { value: "active", label: "Active" },
-  { value: "on_leave", label: "On leave" },
-  { value: "pending", label: "Pending onboarding" },
+const STATUS_OPTIONS: Array<{
+  value: EmployeeStatus;
+  labelKey: TranslationKey;
+}> = [
+  { value: "active", labelKey: "statusLabels.employee.active" },
+  { value: "on_leave", labelKey: "statusLabels.employee.on_leave" },
+  { value: "pending", labelKey: "statusLabels.employee.pending" },
 ];
 
-const EMPLOYMENT_TYPES = [
-  { value: "full_time", label: "Full time" },
-  { value: "part_time", label: "Part time" },
-  { value: "contract", label: "Contract" },
-  { value: "intern", label: "Intern" },
+const EMPLOYMENT_TYPES: Array<{ value: string; labelKey: TranslationKey }> = [
+  { value: "full_time", labelKey: "statusLabels.employmentType.full_time" },
+  { value: "part_time", labelKey: "statusLabels.employmentType.part_time" },
+  { value: "contract", labelKey: "statusLabels.employmentType.contract" },
+  { value: "intern", labelKey: "statusLabels.employmentType.intern" },
 ];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -137,6 +143,7 @@ export function EmployeeEditForm({
   payrollBreakdown: PayrollBreakdown;
 }) {
   const router = useRouter();
+  const { t } = useTranslations();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -206,11 +213,11 @@ export function EmployeeEditForm({
     const name = form.name.trim();
     const email = form.email.trim().toLowerCase();
     if (!name) {
-      setError("Full name is required.");
+      setError(t("errors.requiredField", { field: t("onboarding.fullName") }));
       return;
     }
     if (!EMAIL_RE.test(email)) {
-      setError("Enter a valid email address.");
+      setError(t("errors.invalidEmail"));
       return;
     }
 
@@ -282,7 +289,7 @@ export function EmployeeEditForm({
       router.push(`/employees/${employee.id}`);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save employee.");
+      setError(err instanceof Error ? err.message : t("employees.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -297,13 +304,15 @@ export function EmployeeEditForm({
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
-            Back to profile
+            {t("employees.backToProfile")}
           </Link>
           <h1 className="text-2xl font-bold tracking-tight">
-            Edit {employee.name.split(" ")[0]}&apos;s details
+            {t("employees.editDetailsNamed", {
+              name: employee.name.split(" ")[0],
+            })}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Employment record and profile fields — saved to the employee file.
+            {t("employees.editDetailsDescription")}
           </p>
         </div>
         <Button type="submit" form="employee-edit-form" disabled={saving}>
@@ -312,7 +321,7 @@ export function EmployeeEditForm({
           ) : (
             <Save className="size-4" />
           )}
-          {saving ? "Saving…" : "Save changes"}
+          {saving ? t("common.saving") : t("settings.branding.saveChanges")}
         </Button>
       </div>
 
@@ -323,19 +332,19 @@ export function EmployeeEditForm({
       >
         <div className="space-y-5 rounded-xl border border-border bg-card p-5">
           <Section
-            title="Employment"
-            description="Role, department and contract details."
+            title={t("employees.employment")}
+            description={t("employees.employmentDescription")}
           >
             <Field
               id="edit-name"
-              label="Full name"
+              label={t("onboarding.fullName")}
               value={form.name}
               onChange={update("name")}
               required
             />
             <Field
               id="edit-email"
-              label="Email"
+              label={t("common.email")}
               type="email"
               value={form.email}
               onChange={update("email")}
@@ -343,26 +352,28 @@ export function EmployeeEditForm({
             />
             <Field
               id="edit-phone"
-              label="Phone"
+              label={t("common.phone")}
               type="tel"
               value={form.phone}
               onChange={update("phone")}
-              placeholder="+44 20 7946 0958"
+              placeholder={t("employees.phonePlaceholder")}
             />
             <Field
               id="edit-designation"
-              label="Role"
+              label={t("settings.users.role")}
               value={form.designation}
               onChange={update("designation")}
-              placeholder="e.g. Head of Engineering"
+              placeholder={t("employees.designationPlaceholder")}
             />
             <div className="space-y-1.5">
-              <Label htmlFor="edit-department">Department</Label>
+              <Label htmlFor="edit-department">
+                {t("employees.department")}
+              </Label>
               <Select
                 id="edit-department"
                 value={form.department}
                 onChange={update("department")}
-                placeholder="Select a department…"
+                placeholder={t("employees.selectDepartment")}
               >
                 {departments.map((department) => (
                   <option key={department} value={department}>
@@ -373,14 +384,14 @@ export function EmployeeEditForm({
             </div>
             <Field
               id="edit-address"
-              label="Address"
+              label={t("common.address")}
               className="sm:col-span-2"
               value={form.address}
               onChange={update("address")}
-              placeholder="Street, building…"
+              placeholder={t("common.streetAddress")}
             />
             <div className="space-y-1.5">
-              <Label htmlFor="edit-country">Country</Label>
+              <Label htmlFor="edit-country">{t("employees.country")}</Label>
               <Select
                 id="edit-country"
                 value={form.country}
@@ -391,8 +402,8 @@ export function EmployeeEditForm({
                     state: "",
                   }))
                 }
-                placeholder="Select a country…"
-                searchPlaceholder="Search countries…"
+                placeholder={t("employees.selectCountry")}
+                searchPlaceholder={t("employees.searchCountries")}
                 renderOption={(option) => {
                   const region = REGIONS.find(
                     (item) => item.name === option.value,
@@ -408,7 +419,7 @@ export function EmployeeEditForm({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-state">State</Label>
+              <Label htmlFor="edit-state">{t("employees.state")}</Label>
               {(() => {
                 const states = getStatesFor(form.country);
                 if (states.length === 0) {
@@ -419,8 +430,8 @@ export function EmployeeEditForm({
                       onChange={update("state")}
                       placeholder={
                         form.country
-                          ? "No states listed — type if needed"
-                          : "Select a country first…"
+                          ? t("employees.noStates")
+                          : t("employees.selectCountryFirst")
                       }
                       disabled={!form.country}
                     />
@@ -431,8 +442,8 @@ export function EmployeeEditForm({
                     id="edit-state"
                     value={form.state}
                     onChange={update("state")}
-                    placeholder="Select a state…"
-                    searchPlaceholder="Search states…"
+                    placeholder={t("employees.selectState")}
+                    searchPlaceholder={t("employees.searchStates")}
                   >
                     {states.map((state) => (
                       <option key={state.stateCode} value={state.name}>
@@ -444,14 +455,14 @@ export function EmployeeEditForm({
               })()}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-manager">Manager</Label>
+              <Label htmlFor="edit-manager">{t("employees.manager")}</Label>
               <Select
                 id="edit-manager"
                 value={form.managerId}
                 onChange={update("managerId")}
-                placeholder="No manager"
+                placeholder={t("employees.noManager")}
               >
-                <option value="">No manager</option>
+                <option value="">{t("employees.noManager")}</option>
                 {managers.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
@@ -460,7 +471,9 @@ export function EmployeeEditForm({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-employment-type">Employment type</Label>
+              <Label htmlFor="edit-employment-type">
+                {t("employees.employmentType")}
+              </Label>
               <Select
                 id="edit-employment-type"
                 value={form.employmentType}
@@ -468,13 +481,13 @@ export function EmployeeEditForm({
               >
                 {EMPLOYMENT_TYPES.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.labelKey)}
                   </option>
                 ))}
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-status">Status</Label>
+              <Label htmlFor="edit-status">{t("common.status")}</Label>
               <Select
                 id="edit-status"
                 value={form.status}
@@ -482,13 +495,13 @@ export function EmployeeEditForm({
               >
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.labelKey)}
                   </option>
                 ))}
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-joined">Joined date</Label>
+              <Label htmlFor="edit-joined">{t("employees.joinDate")}</Label>
               <DatePicker
                 id="edit-joined"
                 value={form.joinedAt}
@@ -502,8 +515,8 @@ export function EmployeeEditForm({
 
         <div className="space-y-5 rounded-xl border border-border bg-card p-5">
           <Section
-            title="Salary breakdown"
-            description="Annual amounts per component — used to generate monthly payslips."
+            title={t("employees.salaryBreakdown")}
+            description={t("payroll.breakdownDescription")}
           >
             {(["earnings", "deductions"] as const).map((section) => {
               const components = payrollBreakdown[section].filter(
@@ -516,7 +529,9 @@ export function EmployeeEditForm({
                   className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2"
                 >
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:col-span-2">
-                    {section === "earnings" ? "Earnings" : "Deductions"}
+                    {section === "earnings"
+                      ? t("payroll.payslips.earnings")
+                      : t("payroll.deductions")}
                   </p>
                   {components.map((component) => (
                     <div key={component.key} className="space-y-1.5">
@@ -537,7 +552,9 @@ export function EmployeeEditForm({
               );
             })}
             <div className="flex items-center justify-between rounded-lg border border-border bg-background/50 px-3 py-2.5 text-sm sm:col-span-2">
-              <span className="text-muted-foreground">Annual gross</span>
+              <span className="text-muted-foreground">
+                {t("employees.annualGross")}
+              </span>
               <span className="font-semibold">
                 {formatCurrency(salaryGross(mergeSalaryBreakdown(form.salary)))}
               </span>
@@ -546,164 +563,173 @@ export function EmployeeEditForm({
         </div>
 
         <div className="space-y-5 rounded-xl border border-border bg-card p-5">
-          <Section title="Bank account" description="Where salary is paid.">
+          <Section
+            title={t("employees.bankDetails")}
+            description={t("employees.bankDetailsDescription")}
+          >
             <Field
               id="edit-bank-name"
-              label="Bank name"
+              label={t("employees.bankName")}
               value={form.bankName}
               onChange={update("bankName")}
-              placeholder="e.g. Chase"
+              placeholder={t("employees.bankNamePlaceholder")}
             />
             <Field
               id="edit-account-number"
-              label="Account number"
+              label={t("employees.accountNumber")}
               value={form.accountNumber}
               onChange={update("accountNumber")}
-              placeholder="e.g. 12345678"
+              placeholder={t("employees.accountNumberPlaceholder")}
             />
             <Field
               id="edit-account-name"
-              label="Account name"
+              label={t("employees.accountName")}
               value={form.accountName}
               onChange={update("accountName")}
-              placeholder="Name on the account"
+              placeholder={t("employees.nameOnAccount")}
             />
             <Field
               id="edit-swift"
-              label="Swift number"
+              label={t("employees.swiftNumber")}
               optional
               value={form.swift}
               onChange={update("swift")}
-              placeholder="e.g. CHASUS33"
+              placeholder={t("employees.swiftPlaceholder")}
             />
             <Field
               id="edit-routing"
-              label="Routing number"
+              label={t("employees.routingNumber")}
               optional
               value={form.routing}
               onChange={update("routing")}
-              placeholder="e.g. 021000021"
+              placeholder={t("employees.routingPlaceholder")}
             />
           </Section>
         </div>
 
         <div className="space-y-5 rounded-xl border border-border bg-card p-5">
           <Section
-            title="Government ID"
-            description="Official identification document."
+            title={t("employees.governmentId")}
+            description={t("employees.governmentIdDescription")}
           >
             <Field
               id="edit-id-name"
-              label="ID name"
+              label={t("employees.idName")}
               value={form.idName}
               onChange={update("idName")}
-              placeholder="e.g. National ID"
+              placeholder={t("employees.idNamePlaceholder")}
             />
             <Field
               id="edit-id-value"
-              label="ID value"
+              label={t("employees.idValue")}
               value={form.idValue}
               onChange={update("idValue")}
-              placeholder="e.g. ID number"
+              placeholder={t("employees.idValuePlaceholder")}
             />
           </Section>
         </div>
 
         <div className="space-y-5 rounded-xl border border-border bg-card p-5">
           <Section
-            title="Emergency contact"
-            description="Who to contact in an emergency."
+            title={t("employees.emergencyContact")}
+            description={t("employees.emergencyContactDescription")}
           >
             <Field
               id="edit-ec-name"
-              label="Name"
+              label={t("common.name")}
               value={form.ecName}
               onChange={update("ecName")}
-              placeholder="e.g. Jane Doe"
+              placeholder={t("employees.contactNamePlaceholder")}
             />
             <Field
               id="edit-ec-email"
-              label="Email"
+              label={t("common.email")}
               type="email"
               value={form.ecEmail}
               onChange={update("ecEmail")}
-              placeholder="jane@example.com"
+              placeholder={t("employees.contactEmailPlaceholder")}
             />
             <Field
               id="edit-ec-phone"
-              label="Phone"
+              label={t("common.phone")}
               type="tel"
               value={form.ecPhone}
               onChange={update("ecPhone")}
-              placeholder="+44 20 7946 0958"
-            />
-          </Section>
-        </div>
-
-        <div className="space-y-5 rounded-xl border border-border bg-card p-5">
-          <Section title="Tax ID" description="Tax ID or number.">
-            <Field
-              id="edit-tax-id"
-              label="Tax ID / Number"
-              value={form.taxId}
-              onChange={update("taxId")}
-              placeholder="e.g. TIN number"
+              placeholder={t("employees.phonePlaceholder")}
             />
           </Section>
         </div>
 
         <div className="space-y-5 rounded-xl border border-border bg-card p-5">
           <Section
-            title="Health Coverage"
-            description="Provider details or policy file."
+            title={t("employees.taxId")}
+            description={t("employees.taxIdDescription")}
           >
             <Field
-              id="edit-ins-provider"
-              label="Provider name"
-              value={form.insProvider}
-              onChange={update("insProvider")}
-              placeholder="e.g. Bupa"
-            />
-            <Field
-              id="edit-ins-id"
-              label="Insurance ID"
-              value={form.insId}
-              onChange={update("insId")}
-              placeholder="e.g. Policy number"
-            />
-            <Field
-              id="edit-ins-contact-name"
-              label="Contact name"
-              value={form.insContactName}
-              onChange={update("insContactName")}
-              placeholder="e.g. Alex Smith"
-            />
-            <Field
-              id="edit-ins-contact-email"
-              label="Contact email"
-              type="email"
-              value={form.insContactEmail}
-              onChange={update("insContactEmail")}
-              placeholder="alex@bupa.com"
+              id="edit-tax-id"
+              label={t("employees.taxId")}
+              value={form.taxId}
+              onChange={update("taxId")}
+              placeholder={t("employees.taxIdPlaceholder")}
             />
           </Section>
         </div>
 
         <div className="space-y-5 rounded-xl border border-border bg-card p-5">
-          <Section title="Pension" description="Retirement savings provider.">
+          <Section
+            title={t("employees.healthInsurance")}
+            description={t("employees.healthInsuranceDescription")}
+          >
+            <Field
+              id="edit-ins-provider"
+              label={t("employees.providerName")}
+              value={form.insProvider}
+              onChange={update("insProvider")}
+              placeholder={t("employees.providerPlaceholder")}
+            />
+            <Field
+              id="edit-ins-id"
+              label={t("employees.insuranceId")}
+              value={form.insId}
+              onChange={update("insId")}
+              placeholder={t("employees.insuranceIdPlaceholder")}
+            />
+            <Field
+              id="edit-ins-contact-name"
+              label={t("employees.contactName")}
+              value={form.insContactName}
+              onChange={update("insContactName")}
+              placeholder={t("employees.insContactNamePlaceholder")}
+            />
+            <Field
+              id="edit-ins-contact-email"
+              label={t("employees.contactEmail")}
+              type="email"
+              value={form.insContactEmail}
+              onChange={update("insContactEmail")}
+              placeholder={t("employees.insContactEmailPlaceholder")}
+            />
+          </Section>
+        </div>
+
+        <div className="space-y-5 rounded-xl border border-border bg-card p-5">
+          <Section
+            title={t("employees.pension")}
+            description={t("employees.pensionDescription")}
+          >
             <Field
               id="edit-pension-provider"
-              label="Provider name"
+              label={t("employees.providerName")}
               value={form.pensionProvider}
               onChange={update("pensionProvider")}
-              placeholder="e.g. Stanbic IBTC Pension"
+              placeholder={t("employees.pensionProviderPlaceholder")}
             />
             <Field
               id="edit-pension-id"
-              label="Pension ID"
+              label={t("employees.pensionId")}
               value={form.pensionId}
               onChange={update("pensionId")}
-              placeholder="e.g. RSA number"
+              placeholder={t("employees.pensionIdPlaceholder")}
             />
           </Section>
         </div>

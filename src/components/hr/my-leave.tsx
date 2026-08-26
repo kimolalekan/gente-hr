@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useTranslations } from "@/lib/i18n/provider";
 
 /** Leave balance row as returned by `GET /api/leave/balances`. */
 export interface ApiLeaveBalance {
@@ -41,29 +42,33 @@ export function MyLeave({
   initialRequests: LeaveRow[];
   balance?: ApiLeaveBalance | null;
 }) {
+  const { t } = useTranslations();
   const [requests, setRequests] = useState(initialRequests);
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <PageHeader
-        title="My leave"
-        description="Your requests and remaining balances."
+        title={t("leave.myTitle")}
+        description={t("leave.myDescription")}
       >
         <Button onClick={() => setOpen(true)}>
           <CalendarPlus className="size-4" />
-          Request leave
+          {t("leave.requestLeave")}
         </Button>
       </PageHeader>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>My requests</CardTitle>
+            <CardTitle>{t("leave.myRequests")}</CardTitle>
             <CardDescription>
               {requests.length === 0
-                ? "You haven't requested any leave yet."
-                : `${requests.length} request${requests.length === 1 ? "" : "s"} this year.`}
+                ? t("leave.noRequests")
+                : t("leave.requestCount", {
+                    n: requests.length,
+                    s: requests.length === 1 ? "" : "s",
+                  })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -73,8 +78,8 @@ export function MyLeave({
 
         <Card>
           <CardHeader>
-            <CardTitle>Leave balance</CardTitle>
-            <CardDescription>Current year.</CardDescription>
+            <CardTitle>{t("leave.balanceTitle")}</CardTitle>
+            <CardDescription>{t("leave.currentYear")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {balance ? (
@@ -89,7 +94,10 @@ export function MyLeave({
                         {kind}
                       </span>
                       <span className="font-medium">
-                        {remaining} of {entry.total} left
+                        {t("leave.balanceLeft", {
+                          remaining,
+                          total: entry.total,
+                        })}
                       </span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -102,7 +110,9 @@ export function MyLeave({
                 );
               })
             ) : (
-              <p className="text-sm text-muted-foreground">No balance data.</p>
+              <p className="text-sm text-muted-foreground">
+                {t("leave.noBalance")}
+              </p>
             )}
           </CardContent>
         </Card>

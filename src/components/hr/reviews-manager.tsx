@@ -26,6 +26,9 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocale } from "@/lib/i18n/use-locale";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import { formatDate } from "@/lib/hr-data";
 
 function addDays(iso: string, days: number): string {
@@ -93,6 +96,8 @@ export function ReviewsManager({
   templates: { id: string; name: string; active: boolean }[];
   canManage: boolean;
 }) {
+  const locale = useLocale();
+  const { t } = useTranslations();
   const [items, setItems] = useState(reviews);
   const [open, setOpen] = useState(false);
   const [templateId, setTemplateId] = useState("");
@@ -117,15 +122,15 @@ export function ReviewsManager({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!templateId) {
-      setError("Choose a template.");
+      setError(t("performance.templateRequired"));
       return;
     }
     if (!employeeId) {
-      setError("Choose an employee.");
+      setError(t("performance.employeeRequired"));
       return;
     }
     if (deadline < todayIso()) {
-      setError("The deadline must be in the future.");
+      setError(t("performance.deadlineFuture"));
       return;
     }
     setBusy(true);
@@ -144,7 +149,7 @@ export function ReviewsManager({
         data?: ApiReviewRow;
       } | null;
       if (!body?.ok) {
-        apiError = body?.error ?? "Could not start the review";
+        apiError = body?.error ?? t("performance.startFailed");
         throw new Error(apiError);
       }
       setItems((current) => [
@@ -155,7 +160,7 @@ export function ReviewsManager({
       setSent(true);
     } catch {
       if (apiError) setError(apiError);
-      else setError("Could not start the review. Please try again.");
+      else setError(t("performance.startFailedRetry"));
     } finally {
       setBusy(false);
     }
@@ -178,7 +183,7 @@ export function ReviewsManager({
         data?: { deadline?: string | null; deadlineExtended?: number };
       } | null;
       if (!body?.ok) {
-        apiError = body?.error ?? "Could not extend the deadline";
+        apiError = body?.error ?? t("performance.extendFailed");
         throw new Error(apiError);
       }
       setItems((current) =>
@@ -212,15 +217,15 @@ export function ReviewsManager({
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle>Reviews</CardTitle>
+            <CardTitle>{t("performance.reviewsTitle")}</CardTitle>
             <CardDescription>
-              Reviews in the current and past cycles.
+              {t("performance.reviewsDescription")}
             </CardDescription>
           </div>
           {canManage && (
             <Button onClick={openModal}>
               <Play className="size-4" />
-              Start review
+              {t("performance.startReview")}
             </Button>
           )}
         </div>
@@ -230,16 +235,24 @@ export function ReviewsManager({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="py-2.5 pr-4 font-medium">Employee</th>
+                <th className="py-2.5 pr-4 font-medium">
+                  {t("payroll.payslips.employee")}
+                </th>
                 <th className="hidden px-4 py-2.5 font-medium md:table-cell">
-                  Template
+                  {t("performance.template")}
                 </th>
-                <th className="px-4 py-2.5 font-medium">Due</th>
+                <th className="px-4 py-2.5 font-medium">
+                  {t("performance.due")}
+                </th>
                 <th className="hidden px-4 py-2.5 font-medium lg:table-cell">
-                  Rating
+                  {t("performance.rating")}
                 </th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="py-2.5 pl-4 text-right font-medium">Details</th>
+                <th className="px-4 py-2.5 font-medium">
+                  {t("common.status")}
+                </th>
+                <th className="py-2.5 pl-4 text-right font-medium">
+                  {t("common.details")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -276,12 +289,14 @@ export function ReviewsManager({
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">
                           {review.deadline
-                            ? formatDate(review.deadline.slice(0, 10))
+                            ? formatDate(review.deadline.slice(0, 10), locale)
                             : "—"}
                         </span>
                         {(review.deadlineExtended ?? 0) > 0 && (
                           <Badge variant="outline" className="text-[10px]">
-                            +{review.deadlineExtended ?? 0} ext
+                            {t("performance.extendedShort", {
+                              n: review.deadlineExtended ?? 0,
+                            })}
                           </Badge>
                         )}
                         {canManage && review.status === "draft" && (
@@ -292,7 +307,7 @@ export function ReviewsManager({
                             onClick={() => extendDeadline(review.id)}
                           >
                             <CalendarPlus className="size-3" />
-                            Extend
+                            {t("leave.extend")}
                           </Button>
                         )}
                       </div>
@@ -308,13 +323,15 @@ export function ReviewsManager({
                           review.status === "submitted" ? "success" : "warning"
                         }
                       >
-                        {review.status}
+                        {t(
+                          `statusLabels.review.${review.status}` as TranslationKey,
+                        )}
                       </Badge>
                     </td>
                     <td className="py-3 pl-4 text-right">
                       <Link href={`/performance/${review.id}`}>
                         <Button variant="outline" size="sm">
-                          View details
+                          {t("common.viewDetails")}
                         </Button>
                       </Link>
                     </td>
@@ -329,17 +346,19 @@ export function ReviewsManager({
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={sent ? "Review started" : "Start a review"}
-        description={
-          sent ? undefined : "Choose a template, the employee and a deadline."
+        title={
+          sent
+            ? t("performance.reviewStarted")
+            : t("performance.startReviewTitle")
         }
+        description={sent ? undefined : t("performance.startReviewDescription")}
         footer={
           sent ? (
-            <Button onClick={() => setOpen(false)}>Done</Button>
+            <Button onClick={() => setOpen(false)}>{t("common.done")}</Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" form="start-review-form" disabled={busy}>
                 {busy ? (
@@ -347,7 +366,7 @@ export function ReviewsManager({
                 ) : (
                   <Send className="size-4" />
                 )}
-                {busy ? "Sending…" : "Start review & email"}
+                {busy ? t("common.sending") : t("performance.startAndEmail")}
               </Button>
             </>
           )
@@ -357,27 +376,26 @@ export function ReviewsManager({
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <CheckCircle2 className="size-10 text-success" />
             <div>
-              <p className="font-semibold">Review started</p>
+              <p className="font-semibold">{t("performance.reviewStarted")}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                An email invitation was sent to{" "}
-                <span className="font-medium text-foreground">{sentName}</span>{" "}
-                to complete the review by{" "}
-                <span className="font-medium text-foreground">
-                  {formatDate(deadline)}
-                </span>
-                .
+                {t("performance.inviteEmailSentWithDeadline", {
+                  name: sentName,
+                  date: formatDate(deadline, locale),
+                })}
               </p>
             </div>
           </div>
         ) : (
           <form id="start-review-form" onSubmit={submit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="review-template">Template</Label>
+              <Label htmlFor="review-template">
+                {t("performance.template")}
+              </Label>
               <Select
                 id="review-template"
                 value={templateId}
                 onChange={(event) => setTemplateId(event.target.value)}
-                placeholder="Select a template…"
+                placeholder={t("performance.selectTemplate")}
               >
                 {activeTemplates.map((template) => (
                   <option key={template.id} value={template.id}>
@@ -387,14 +405,16 @@ export function ReviewsManager({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="review-employee">Employee</Label>
+              <Label htmlFor="review-employee">
+                {t("payroll.payslips.employee")}
+              </Label>
               <Select
                 id="review-employee"
                 value={employeeId}
                 onChange={(event) => setEmployeeId(event.target.value)}
-                placeholder="Select an employee…"
+                placeholder={t("performance.selectEmployee")}
               >
-                <option value="">Select an employee…</option>
+                <option value="">{t("performance.selectEmployee")}</option>
                 {employees.map((employee) => (
                   <option key={employee.id} value={employee.id}>
                     {employee.name} — {employee.role ?? ""}
@@ -403,7 +423,9 @@ export function ReviewsManager({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="review-deadline">Deadline</Label>
+              <Label htmlFor="review-deadline">
+                {t("performance.deadline")}
+              </Label>
               <DatePicker
                 id="review-deadline"
                 value={deadline}
@@ -441,6 +463,7 @@ export function ReviewFeedbackButton({
   growth: string | null;
   submitted: boolean;
 }) {
+  const { t } = useTranslations();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
@@ -463,7 +486,7 @@ export function ReviewFeedbackButton({
     event.preventDefault();
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed < 1 || parsed > 5) {
-      setError("Choose a rating between 1 and 5.");
+      setError(t("performance.ratingError"));
       return;
     }
     setBusy(true);
@@ -497,7 +520,7 @@ export function ReviewFeedbackButton({
         error?: string;
       } | null;
       if (!body?.ok) {
-        apiError = body?.error ?? "Could not submit feedback";
+        apiError = body?.error ?? t("performance.feedbackFailed");
         throw new Error(apiError);
       }
       setSaved(true);
@@ -506,7 +529,7 @@ export function ReviewFeedbackButton({
       window.setTimeout(() => setOpen(false), 1000);
     } catch {
       if (apiError) setError(apiError);
-      else setError("Could not submit feedback. Please try again.");
+      else setError(t("performance.feedbackFailedRetry"));
     } finally {
       setBusy(false);
     }
@@ -518,9 +541,9 @@ export function ReviewFeedbackButton({
         <Star className="size-4" />
         {canManage
           ? submitted
-            ? "Edit review"
-            : "Submit feedback"
-          : "Submit self-review"}
+            ? t("performance.editReview")
+            : t("performance.submitFeedback")
+          : t("performance.submitSelfReview")}
       </Button>
 
       <Modal
@@ -528,17 +551,15 @@ export function ReviewFeedbackButton({
         onClose={() => setOpen(false)}
         title={
           saved
-            ? "Feedback saved"
+            ? t("performance.feedbackSaved")
             : canManage
-              ? "Manager feedback"
-              : "Self-review"
+              ? t("performance.managerFeedback")
+              : t("performance.selfReview")
         }
-        description={
-          saved ? undefined : "Rate 1–5 and add feedback for this review."
-        }
+        description={saved ? undefined : t("performance.feedbackDescription")}
         footer={
           saved ? (
-            <Button onClick={() => setOpen(false)}>Done</Button>
+            <Button onClick={() => setOpen(false)}>{t("common.done")}</Button>
           ) : (
             <>
               <Button
@@ -546,7 +567,7 @@ export function ReviewFeedbackButton({
                 onClick={() => setOpen(false)}
                 disabled={busy}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" form="review-feedback-form" disabled={busy}>
                 {busy ? (
@@ -554,7 +575,7 @@ export function ReviewFeedbackButton({
                 ) : (
                   <CheckCircle2 className="size-4" />
                 )}
-                {busy ? "Saving…" : "Save feedback"}
+                {busy ? t("common.saving") : t("performance.saveFeedback")}
               </Button>
             </>
           )
@@ -564,9 +585,9 @@ export function ReviewFeedbackButton({
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <CheckCircle2 className="size-10 text-success" />
             <div>
-              <p className="font-semibold">Feedback saved</p>
+              <p className="font-semibold">{t("performance.feedbackSaved")}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                The review has been updated.
+                {t("performance.feedbackSavedDescription")}
               </p>
             </div>
           </div>
@@ -577,12 +598,12 @@ export function ReviewFeedbackButton({
             className="space-y-4"
           >
             <div className="space-y-1.5">
-              <Label htmlFor="review-rating">Rating</Label>
+              <Label htmlFor="review-rating">{t("performance.rating")}</Label>
               <Select
                 id="review-rating"
                 value={value}
                 onChange={(event) => setValue(event.target.value)}
-                placeholder="Select a rating…"
+                placeholder={t("performance.selectRating")}
               >
                 {[1, 2, 3, 4, 5].map((number) => (
                   <option key={number} value={String(number)}>
@@ -592,22 +613,24 @@ export function ReviewFeedbackButton({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="review-strengths">Strengths</Label>
+              <Label htmlFor="review-strengths">
+                {t("performance.strengths")}
+              </Label>
               <Textarea
                 id="review-strengths"
                 value={strengthsValue}
                 onChange={(event) => setStrengthsValue(event.target.value)}
-                placeholder="What went well?"
+                placeholder={t("performance.strengthsPlaceholder")}
                 rows={3}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="review-growth">Areas of growth</Label>
+              <Label htmlFor="review-growth">{t("performance.growth")}</Label>
               <Textarea
                 id="review-growth"
                 value={growthValue}
                 onChange={(event) => setGrowthValue(event.target.value)}
-                placeholder="Where to focus next?"
+                placeholder={t("performance.growthPlaceholder")}
                 rows={3}
               />
             </div>

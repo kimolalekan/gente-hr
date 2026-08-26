@@ -1,25 +1,32 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   CalendarClock,
+  Check,
+  ChevronDown,
   FileCheck2,
   Loader2,
+  Search,
   Send,
   UserX,
+  Users,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/datepicker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { Popover } from "@/components/ui/popover";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  APPLICATION_STAGE_LABELS,
-  type ApplicationStage,
-} from "@/lib/hr-data";
+import { type ApplicationStage } from "@/lib/hr-data";
+import { useLocale } from "@/lib/i18n/use-locale";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
+import { cn } from "@/lib/utils";
 
 /** Forward moves allowed per current stage (hired/rejected handled separately). */
 const NEXT_STAGES: Partial<Record<ApplicationStage, ApplicationStage[]>> = {
@@ -27,6 +34,27 @@ const NEXT_STAGES: Partial<Record<ApplicationStage, ApplicationStage[]>> = {
   screening: ["interview"],
   interview: ["offer"],
 };
+
+const TIME_OPTIONS = [
+  "09:00",
+  "09:30",
+  "10:00",
+  "10:30",
+  "11:00",
+  "11:30",
+  "12:00",
+  "12:30",
+  "13:00",
+  "13:30",
+  "14:00",
+  "14:30",
+  "15:00",
+  "15:30",
+  "16:00",
+  "16:30",
+  "17:00",
+  "17:30",
+];
 
 interface Props {
   applicationId: string;
@@ -41,6 +69,8 @@ interface Props {
  */
 export function ApplicationActions({ applicationId, stage, employee }: Props) {
   const router = useRouter();
+  const locale = useLocale();
+  const { t } = useTranslations();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,8 +84,9 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
     note: "",
   });
   const [interviewForm, setInterviewForm] = useState({
-    scheduledAt: "",
-    interviewer: "",
+    date: "",
+    time: "09:00",
+    panelistIds: [] as string[],
   });
   const [offerForm, setOfferForm] = useState({
     salary: "",
@@ -63,6 +94,31 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
     terms: "",
   });
   const [rejectNote, setRejectNote] = useState("");
+
+  // Interviewer candidates — active employees fetched from the API.
+  const [employees, setEmployees] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
+  const [panelSearch, setPanelSearch] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/employees?status=active&pageSize=500")
+      .then((response) => response.json())
+      .then((data: { items?: Array<{ id: string; name: string }> }) => {
+        if (!cancelled) setEmployees(data.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setEmployees([]);
+      })
+      .finally(() => {
+        if (!cancelled) setEmployeesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const terminal = stage === "hired" || stage === "rejected";
 
@@ -82,7 +138,7 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
       router.refresh();
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(err instanceof Error ? err.message : t("common.error"));
       return false;
     } finally {
       setBusy(false);
@@ -104,22 +160,37 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
 
   const handleInterview = async (event: FormEvent) => {
     event.preventDefault();
-    if (!interviewForm.scheduledAt) {
-      setError("A scheduled date/time is required.");
+    if (!interviewForm.date) {
+      setError(t("ats.interview.dateRequired"));
       return;
     }
-    const ok = await post(
-      `/api/ats/applications/${applicationId}/interviews`,
-      {
-        scheduledAt: new Date(interviewForm.scheduledAt).toISOString(),
-        interviewer: interviewForm.interviewer.trim() || undefined,
-      },
-    );
+    const ok = await post(`/api/ats/applications/${applicationId}/interviews`, {
+      scheduledAt: new Date(
+        `${interviewForm.date}T${interviewForm.time}:00`,
+      ).toISOString(),
+      panelistIds: interviewForm.panelistIds,
+    });
     if (ok) {
       setInterviewOpen(false);
-      setInterviewForm({ scheduledAt: "", interviewer: "" });
+      setInterviewForm({ date: "", time: "09:00", panelistIds: [] });
     }
   };
+
+  const togglePanelist = (id: string) =>
+    setInterviewForm((current) => ({
+      ...current,
+      panelistIds: current.panelistIds.includes(id)
+        ? current.panelistIds.filter((value) => value !== id)
+        : [...current.panelistIds, id],
+    }));
+
+  const selectedPanelists = employees.filter((item) =>
+    interviewForm.panelistIds.includes(item.id),
+  );
+
+  const panelOptions = employees.filter((item) =>
+    item.name.toLowerCase().includes(panelSearch.trim().toLowerCase()),
+  );
 
   const handleOffer = async (event: FormEvent) => {
     event.preventDefault();
@@ -171,7 +242,7 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
           ) : (
             <FileCheck2 className="size-4" />
           )}
-          Hire — hand off to onboarding
+          {t("ats.applications.hire")}
         </Button>
       )}
 
@@ -183,7 +254,11 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
             disabled={busy}
           >
             <Send className="size-4" />
-            Advance to {APPLICATION_STAGE_LABELS[nextStages[0]]}
+            {t("ats.applications.advance", {
+              stage: t(
+                `statusLabels.applicationStage.${nextStages[0]}` as TranslationKey,
+              ),
+            })}
           </Button>
         )}
         {canInterview && (
@@ -193,7 +268,7 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
             disabled={busy}
           >
             <CalendarClock className="size-4" />
-            Schedule interview
+            {t("ats.applications.scheduleInterview")}
           </Button>
         )}
         {canOffer && (
@@ -202,7 +277,7 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
             onClick={() => setOfferOpen(true)}
             disabled={busy}
           >
-            Send offer
+            {t("ats.applications.sendOffer")}
           </Button>
         )}
         <Button
@@ -212,7 +287,7 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
           className="text-destructive hover:text-destructive"
         >
           <UserX className="size-4" />
-          Reject
+          {t("ats.applications.reject")}
         </Button>
       </div>
 
@@ -220,12 +295,18 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
       <Modal
         open={advanceOpen}
         onClose={() => setAdvanceOpen(false)}
-        title={`Move to ${advanceForm.stage ? APPLICATION_STAGE_LABELS[advanceForm.stage as ApplicationStage] : "next stage"}`}
-        description="Record the stage change and any recruiter notes."
+        title={t("modals.advance.title", {
+          stage: advanceForm.stage
+            ? t(
+                `statusLabels.applicationStage.${advanceForm.stage as ApplicationStage}` as TranslationKey,
+              )
+            : t("modals.advance.nextStage"),
+        })}
+        description={t("modals.advance.description")}
         footer={
           <>
             <Button variant="outline" onClick={() => setAdvanceOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" form="advance-form" disabled={busy}>
               {busy ? (
@@ -233,14 +314,14 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
               ) : (
                 <Send className="size-4" />
               )}
-              Move candidate
+              {t("modals.advance.move")}
             </Button>
           </>
         }
       >
         <form id="advance-form" onSubmit={handleAdvance} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="advance-stage">Stage</Label>
+            <Label htmlFor="advance-stage">{t("modals.advance.stage")}</Label>
             <Select
               id="advance-stage"
               value={advanceForm.stage}
@@ -253,13 +334,13 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
             >
               {nextStages.map((next) => (
                 <option key={next} value={next}>
-                  {APPLICATION_STAGE_LABELS[next]}
+                  {t(`statusLabels.applicationStage.${next}` as TranslationKey)}
                 </option>
               ))}
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="advance-note">Note</Label>
+            <Label htmlFor="advance-note">{t("modals.advance.note")}</Label>
             <Textarea
               id="advance-note"
               rows={3}
@@ -270,7 +351,7 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
                   note: event.target.value,
                 }))
               }
-              placeholder="Shortlisted for interview…"
+              placeholder={t("modals.advance.notePlaceholder")}
             />
           </div>
         </form>
@@ -280,12 +361,12 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
       <Modal
         open={interviewOpen}
         onClose={() => setInterviewOpen(false)}
-        title="Schedule interview"
-        description="Add an interview round for this candidate."
+        title={t("ats.interview.modalTitle")}
+        description={t("ats.interview.modalDescription")}
         footer={
           <>
             <Button variant="outline" onClick={() => setInterviewOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" form="interview-form" disabled={busy}>
               {busy ? (
@@ -293,7 +374,7 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
               ) : (
                 <CalendarClock className="size-4" />
               )}
-              Schedule
+              {t("ats.interview.schedule")}
             </Button>
           </>
         }
@@ -304,33 +385,125 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
           className="space-y-4"
         >
           <div className="space-y-1.5">
-            <Label htmlFor="interview-date">Date &amp; time</Label>
-            <Input
+            <Label htmlFor="interview-date">{t("ats.interview.date")}</Label>
+            <DatePicker
               id="interview-date"
-              type="datetime-local"
-              value={interviewForm.scheduledAt}
-              onChange={(event) =>
-                setInterviewForm((current) => ({
-                  ...current,
-                  scheduledAt: event.target.value,
-                }))
+              value={interviewForm.date}
+              onChange={(value) =>
+                setInterviewForm((current) => ({ ...current, date: value }))
               }
-              required
+              min={new Date().toISOString().slice(0, 10)}
+              placeholder={t("ats.interview.datePlaceholder")}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="interview-interviewer">Interviewer</Label>
-            <Input
-              id="interview-interviewer"
-              value={interviewForm.interviewer}
+            <Label htmlFor="interview-time">{t("ats.interview.time")}</Label>
+            <Select
+              id="interview-time"
+              value={interviewForm.time}
               onChange={(event) =>
                 setInterviewForm((current) => ({
                   ...current,
-                  interviewer: event.target.value,
+                  time: event.target.value,
                 }))
               }
-              placeholder="e.g. Chiamaka Obi"
-            />
+            >
+              {TIME_OPTIONS.map((time) => (
+                <option key={time} value={time}>
+                  {new Date(`2000-01-01T${time}:00`).toLocaleTimeString(
+                    locale,
+                    {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    },
+                  )}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t("ats.interview.interviewers")}</Label>
+            <Popover
+              aria-haspopup="listbox"
+              contentClassName="w-72"
+              trigger={
+                <button
+                  type="button"
+                  className={cn(
+                    "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    selectedPanelists.length === 0 && "text-muted-foreground",
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Users className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate">
+                      {selectedPanelists.length > 0
+                        ? selectedPanelists
+                            .map((panelist) => panelist.name)
+                            .join(", ")
+                        : t("ats.interview.interviewersPlaceholder")}
+                    </span>
+                  </span>
+                  <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                </button>
+              }
+            >
+              <div className="p-1.5">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    aria-label={t("ats.interview.searchInterviewers")}
+                    value={panelSearch}
+                    onChange={(event) => setPanelSearch(event.target.value)}
+                    placeholder={t("ats.interview.searchEmployees")}
+                    className="h-8 pl-8"
+                    autoFocus
+                  />
+                </div>
+                <div className="mt-1.5 max-h-56 overflow-y-auto">
+                  {employeesLoading ? (
+                    <p className="px-2.5 py-2 text-sm text-muted-foreground">
+                      {t("ats.interview.loadingEmployees")}
+                    </p>
+                  ) : panelOptions.length === 0 ? (
+                    <p className="px-2.5 py-2 text-sm text-muted-foreground">
+                      {t("ats.interview.noMatchingEmployees")}
+                    </p>
+                  ) : (
+                    panelOptions.map((item) => {
+                      const selected = interviewForm.panelistIds.includes(
+                        item.id,
+                      );
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => togglePanelist(item.id)}
+                          className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span className="truncate">{item.name}</span>
+                          <span
+                            className={cn(
+                              "flex size-4 shrink-0 items-center justify-center rounded-sm border",
+                              selected
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-input",
+                            )}
+                          >
+                            {selected && <Check className="size-3" />}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </Popover>
+            <p className="text-xs text-muted-foreground">
+              {selectedPanelists.length > 0
+                ? t("ats.interview.interviewersHint")
+                : t("ats.interview.interviewersOptional")}
+            </p>
           </div>
         </form>
       </Modal>
@@ -339,12 +512,12 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
       <Modal
         open={offerOpen}
         onClose={() => setOfferOpen(false)}
-        title="Send offer"
-        description="Record the offer terms for the candidate."
+        title={t("modals.offer.title")}
+        description={t("modals.offer.description")}
         footer={
           <>
             <Button variant="outline" onClick={() => setOfferOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" form="offer-form" disabled={busy}>
               {busy ? (
@@ -352,14 +525,16 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
               ) : (
                 <FileCheck2 className="size-4" />
               )}
-              Send offer
+              {t("ats.applications.sendOffer")}
             </Button>
           </>
         }
       >
         <form id="offer-form" onSubmit={handleOffer} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="offer-salary">Annual salary</Label>
+            <Label htmlFor="offer-salary">
+              {t("modals.offer.annualSalary")}
+            </Label>
             <Input
               id="offer-salary"
               type="number"
@@ -371,11 +546,11 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
                   salary: event.target.value,
                 }))
               }
-              placeholder="e.g. 72000"
+              placeholder={t("modals.offer.salaryPlaceholder")}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="offer-start">Start date</Label>
+            <Label htmlFor="offer-start">{t("modals.offer.startDate")}</Label>
             <Input
               id="offer-start"
               type="date"
@@ -389,7 +564,7 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="offer-terms">Terms</Label>
+            <Label htmlFor="offer-terms">{t("modals.offer.terms")}</Label>
             <Textarea
               id="offer-terms"
               rows={4}
@@ -400,7 +575,7 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
                   terms: event.target.value,
                 }))
               }
-              placeholder="Equity, benefits, probation, etc."
+              placeholder={t("modals.offer.termsPlaceholder")}
             />
           </div>
         </form>
@@ -410,12 +585,12 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
       <Modal
         open={rejectOpen}
         onClose={() => setRejectOpen(false)}
-        title="Reject candidate"
-        description="This moves the application to Rejected."
+        title={t("modals.reject.title")}
+        description={t("modals.reject.description")}
         footer={
           <>
             <Button variant="outline" onClick={() => setRejectOpen(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               type="submit"
@@ -428,24 +603,20 @@ export function ApplicationActions({ applicationId, stage, employee }: Props) {
               ) : (
                 <X className="size-4" />
               )}
-              Reject
+              {t("ats.applications.reject")}
             </Button>
           </>
         }
       >
-        <form
-          id="reject-form"
-          onSubmit={handleReject}
-          className="space-y-4"
-        >
+        <form id="reject-form" onSubmit={handleReject} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="reject-note">Reason / note</Label>
+            <Label htmlFor="reject-note">{t("modals.reject.reason")}</Label>
             <Textarea
               id="reject-note"
               rows={3}
               value={rejectNote}
               onChange={(event) => setRejectNote(event.target.value)}
-              placeholder="Optional feedback or reason…"
+              placeholder={t("modals.reject.reasonPlaceholder")}
             />
           </div>
         </form>

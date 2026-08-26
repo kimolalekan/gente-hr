@@ -1,9 +1,13 @@
 import { redirect } from "next/navigation";
 import { JobForm } from "@/components/ats/job-form";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTranslator } from "@/lib/server/i18n";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
 
-export const metadata = { title: "New job" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("ats.jobs.newJob") };
+}
 
 export const dynamic = "force-dynamic";
 

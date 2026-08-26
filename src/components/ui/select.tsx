@@ -12,6 +12,7 @@ import {
 import { Check, ChevronDown, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Popover } from "@/components/ui/popover";
+import { useTranslations } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 interface SelectProps {
@@ -67,14 +68,18 @@ export function Select({
   onChange,
   children,
   renderOption,
-  placeholder = "Select…",
+  placeholder,
   "aria-label": ariaLabel,
   id,
   className,
   disabled = false,
-  searchPlaceholder = "Search…",
-  emptyText = "No matching options",
+  searchPlaceholder,
+  emptyText,
 }: SelectProps) {
+  const { t } = useTranslations();
+  const resolvedPlaceholder = placeholder ?? t("common.select");
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t("common.search");
+  const resolvedEmptyText = emptyText ?? t("common.noMatchingOptions");
   const options = useMemo<Option[]>(() => {
     const result: Option[] = [];
     React.Children.forEach(children, (child) => {
@@ -188,7 +193,7 @@ export function Select({
                 <span className="truncate">{selected.label}</span>
               </>
             ) : (
-              placeholder
+              resolvedPlaceholder
             )}
           </span>
           <ChevronDown
@@ -210,14 +215,14 @@ export function Select({
             aria-activedescendant={
               filtered[activeIndex] ? `${listboxId}-${activeIndex}` : undefined
             }
-            aria-label="Search options"
+            aria-label={t("common.searchOptions")}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
               setActiveIndex(0);
             }}
             onKeyDown={onInputKeyDown}
-            placeholder={searchPlaceholder}
+            placeholder={resolvedSearchPlaceholder}
             className="h-8 pl-8"
             autoFocus
           />
@@ -231,7 +236,7 @@ export function Select({
         >
           {filtered.length === 0 && (
             <li className="px-2.5 py-2 text-sm text-muted-foreground">
-              {emptyText}
+              {resolvedEmptyText}
             </li>
           )}
           {filtered.map((option, index) => {

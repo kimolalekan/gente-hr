@@ -5,12 +5,17 @@ import {
 import { PageHeader } from "@/components/hr/page-header";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTranslator } from "@/lib/server/i18n";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
 import type { Employee } from "@/lib/hr-data";
 
-export const metadata = { title: "Offboarding" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("offboarding.title") };
+}
 
 export default async function OffboardingPage() {
+  const t = await getTranslator();
   // Employees don't manage offboarding — it's an HR/admin workspace.
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/");
@@ -23,8 +28,8 @@ export default async function OffboardingPage() {
   return (
     <>
       <PageHeader
-        title="Offboarding"
-        description="Exit processes, checklists and final settlements."
+        title={t("offboarding.title")}
+        description={t("offboarding.description")}
       />
       <OffboardingManager
         offboardings={offboardings}

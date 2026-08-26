@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   Bell,
   CalendarCheck,
+  CalendarClock,
   CheckCheck,
   Clock,
   FileText,
@@ -13,7 +14,9 @@ import {
   Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NOTIFICATION_TYPE_LABELS, type AppNotification } from "@/lib/hr-data";
+import type { AppNotification } from "@/lib/hr-data";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import { cn } from "@/lib/utils";
 
 const TYPE_ICONS: Record<AppNotification["type"], typeof Bell> = {
@@ -22,6 +25,7 @@ const TYPE_ICONS: Record<AppNotification["type"], typeof Bell> = {
   payroll: FileText,
   loan: HandCoins,
   performance: Star,
+  interview: CalendarClock,
   system: Bell,
 };
 
@@ -48,12 +52,15 @@ function toAppNotification(row: NotificationRow): AppNotification {
   };
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(
+  iso: string,
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string,
+): string {
   const diff = Date.now() - new Date(iso).getTime();
   const hours = Math.floor(diff / 3_600_000);
-  if (hours < 1) return "Just now";
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  if (hours < 1) return t("common.justNow");
+  if (hours < 24) return t("common.hoursAgo", { h: hours });
+  return t("common.daysAgo", { d: Math.floor(hours / 24) });
 }
 
 function NotificationRow({
@@ -63,6 +70,7 @@ function NotificationRow({
   notification: AppNotification;
   onOpen: (id: string) => void;
 }) {
+  const { t } = useTranslations();
   const Icon = TYPE_ICONS[notification.type];
 
   const body = (
@@ -96,8 +104,10 @@ function NotificationRow({
         </p>
         <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground/80">
           <Clock className="size-3" />
-          {timeAgo(notification.time)} ·{" "}
-          {NOTIFICATION_TYPE_LABELS[notification.type]}
+          {timeAgo(notification.time, t)} ·{" "}
+          {t(
+            `statusLabels.notificationType.${notification.type}` as TranslationKey,
+          )}
         </p>
       </div>
     </div>
@@ -126,6 +136,7 @@ function NotificationRow({
 }
 
 export function NotificationCenter() {
+  const { t } = useTranslations();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -191,10 +202,10 @@ export function NotificationCenter() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {loading
-            ? "Loading…"
+            ? t("common.loading")
             : unread > 0
-              ? `${unread} unread`
-              : "All caught up"}
+              ? t("notifications.unreadCount", { n: unread })
+              : t("notifications.empty")}
         </p>
         <Button
           variant="outline"
@@ -203,17 +214,17 @@ export function NotificationCenter() {
           disabled={unread === 0}
         >
           <CheckCheck />
-          Mark all read
+          {t("notifications.markAllRead")}
         </Button>
       </div>
 
       {loading ? (
         <p className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-          Loading notifications…
+          {t("notifications.loading")}
         </p>
       ) : items.length === 0 ? (
         <p className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-          No notifications yet.
+          {t("notifications.emptyList")}
         </p>
       ) : (
         <div className="divide-y divide-border rounded-xl border border-border bg-card">

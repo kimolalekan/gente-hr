@@ -23,19 +23,23 @@ import {
 } from "@/components/ui/card";
 import {
   formatDate,
-  LEAVE_TYPE_LABELS,
   type LeaveRequest,
   type LeaveStatus,
   type LeaveType,
 } from "@/lib/hr-data";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 import {
   ApiClientError,
   apiGet,
   type Paginated,
 } from "@/lib/server/api-client";
 
-export const metadata = { title: "Leave request" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("leave.requestTitle") };
+}
 
 const STATUS_VARIANT: Record<
   LeaveStatus,
@@ -67,6 +71,8 @@ export default async function LeaveRequestPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const locale = await getTenantLocale();
+  const t = await getTranslator();
 
   let request: LeaveRequest;
   let employeeName: string | null = null;
@@ -120,25 +126,30 @@ export default async function LeaveRequestPage({
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
-            Leave
+            {t("leave.title")}
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
-              {LEAVE_TYPE_LABELS[request.type]}
+              {t(`statusLabels.leaveType.${request.type}` as TranslationKey)}
             </h1>
             <Badge variant={STATUS_VARIANT[request.status]}>
-              {request.status}
+              {t(
+                `statusLabels.leaveStatus.${request.status}` as TranslationKey,
+              )}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {formatDate(request.start)} → {formatDate(request.end)} ·{" "}
-            {request.days} day
-            {request.days > 1 ? "s" : ""}
+            {formatDate(request.start, locale)} →{" "}
+            {formatDate(request.end, locale)} ·{" "}
+            {t("leave.daysCount", {
+              days: request.days,
+              s: request.days === 1 ? "" : "s",
+            })}
           </p>
         </div>
         {user?.role !== "member" && (
           <Link href={`/employees/${request.employeeId}`}>
-            <Button variant="outline">View employee profile</Button>
+            <Button variant="outline">{t("employees.viewProfile")}</Button>
           </Link>
         )}
       </div>
@@ -147,36 +158,43 @@ export default async function LeaveRequestPage({
         <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Request details</CardTitle>
+              <CardTitle>{t("leave.requestDetails")}</CardTitle>
               <CardDescription>
-                Information submitted with the request.
+                {t("leave.requestDetailsDescription")}
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
               <div className="rounded-lg border border-border bg-background/50 p-3">
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CalendarRange className="size-3.5" /> Duration
+                  <CalendarRange className="size-3.5" /> {t("leave.duration")}
                 </p>
                 <p className="mt-1 font-medium">
-                  {formatDate(request.start)} → {formatDate(request.end)}
+                  {formatDate(request.start, locale)} →{" "}
+                  {formatDate(request.end, locale)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {request.days} working days
+                  {t("leave.workingDays", {
+                    days: request.days,
+                    s: request.days === 1 ? "" : "s",
+                  })}
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-background/50 p-3">
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Send className="size-3.5" /> Submitted
+                  <Send className="size-3.5" /> {t("leave.submitted")}
                 </p>
-                <p className="mt-1 font-medium">{formatDate(request.start)}</p>
+                <p className="mt-1 font-medium">
+                  {formatDate(request.start, locale)}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  via self-service
+                  {t("leave.viaSelfService")}
                 </p>
               </div>
               {request.reason && (
                 <div className="rounded-lg border border-border bg-background/50 p-3 sm:col-span-2">
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <MessageSquareText className="size-3.5" /> Reason
+                    <MessageSquareText className="size-3.5" />{" "}
+                    {t("leave.reason")}
                   </p>
                   <p className="mt-1">“{request.reason}”</p>
                 </div>
@@ -186,8 +204,10 @@ export default async function LeaveRequestPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Timeline</CardTitle>
-              <CardDescription>Lifecycle of this request.</CardDescription>
+              <CardTitle>{t("ats.applications.timeline")}</CardTitle>
+              <CardDescription>
+                {t("leave.timelineDescription")}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-0">
               <div className="flex gap-3">
@@ -195,9 +215,9 @@ export default async function LeaveRequestPage({
                   <Send className="size-3" />
                 </span>
                 <div className="pb-6">
-                  <p className="text-sm font-medium">Submitted</p>
+                  <p className="text-sm font-medium">{t("leave.submitted")}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatDate(request.start)}
+                    {formatDate(request.start, locale)}
                   </p>
                 </div>
               </div>
@@ -220,16 +240,14 @@ export default async function LeaveRequestPage({
                   </span>
                   <div>
                     <p className="text-sm font-medium">
-                      {request.status === "approved"
-                        ? "Approved"
-                        : request.status === "cancelled"
-                          ? "Cancelled"
-                          : "Declined"}
+                      {t(
+                        `statusLabels.leaveStatus.${request.status}` as TranslationKey,
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {request.status === "cancelled"
-                        ? "Request cancelled"
-                        : "Decided by People team"}
+                        ? t("leave.requestCancelled")
+                        : t("leave.decidedByPeopleTeam")}
                     </p>
                   </div>
                 </div>
@@ -239,9 +257,11 @@ export default async function LeaveRequestPage({
                     <CircleDashed className="size-3" />
                   </span>
                   <div>
-                    <p className="text-sm font-medium">Awaiting decision</p>
+                    <p className="text-sm font-medium">
+                      {t("leave.awaitingDecision")}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      Pending approval
+                      {t("leave.pendingApproval")}
                     </p>
                   </div>
                 </div>
@@ -254,21 +274,23 @@ export default async function LeaveRequestPage({
           {user?.role === "member" ? (
             <Card>
               <CardHeader>
-                <CardTitle>Status</CardTitle>
-                <CardDescription>Request progress.</CardDescription>
+                <CardTitle>{t("common.status")}</CardTitle>
+                <CardDescription>
+                  {t("leave.progressDescription")}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {request.status === "pending" ? (
                   <p className="text-sm text-muted-foreground">
-                    Your request is awaiting approval by the People team.
+                    {t("leave.memberAwaitingApproval")}
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    This request has been{" "}
-                    <span className="font-medium capitalize text-foreground">
-                      {request.status}
-                    </span>
-                    . No further actions are available.
+                    {t("leave.noFurtherActions", {
+                      status: t(
+                        `statusLabels.leaveStatus.${request.status}` as TranslationKey,
+                      ),
+                    })}
                   </p>
                 )}
               </CardContent>
@@ -276,8 +298,10 @@ export default async function LeaveRequestPage({
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle>Actions</CardTitle>
-                <CardDescription>Decide this request.</CardDescription>
+                <CardTitle>{t("common.actions")}</CardTitle>
+                <CardDescription>
+                  {t("leave.decideDescription")}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <LeaveRequestActions request={request} />
@@ -288,8 +312,10 @@ export default async function LeaveRequestPage({
           {employeeName && (
             <Card>
               <CardHeader>
-                <CardTitle>Employee</CardTitle>
-                <CardDescription>Requesting team member.</CardDescription>
+                <CardTitle>{t("onboarding.employee")}</CardTitle>
+                <CardDescription>
+                  {t("leave.requestingTeamMember")}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
@@ -305,8 +331,8 @@ export default async function LeaveRequestPage({
           {related.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Other requests</CardTitle>
-                <CardDescription>By the same employee.</CardDescription>
+                <CardTitle>{t("leave.otherRequests")}</CardTitle>
+                <CardDescription>{t("leave.bySameEmployee")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {related.map((item) => (
@@ -316,13 +342,17 @@ export default async function LeaveRequestPage({
                     className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/50 px-3 py-2 text-sm transition-colors hover:bg-muted/50"
                   >
                     <span className="truncate">
-                      {LEAVE_TYPE_LABELS[item.type]}{" "}
+                      {t(
+                        `statusLabels.leaveType.${item.type}` as TranslationKey,
+                      )}{" "}
                       <span className="text-xs text-muted-foreground">
-                        · {formatDate(item.start)}
+                        · {formatDate(item.start, locale)}
                       </span>
                     </span>
                     <Badge variant={STATUS_VARIANT[item.status]}>
-                      {item.status}
+                      {t(
+                        `statusLabels.leaveStatus.${item.status}` as TranslationKey,
+                      )}
                     </Badge>
                   </Link>
                 ))}

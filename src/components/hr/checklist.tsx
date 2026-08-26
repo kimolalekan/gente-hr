@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "@/lib/i18n/provider";
 
 export interface ChecklistItem {
   id: string;
@@ -27,6 +28,7 @@ export function Checklist({
   const [state, setState] = useState(items);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslations();
 
   const toggle = async (item: ChecklistItem) => {
     const done = !item.done;
@@ -54,7 +56,9 @@ export function Checklist({
       );
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to update checklist item.",
+        err instanceof Error
+          ? err.message
+          : t("offboarding.checklistUpdateFailed"),
       );
     } finally {
       setBusyId(null);
@@ -68,7 +72,10 @@ export function Checklist({
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">{label}</p>
         <p className="text-xs text-muted-foreground">
-          {doneCount} of {state.length} done
+          {t("offboarding.checklistCount", {
+            done: doneCount,
+            total: state.length,
+          })}
         </p>
       </div>
       <div className="space-y-1.5">
@@ -99,7 +106,7 @@ export function Checklist({
         ))}
         {state.length === 0 && (
           <p className="py-2 text-sm text-muted-foreground">
-            No checklist items.
+            {t("offboarding.noChecklistItems")}
           </p>
         )}
       </div>

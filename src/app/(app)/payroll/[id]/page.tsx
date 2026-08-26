@@ -14,8 +14,13 @@ import {
 import { formatCurrency, formatDate } from "@/lib/hr-data";
 import { getCurrentUser } from "@/lib/server/auth";
 import { apiGet } from "@/lib/server/api-client";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 
-export const metadata = { title: "Payroll run" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("payroll.runTitle") };
+}
 
 /** Payroll run detail from `GET /api/payroll/runs/[id]`. */
 interface RunDetail {
@@ -55,11 +60,14 @@ export default async function PayrollRunPage({
   );
   if (!run) notFound();
 
+  const t = await getTranslator();
+  const locale = await getTenantLocale();
+
   const { entries, totals } = run;
   const byDepartment = entries.reduce<
     Record<string, { employees: number; gross: number }>
   >((acc, entry) => {
-    const department = entry.department ?? "Unknown";
+    const department = entry.department ?? t("common.unknown");
     acc[department] = acc[department] ?? { employees: 0, gross: 0 };
     acc[department].employees += 1;
     acc[department].gross += entry.gross;
@@ -75,7 +83,7 @@ export default async function PayrollRunPage({
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
-            Payroll
+            {t("payroll.title")}
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">{run.period}</h1>
@@ -88,12 +96,15 @@ export default async function PayrollRunPage({
                     : "warning"
               }
             >
-              {run.status}
+              {t(`statusLabels.run.${run.status}` as TranslationKey)}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Processed {formatDate(run.processedAt.slice(0, 10))} ·{" "}
-            {run.employees} employees
+            {t("payroll.processedOn", {
+              date: formatDate(run.processedAt.slice(0, 10), locale),
+              n: run.employees,
+              s: run.employees === 1 ? "" : "s",
+            })}
           </p>
         </div>
       </div>
@@ -102,7 +113,7 @@ export default async function PayrollRunPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Wallet className="size-4" /> Gross
+              <Wallet className="size-4" /> {t("payroll.gross")}
             </p>
             <p className="mt-1 text-2xl font-bold">
               {formatCurrency(totals.gross)}
@@ -112,7 +123,7 @@ export default async function PayrollRunPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Receipt className="size-4" /> Deductions
+              <Receipt className="size-4" /> {t("payroll.deductions")}
             </p>
             <p className="mt-1 text-2xl font-bold">
               −{formatCurrency(totals.deductions)}
@@ -122,7 +133,7 @@ export default async function PayrollRunPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Banknote className="size-4" /> Net
+              <Banknote className="size-4" /> {t("payroll.net")}
             </p>
             <p className="mt-1 text-2xl font-bold text-success">
               {formatCurrency(totals.net)}
@@ -132,7 +143,7 @@ export default async function PayrollRunPage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Users className="size-4" /> Lines
+              <Users className="size-4" /> {t("payroll.lines")}
             </p>
             <p className="mt-1 text-2xl font-bold">{entries.length}</p>
           </CardContent>
@@ -142,9 +153,9 @@ export default async function PayrollRunPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Employee payments</CardTitle>
+            <CardTitle>{t("payroll.employeePayments")}</CardTitle>
             <CardDescription>
-              Gross, deductions and net per employee.
+              {t("payroll.employeePaymentsDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -152,13 +163,23 @@ export default async function PayrollRunPage({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                    <th className="py-2.5 pr-4 font-medium">Employee</th>
-                    <th className="px-4 py-2.5 font-medium">Gross</th>
-                    <th className="px-4 py-2.5 font-medium">Deductions</th>
-                    <th className="px-4 py-2.5 font-medium">Net</th>
-                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="py-2.5 pr-4 font-medium">
+                      {t("payroll.payslips.employee")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("payroll.gross")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("payroll.deductions")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("payroll.net")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("common.status")}
+                    </th>
                     <th className="py-2.5 pl-4 text-right font-medium">
-                      Details
+                      {t("common.details")}
                     </th>
                   </tr>
                 </thead>
@@ -196,13 +217,15 @@ export default async function PayrollRunPage({
                             entry.status === "paid" ? "success" : "warning"
                           }
                         >
-                          {entry.status}
+                          {t(
+                            `statusLabels.payslip.${entry.status}` as TranslationKey,
+                          )}
                         </Badge>
                       </td>
                       <td className="py-3 pl-4 text-right">
                         <Link href={`/employees/${entry.employeeId}`}>
                           <Button variant="outline" size="sm">
-                            View details
+                            {t("common.viewDetails")}
                           </Button>
                         </Link>
                       </td>
@@ -216,8 +239,10 @@ export default async function PayrollRunPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>By department</CardTitle>
-            <CardDescription>Gross payroll allocation.</CardDescription>
+            <CardTitle>{t("payroll.byDepartment")}</CardTitle>
+            <CardDescription>
+              {t("payroll.byDepartmentDescription")}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {Object.entries(byDepartment)

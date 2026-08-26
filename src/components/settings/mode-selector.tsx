@@ -1,13 +1,35 @@
-'use client';
+"use client";
 
-import { Check, Monitor, Moon, Sun } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { ThemeMode } from '@/lib/theme-config';
+import { Check, Monitor, Moon, Sun } from "lucide-react";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
+import { cn } from "@/lib/utils";
+import type { ThemeMode } from "@/lib/theme-config";
 
-const OPTIONS: Array<{ value: ThemeMode; label: string; hint: string; icon: typeof Sun }> = [
-  { value: 'system', label: 'System default', hint: 'Follow the OS/browser setting', icon: Monitor },
-  { value: 'light', label: 'Light mode', hint: 'Bright background, dark text', icon: Sun },
-  { value: 'dark', label: 'Dark mode', hint: 'Dark background, light text', icon: Moon },
+const OPTIONS: Array<{
+  value: ThemeMode;
+  labelKey: TranslationKey;
+  hintKey: TranslationKey;
+  icon: typeof Sun;
+}> = [
+  {
+    value: "system",
+    labelKey: "common.modeSystem",
+    hintKey: "settings.branding.modeSystemHint",
+    icon: Monitor,
+  },
+  {
+    value: "light",
+    labelKey: "common.modeLight",
+    hintKey: "settings.branding.modeLightHint",
+    icon: Sun,
+  },
+  {
+    value: "dark",
+    labelKey: "common.modeDark",
+    hintKey: "settings.branding.modeDarkHint",
+    icon: Moon,
+  },
 ];
 
 /**
@@ -22,6 +44,7 @@ export function ModeSelector({
   value: ThemeMode;
   onChange: (mode: ThemeMode) => void;
 }) {
+  const { t } = useTranslations();
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
       {OPTIONS.map((option) => {
@@ -34,28 +57,30 @@ export function ModeSelector({
             aria-pressed={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              'flex items-start gap-3 rounded-lg border p-3 text-left transition-colors',
+              "flex items-start gap-3 rounded-lg border p-3 text-left transition-colors",
               active
-                ? 'border-primary bg-primary/5 ring-2 ring-ring'
-                : 'border-border bg-background/50 hover:border-primary/50',
+                ? "border-primary bg-primary/5 ring-2 ring-ring"
+                : "border-border bg-background/50 hover:border-primary/50",
             )}
           >
             <span
               className={cn(
-                'flex size-8 shrink-0 items-center justify-center rounded-md border',
+                "flex size-8 shrink-0 items-center justify-center rounded-md border",
                 active
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border text-muted-foreground',
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border text-muted-foreground",
               )}
             >
               <Icon className="size-4" />
             </span>
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-sm font-medium">
-                {option.label}
+                {t(option.labelKey)}
                 {active && <Check className="size-3.5 text-primary" />}
               </span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">{option.hint}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {t(option.hintKey)}
+              </span>
             </span>
           </button>
         );

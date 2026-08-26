@@ -15,12 +15,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { Select } from "@/components/ui/select";
+import { useTranslations } from "@/lib/i18n/provider";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+type InviteRole = "admin" | "hr";
+
 /**
- * Invite an admin user (full name + email). Admins get access to every
- * organization. Sends POST /api/users/invite.
+ * Invite a team member as an admin or HR user (full name + email + role).
+ * Admins get access to every organization; HR members belong to the
+ * current organization. Sends POST /api/users/invite.
  */
 export function InviteUserModal({
   existingEmails,
@@ -28,9 +33,11 @@ export function InviteUserModal({
   existingEmails: string[];
 }) {
   const router = useRouter();
+  const { t } = useTranslations();
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState<InviteRole>("admin");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +45,7 @@ export function InviteUserModal({
   const openModal = () => {
     setFullName("");
     setEmail("");
+    setRole("admin");
     setError(null);
     setSent(false);
     setOpen(true);
@@ -48,15 +56,15 @@ export function InviteUserModal({
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedName) {
-      setError("Full name is required.");
+      setError(t("settings.users.fullNameRequired"));
       return;
     }
     if (!EMAIL_RE.test(trimmedEmail)) {
-      setError("Enter a valid email address.");
+      setError(t("errors.invalidEmail"));
       return;
     }
     if (existingEmails.some((item) => item.toLowerCase() === trimmedEmail)) {
-      setError("That email already has an account.");
+      setError(t("settings.users.emailExists"));
       return;
     }
     setBusy(true);
@@ -65,11 +73,15 @@ export function InviteUserModal({
       const response = await fetch("/api/users/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName: trimmedName, email: trimmedEmail }),
+        body: JSON.stringify({
+          fullName: trimmedName,
+          email: trimmedEmail,
+          role,
+        }),
       });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.ok) {
-        throw new Error(body?.error ?? "Failed to send the invite");
+        throw new Error(body?.error ?? t("settings.users.inviteFailed"));
       }
       setSent(true);
       router.refresh();
@@ -77,7 +89,7 @@ export function InviteUserModal({
       setError(
         inviteError instanceof Error
           ? inviteError.message
-          : "Failed to send the invite",
+          : t("settings.users.inviteFailed"),
       );
     } finally {
       setBusy(false);
@@ -88,23 +100,29 @@ export function InviteUserModal({
     <>
       <Button onClick={openModal}>
         <UserPlus className="size-4" />
-        Invite user
+        {t("settings.users.invite")}
       </Button>
 
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={sent ? "Invite sent" : "Invite admin user"}
+        title={
+          sent ? t("settings.users.inviteSent") : t("settings.users.invite")
+        }
         description={
-          sent ? undefined : "Company admins get access to every organization."
+          sent
+            ? undefined
+            : role === "admin"
+              ? t("settings.users.inviteDescription")
+              : t("settings.users.inviteDescriptionHr")
         }
         footer={
           sent ? (
-            <Button onClick={() => setOpen(false)}>Done</Button>
+            <Button onClick={() => setOpen(false)}>{t("common.done")}</Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" form="invite-user-form" disabled={busy}>
                 {busy ? (
@@ -112,7 +130,7 @@ export function InviteUserModal({
                 ) : (
                   <Send className="size-4" />
                 )}
-                {busy ? "Sending…" : "Send invite"}
+                {busy ? t("common.sending") : t("settings.users.sendInvite")}
               </Button>
             </>
           )
@@ -122,29 +140,30 @@ export function InviteUserModal({
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <CheckCircle2 className="size-10 text-success" />
             <div>
-              <p className="font-semibold">Invite sent</p>
+              <p className="font-semibold">{t("settings.users.inviteSent")}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {fullName} will receive an email at{" "}
-                <span className="font-medium text-foreground">{email}</span> to
-                set up their admin account.
+                {t("settings.users.inviteSentDescription", {
+                  name: fullName,
+                  email,
+                })}
               </p>
             </div>
           </div>
         ) : (
           <form id="invite-user-form" onSubmit={submit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="invite-name">Full name</Label>
+              <Label htmlFor="invite-name">{t("onboarding.fullName")}</Label>
               <Input
                 id="invite-name"
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
-                placeholder="e.g. Grace Hopper"
+                placeholder={t("settings.users.fullNamePlaceholder")}
                 autoFocus
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="invite-email">Email</Label>
+              <Label htmlFor="invite-email">{t("common.email")}</Label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -158,9 +177,22 @@ export function InviteUserModal({
                 />
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-role">{t("settings.users.role")}</Label>
+              <Select
+                id="invite-role"
+                value={role}
+                onChange={(event) => setRole(event.target.value as InviteRole)}
+              >
+                <option value="admin">{t("tenant.roleAdmin")}</option>
+                <option value="hr">{t("tenant.roleHr")}</option>
+              </Select>
+            </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <p className="text-xs text-muted-foreground">
-              The invite grants admin access to all organizations.
+              {role === "admin"
+                ? t("settings.users.inviteHint")
+                : t("settings.users.inviteHintHr")}
             </p>
           </form>
         )}
@@ -178,6 +210,7 @@ export function UserStatusToggle({
   status: "active" | "inactive";
 }) {
   const router = useRouter();
+  const { t } = useTranslations();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const next = status === "active" ? "inactive" : "active";
@@ -193,14 +226,14 @@ export function UserStatusToggle({
       });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.ok) {
-        throw new Error(body?.error ?? "Failed to update status");
+        throw new Error(body?.error ?? t("settings.users.statusUpdateFailed"));
       }
       router.refresh();
     } catch (toggleError) {
       setError(
         toggleError instanceof Error
           ? toggleError.message
-          : "Failed to update status",
+          : t("settings.users.statusUpdateFailed"),
       );
     } finally {
       setBusy(false);
@@ -214,14 +247,20 @@ export function UserStatusToggle({
         size="sm"
         onClick={toggle}
         disabled={busy}
-        title={next === "active" ? "Activate account" : "Deactivate account"}
+        title={
+          next === "active"
+            ? t("settings.users.activateAccount")
+            : t("settings.users.deactivateAccount")
+        }
       >
         {busy ? (
           <Loader2 className="size-3.5 animate-spin" />
         ) : (
           <Power className="size-3.5" />
         )}
-        {next === "active" ? "Activate" : "Deactivate"}
+        {next === "active"
+          ? t("performance.activate")
+          : t("performance.deactivate")}
       </Button>
       {error && (
         <span className="flex items-center gap-1 text-xs text-destructive">

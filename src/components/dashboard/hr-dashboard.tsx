@@ -18,6 +18,7 @@ import {
   type Stat,
 } from "@/components/dashboard/dashboard-shared";
 import type { SessionUser } from "@/lib/server/auth";
+import { getTranslator } from "@/lib/server/i18n";
 import { formatCurrency } from "@/lib/hr-data";
 
 /**
@@ -25,7 +26,7 @@ import { formatCurrency } from "@/lib/hr-data";
  * reports) but no configuration or sensitive settings — no user creation and
  * no company branding/theme management (those are admin-only per RBAC).
  */
-export function HrDashboard({
+export async function HrDashboard({
   user,
   metrics,
   weekTrend,
@@ -36,33 +37,39 @@ export function HrDashboard({
   weekTrend: AttendanceTrendDay[];
   recentEmployees: RecentEmployee[];
 }) {
+  const t = await getTranslator();
   const stats: Stat[] = [
     {
-      label: "Total employees",
+      label: t("dashboard.totalEmployees"),
       value: String(metrics.employees),
-      delta: `${metrics.departments} departments`,
+      delta: t("dashboard.departmentCount", {
+        n: metrics.departments,
+        s: metrics.departments === 1 ? "" : "s",
+      }),
       icon: Users,
       tone: "primary",
     },
     {
-      label: "On leave today",
+      label: t("attendance.onLeaveToday"),
       value: String(metrics.onLeaveToday),
       icon: CalendarDays,
       tone: "warning",
     },
     {
-      label: "Pending approvals",
+      label: t("dashboard.pendingApprovals"),
       value: String(metrics.pendingLeave),
       icon: FileText,
       tone: "info",
     },
     {
-      label: "Payroll",
-      value: metrics.payrollTotal > 0 ? "Processed" : "—",
+      label: t("payroll.title"),
+      value: metrics.payrollTotal > 0 ? t("payroll.statusProcessed") : "—",
       delta:
         metrics.payrollTotal > 0
-          ? `Latest run · ${formatCurrency(metrics.payrollTotal)}`
-          : "No payroll run yet",
+          ? t("dashboard.latestRun", {
+              amount: formatCurrency(metrics.payrollTotal),
+            })
+          : t("dashboard.noPayrollRun"),
       icon: Wallet,
       tone: "success",
     },
@@ -71,11 +78,13 @@ export function HrDashboard({
   return (
     <>
       <DashboardHeader
-        greeting={`Good morning, ${user.name.split(" ")[0]}`}
-        subtitle="Here's what's happening at your company today."
+        greeting={t("dashboard.greeting", {
+          name: user.name.split(" ")[0],
+        })}
+        subtitle={t("dashboard.subtitleAdmin")}
         actions={
-          <ActionButton variant="outline" doneLabel="Exported">
-            Export report
+          <ActionButton variant="outline" doneLabel={t("common.exported")}>
+            {t("reports.exportReport")}
           </ActionButton>
         }
       />
@@ -92,18 +101,18 @@ export function HrDashboard({
           items={[
             {
               href: "/leave",
-              label: "Review pending leave",
+              label: t("dashboard.quickReviewLeave"),
               icon: ArrowUpRight,
               variant: "info",
             },
             {
               href: "/payroll",
-              label: "Run payroll preview",
+              label: t("dashboard.quickPayrollPreview"),
               icon: ArrowUpRight,
             },
             {
               href: "/employees",
-              label: "View employee directory",
+              label: t("dashboard.quickEmployeeDirectory"),
               icon: ArrowUpRight,
               variant: "success",
             },

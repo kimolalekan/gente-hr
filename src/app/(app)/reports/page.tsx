@@ -23,11 +23,16 @@ import {
 } from "@/components/ui/card";
 import { apiGet } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 import { formatCurrency } from "@/lib/hr-data";
 import { parseRange } from "@/lib/report-dates";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Reports" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("reports.title") };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +67,9 @@ export default async function ReportsPage({
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/");
 
+  const locale = await getTenantLocale();
+  const t = await getTranslator();
+
   const { from: fromParam, to: toParam } = await searchParams;
   const { from, to } = parseRange(fromParam, toParam);
   const rangeParams = `from=${from}&to=${to}`;
@@ -71,29 +79,39 @@ export default async function ReportsPage({
     metrics: ReportMetrics;
   }>("/api/reports");
 
-  const metricCards = [
+  const metricCards: Array<{
+    label: string;
+    labelKey: TranslationKey | null;
+    value: string;
+    icon: LucideIcon;
+  }> = [
     {
       label: "Employees",
-      value: metrics.employees.toLocaleString("en-US"),
+      labelKey: "payroll.employees",
+      value: metrics.employees.toLocaleString(locale),
       icon: Users,
     },
     {
       label: "On leave today",
+      labelKey: "attendance.onLeaveToday",
       value: String(metrics.onLeaveToday),
       icon: CalendarDays,
     },
     {
       label: "Pending leave",
+      labelKey: "leave.pendingLeave",
       value: String(metrics.pendingLeave),
       icon: Clock,
     },
     {
       label: "Payroll total",
+      labelKey: "reports.payrollTotal",
       value: formatCurrency(metrics.payrollTotal),
       icon: Wallet,
     },
     {
       label: "Departments",
+      labelKey: "settings.departments.title",
       value: String(metrics.departments),
       icon: BarChart3,
     },
@@ -102,8 +120,8 @@ export default async function ReportsPage({
   return (
     <>
       <PageHeader
-        title="Reports"
-        description="Generate and schedule workforce analytics."
+        title={t("reports.title")}
+        description={t("reports.description")}
       >
         <div className="flex flex-wrap items-center gap-3">
           <DateRangePicker from={from} to={to} />
@@ -112,7 +130,7 @@ export default async function ReportsPage({
             className={cn(buttonVariants({ variant: "outline" }))}
           >
             <FileDown />
-            Export all
+            {t("reports.exportAll")}
           </Link>
         </div>
       </PageHeader>
@@ -128,7 +146,9 @@ export default async function ReportsPage({
                 </span>
                 <div>
                   <p className="text-2xl font-bold">{card.value}</p>
-                  <p className="text-xs text-muted-foreground">{card.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {card.labelKey ? t(card.labelKey) : card.label}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -169,7 +189,7 @@ export default async function ReportsPage({
                   )}
                 >
                   <FileText />
-                  View report
+                  {t("reports.viewReport")}
                 </Link>
                 <Link
                   href={`/api/reports/${report.id}/export?format=csv&${rangeParams}`}
@@ -179,7 +199,7 @@ export default async function ReportsPage({
                   )}
                 >
                   <FileDown />
-                  Export CSV
+                  {t("reports.exportCsv")}
                 </Link>
               </CardContent>
             </Card>

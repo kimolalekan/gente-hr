@@ -7,6 +7,12 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getCurrentUser, type SessionUser } from "./auth";
+import { getTenantEmailSettings, sendHtmlEmail } from "./email";
+import {
+  buildBrandedEmailHtml,
+  getTenantBranding,
+  resolveEmailTemplate,
+} from "./email-template";
 
 export class ApiError extends Error {
   constructor(
@@ -188,28 +194,45 @@ export async function addAudit(input: {
   }
 }
 
-/** Record an outgoing email (demo: logs to the table + console). */
+/**
+ * Deliver an outgoing email through the tenant's configured provider
+ * (Resend when an API key is set, otherwise the console). Rendering/status
+ * tracking is the provider's job — this only hands off the message.
+ */
 export async function recordEmail(input: {
   tenantId: string;
   to: string;
   templateKey: string;
-  provider?: string;
-}): Promise<void> {
-  try {
-    const { db, pool } = await getDb();
-    const { emailLogs } = await import("@db/schema");
-    await db.insert(emailLogs).values({
-      tenantId: input.tenantId,
-      recipient: input.to,
-      templateKey: input.templateKey,
-      provider: input.provider ?? "console",
-      status: "sent",
-    });
-    await pool.end();
-  } catch {
-    // Emails are best-effort in demo mode.
-  }
-  console.log(`[email:${input.templateKey}] → ${input.to}`);
+  /** Extra recipients copied on the email. */
+  cc?: string[];
+  /** iCalendar invite payload (e.g. interview invitations). */
+  ics?: string;
+}): Promise<{ channel: "email" | "console"; provider: string }> {
+  const cc = input.cc?.filter((email) => email && email !== input.to) ?? [];
+
+  // Brand the email with the tenant's logo (org name as alt / fallback).
+  const branding = await getTenantBranding(input.tenantId);
+  const template = resolveEmailTemplate(input.templateKey, branding);
+  const html = buildBrandedEmailHtml({
+    branding,
+    title: template.subject,
+    body: template.body,
+  });
+
+  // Delivery config comes from the tenant's saved provider settings.
+  const settings = await getTenantEmailSettings(input.tenantId);
+  return sendHtmlEmail({
+    to: input.to,
+    cc,
+    subject: template.subject,
+    html,
+    fromName: settings.senderName,
+    fromEmail: settings.senderEmail,
+    replyTo: settings.replyTo,
+    ics: input.ics,
+    provider: settings.provider,
+    credentials: settings.credentials,
+  });
 }
 
 /** Create an in-app notification row (best-effort, never throws). */

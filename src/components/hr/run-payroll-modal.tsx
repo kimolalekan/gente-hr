@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { formatCurrency } from "@/lib/hr-data";
+import { useTranslations } from "@/lib/i18n/provider";
 
 export interface PayrollPreview {
   period: string;
@@ -25,6 +26,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * `POST /api/payroll/runs` and refreshes the runs list on success.
  */
 export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
+  const { t } = useTranslations();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -43,7 +45,7 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
     event.preventDefault();
     const trimmed = email.trim();
     if (!EMAIL_RE.test(trimmed)) {
-      setError("Enter a valid email to receive the payroll PDF.");
+      setError(t("payroll.invalidEmail"));
       return;
     }
     setBusy(true);
@@ -60,7 +62,7 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
         error?: string;
       } | null;
       if (!body?.ok) {
-        apiError = body?.error ?? "Could not run payroll";
+        apiError = body?.error ?? t("payroll.runFailed");
         throw new Error(apiError);
       }
       setSent(true);
@@ -68,7 +70,7 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
       router.refresh();
     } catch {
       if (apiError) setError(apiError);
-      else setError("Could not run payroll. Please try again.");
+      else setError(t("payroll.runFailedRetry"));
     } finally {
       setBusy(false);
     }
@@ -78,23 +80,25 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
     <>
       <Button onClick={openModal}>
         <Wallet className="size-4" />
-        Run payroll
+        {t("payroll.runPayroll")}
       </Button>
 
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={sent ? "Payroll sent" : "Run payroll"}
+        title={sent ? t("payroll.sentTitle") : t("payroll.runPayroll")}
         description={
-          sent ? undefined : `Preview ${preview.period} before processing.`
+          sent
+            ? undefined
+            : t("payroll.previewDescription", { period: preview.period })
         }
         footer={
           sent ? (
-            <Button onClick={() => setOpen(false)}>Done</Button>
+            <Button onClick={() => setOpen(false)}>{t("common.done")}</Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" form="run-payroll-form" disabled={busy}>
                 {busy ? (
@@ -102,7 +106,7 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
                 ) : (
                   <Wallet className="size-4" />
                 )}
-                {busy ? "Processing…" : "Run payroll & send PDF"}
+                {busy ? t("common.processing") : t("payroll.runAndSend")}
               </Button>
             </>
           )
@@ -112,10 +116,12 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <CheckCircle2 className="size-10 text-success" />
             <div>
-              <p className="font-semibold">Payroll queued</p>
+              <p className="font-semibold">{t("payroll.queued")}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                The {preview.period} payroll PDF was emailed to{" "}
-                <span className="font-medium text-foreground">{email}</span>.
+                {t("payroll.emailedTo", {
+                  period: preview.period,
+                  email,
+                })}
               </p>
             </div>
           </div>
@@ -123,27 +129,35 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
           <form id="run-payroll-form" onSubmit={submit} className="space-y-4">
             <div className="overflow-hidden rounded-lg border border-border">
               <div className="border-b border-border bg-muted/40 px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {preview.period} preview
+                {t("payroll.previewTitle", { period: preview.period })}
               </div>
               <div className="divide-y divide-border text-sm">
                 <div className="flex items-center justify-between px-4 py-2.5">
-                  <span className="text-muted-foreground">Employees</span>
+                  <span className="text-muted-foreground">
+                    {t("payroll.employees")}
+                  </span>
                   <span className="font-medium">{preview.employees}</span>
                 </div>
                 <div className="flex items-center justify-between px-4 py-2.5">
-                  <span className="text-muted-foreground">Gross</span>
+                  <span className="text-muted-foreground">
+                    {t("payroll.gross")}
+                  </span>
                   <span className="font-medium">
                     {formatCurrency(preview.gross)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between px-4 py-2.5">
-                  <span className="text-muted-foreground">Deductions</span>
+                  <span className="text-muted-foreground">
+                    {t("payroll.deductions")}
+                  </span>
                   <span className="font-medium">
                     −{formatCurrency(preview.deductions)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between bg-background/50 px-4 py-2.5">
-                  <span className="font-medium">Net total</span>
+                  <span className="font-medium">
+                    {t("payroll.payslips.netTotal")}
+                  </span>
                   <span className="font-bold text-primary">
                     {formatCurrency(preview.net)}
                   </span>
@@ -152,7 +166,7 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="payroll-email">Email the payroll PDF to</Label>
+              <Label htmlFor="payroll-email">{t("payroll.emailTo")}</Label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -160,7 +174,7 @@ export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="finance@company.com"
+                  placeholder={t("payroll.emailPlaceholder")}
                   className="pl-9"
                   autoFocus
                   required

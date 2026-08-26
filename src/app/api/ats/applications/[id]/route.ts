@@ -138,6 +138,7 @@ export const GET = route(
           round: row.round,
           scheduledAt: row.scheduledAt,
           interviewer: row.interviewer,
+          panelists: row.panelists ?? [],
           feedback: row.feedback,
           status: row.status,
           createdAt: row.createdAt,

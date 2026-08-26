@@ -3,7 +3,9 @@
 import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { AUDIT_CATEGORY_LABELS } from "@/lib/hr-data";
+import { useLocale } from "@/lib/i18n/use-locale";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 
 export interface AuditLogItem {
   id: string;
@@ -32,20 +34,30 @@ const CATEGORY_VARIANT: Record<
 
 export function AuditLogTable({ logs }: { logs: AuditLogItem[] }) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const locale = useLocale();
+  const { t } = useTranslations();
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs text-muted-foreground">
-            <th className="py-2.5 pr-4 font-medium">Time</th>
-            <th className="px-4 py-2.5 font-medium">Actor</th>
-            <th className="px-4 py-2.5 font-medium">Action</th>
-            <th className="hidden px-4 py-2.5 font-medium md:table-cell">
-              Target
+            <th className="py-2.5 pr-4 font-medium">{t("common.time")}</th>
+            <th className="px-4 py-2.5 font-medium">
+              {t("settings.auditLogs.actor")}
             </th>
-            <th className="px-4 py-2.5 font-medium">Category</th>
-            <th className="py-2.5 pl-4 text-right font-medium">Details</th>
+            <th className="px-4 py-2.5 font-medium">
+              {t("settings.auditLogs.action")}
+            </th>
+            <th className="hidden px-4 py-2.5 font-medium md:table-cell">
+              {t("settings.auditLogs.target")}
+            </th>
+            <th className="px-4 py-2.5 font-medium">
+              {t("settings.auditLogs.category")}
+            </th>
+            <th className="py-2.5 pl-4 text-right font-medium">
+              {t("common.details")}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -55,7 +67,7 @@ export function AuditLogTable({ logs }: { logs: AuditLogItem[] }) {
               <Fragment key={log.id}>
                 <tr className="border-b border-border last:border-0">
                   <td className="whitespace-nowrap py-3 pr-4 font-mono text-xs text-muted-foreground">
-                    {new Date(log.createdAt).toLocaleString("en-US", {
+                    {new Date(log.createdAt).toLocaleString(locale, {
                       month: "short",
                       day: "numeric",
                       hour: "2-digit",
@@ -71,9 +83,9 @@ export function AuditLogTable({ logs }: { logs: AuditLogItem[] }) {
                     <Badge
                       variant={CATEGORY_VARIANT[log.category] ?? "secondary"}
                     >
-                      {AUDIT_CATEGORY_LABELS[
-                        log.category as keyof typeof AUDIT_CATEGORY_LABELS
-                      ] ?? log.category}
+                      {t(
+                        `statusLabels.auditCategory.${log.category}` as TranslationKey,
+                      )}
                     </Badge>
                   </td>
                   <td className="py-3 pl-4 text-right">
@@ -88,7 +100,7 @@ export function AuditLogTable({ logs }: { logs: AuditLogItem[] }) {
                       ) : (
                         <ChevronRight className="size-3.5" />
                       )}
-                      {open ? "Hide" : "View"}
+                      {open ? t("common.hide") : t("common.view")}
                     </button>
                   </td>
                 </tr>
@@ -100,25 +112,35 @@ export function AuditLogTable({ logs }: { logs: AuditLogItem[] }) {
                     <td colSpan={6} className="px-4 py-3">
                       <dl className="grid gap-1.5 text-xs sm:grid-cols-2">
                         <div>
-                          <dt className="text-muted-foreground">Event ID</dt>
+                          <dt className="text-muted-foreground">
+                            {t("settings.auditLogs.eventId")}
+                          </dt>
                           <dd className="font-mono">{log.id.toUpperCase()}</dd>
                         </div>
                         <div>
-                          <dt className="text-muted-foreground">Timestamp</dt>
+                          <dt className="text-muted-foreground">
+                            {t("settings.auditLogs.timestamp")}
+                          </dt>
                           <dd>
-                            {new Date(log.createdAt).toLocaleString("en-US")}
+                            {new Date(log.createdAt).toLocaleString(locale)}
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-muted-foreground">Actor</dt>
+                          <dt className="text-muted-foreground">
+                            {t("settings.auditLogs.actor")}
+                          </dt>
                           <dd>{log.actorName ?? "—"}</dd>
                         </div>
                         <div>
-                          <dt className="text-muted-foreground">Action</dt>
+                          <dt className="text-muted-foreground">
+                            {t("settings.auditLogs.action")}
+                          </dt>
                           <dd>{log.action}</dd>
                         </div>
                         <div className="sm:col-span-2">
-                          <dt className="text-muted-foreground">Target</dt>
+                          <dt className="text-muted-foreground">
+                            {t("settings.auditLogs.target")}
+                          </dt>
                           <dd>{log.target ?? "—"}</dd>
                         </div>
                       </dl>

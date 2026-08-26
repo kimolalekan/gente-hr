@@ -24,17 +24,17 @@ import { Section } from "@/components/settings/section";
 import { ThemePicker } from "@/components/settings/theme-picker";
 import { ColorField } from "@/components/theme/color-field";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/lib/i18n/provider";
 import { CountryFlag } from "@/components/ui/country-flag";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { CURRENCY_OPTIONS, getCurrencyMeta } from "@/lib/currencies";
 import {
   DEFAULT_TENANT_THEME,
   getPredefinedTheme,
   resolvePalette,
-  THEME_VAR_LABELS,
   THEME_VARS,
   type TenantTheme,
   type ThemeId,
@@ -42,6 +42,7 @@ import {
   type ThemeVar,
 } from "@/lib/theme-config";
 import { cn } from "@/lib/utils";
+import type { TranslationKey } from "@/lib/i18n/types";
 
 export const TIMEZONES = [
   "UTC",
@@ -56,20 +57,30 @@ export const TIMEZONES = [
 ];
 
 const LANGUAGES = [
-  { value: "en", label: "English" },
-  { value: "fr", label: "French" },
-  { value: "pt", label: "Portuguese" },
-  { value: "es", label: "Spanish" },
-];
+  { value: "en", labelKey: "languages.en" },
+  { value: "fr", labelKey: "languages.fr" },
+  { value: "pt", labelKey: "languages.pt" },
+  { value: "es", labelKey: "languages.es" },
+] as const;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** A contentEditable that only contains markup/whitespace counts as empty. */
+function isRichTextEmpty(html: string): boolean {
+  return (
+    html
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/gi, " ")
+      .trim().length === 0
+  );
+}
+
 const STEPS = [
-  { id: "organization", label: "Organization", icon: Building2 },
-  { id: "admin", label: "Admin", icon: ShieldCheck },
-  { id: "email", label: "Email", icon: Mail },
-  { id: "branding", label: "Branding & theme", icon: Palette },
-  { id: "review", label: "Review", icon: Sparkles },
+  { id: "organization", labelKey: "setup.steps.organization", icon: Building2 },
+  { id: "admin", labelKey: "setup.steps.admin", icon: ShieldCheck },
+  { id: "email", labelKey: "setup.steps.email", icon: Mail },
+  { id: "branding", labelKey: "setup.steps.branding", icon: Palette },
+  { id: "review", labelKey: "setup.steps.review", icon: Sparkles },
 ] as const;
 
 function emptyCredentials(): Record<string, Record<string, string>> {
@@ -83,6 +94,7 @@ function emptyCredentials(): Record<string, Record<string, string>> {
 
 /** First-run setup wizard: org → admin → email → branding → review. Demo only. */
 export function SetupWizard() {
+  const { t, setLanguage: setUiLanguage } = useTranslations();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -129,24 +141,27 @@ export function SetupWizard() {
 
   const validateStep = (index: number): string | null => {
     if (index === 0) {
-      if (!orgName.trim()) return "Organization name is required.";
+      if (!orgName.trim()) return t("setup.orgNameRequired");
       return null;
     }
     if (index === 1) {
       if (!EMAIL_RE.test(adminEmail.trim())) {
-        return "Enter a valid admin email.";
+        return t("setup.adminEmailRequired");
       }
       return null;
     }
     if (index === 2) {
       if (!EMAIL_RE.test(senderEmail.trim())) {
-        return "Enter a valid sender email.";
+        return t("setup.senderEmailRequired");
       }
       const missing = emailProvider.credentials.find(
         (field) => field.required && !credentials[provider][field.key].trim(),
       );
       if (missing)
-        return `${emailProvider.label.split(" — ")[0]}: ${missing.label} is required.`;
+        return t("setup.fieldRequired", {
+          provider: emailProvider.label.split(" — ")[0],
+          field: missing.label,
+        });
       return null;
     }
     return null;
@@ -215,13 +230,9 @@ export function SetupWizard() {
     const message = validateStep(0) ?? validateStep(1) ?? validateStep(2);
     if (message) {
       setError(message);
-      setStep(
-        message.includes("Organization") || message.includes("name")
-          ? 0
-          : message.includes("admin")
-            ? 1
-            : 2,
-      );
+      // Validation messages are translated, so pick the step by re-checking
+      // each rule in order instead of inspecting the message text.
+      setStep(validateStep(0) ? 0 : validateStep(1) ? 1 : 2);
       return;
     }
     setBusy(true);
@@ -237,7 +248,7 @@ export function SetupWizard() {
             timezone,
             currency,
             language,
-            about: about.trim() || undefined,
+            about: isRichTextEmpty(about) ? undefined : about,
             logoUrl: logoUrl ?? undefined,
           },
           admin: { email: adminEmail.trim().toLowerCase() },
@@ -259,7 +270,7 @@ export function SetupWizard() {
         error?: string;
       } | null;
       if (!body?.ok) {
-        const apiMessage = body?.error ?? "Could not provision the workspace";
+        const apiMessage = body?.error ?? t("setup.provisionFailed");
         setError(apiMessage);
         setStep(
           apiMessage.includes("Organization") || apiMessage.includes("name")
@@ -272,7 +283,7 @@ export function SetupWizard() {
       }
       setDone(true);
     } catch {
-      setError("Network error — check your connection and try again.");
+      setError(t("setup.createNetworkError"));
     } finally {
       setBusy(false);
     }
@@ -280,24 +291,28 @@ export function SetupWizard() {
 
   const themeName =
     draft.themeId === "custom"
-      ? "Custom theme"
+      ? t("setup.customTheme")
       : (getPredefinedTheme(draft.themeId)?.name ?? "Default Blue");
+
+  const selectedLanguageKey = LANGUAGES.find(
+    (item) => item.value === language,
+  )?.labelKey;
 
   if (done) {
     return (
       <div className="flex flex-col items-center gap-3 py-10 text-center">
         <CheckCircle2 className="size-12 text-success" />
         <div>
-          <p className="text-lg font-semibold">Workspace ready</p>
+          <p className="text-lg font-semibold">{t("setup.workspaceReady")}</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            {orgName.trim() || "Your workspace"} is configured. An invite was
-            sent to{" "}
-            <span className="font-medium text-foreground">{adminEmail}</span> to
-            set up the admin account.
+            {t("setup.doneMessage", {
+              org: orgName.trim() || t("setup.yourWorkspace"),
+              email: adminEmail,
+            })}
           </p>
         </div>
         <Link href="/login">
-          <Button>Go to login</Button>
+          <Button>{t("auth.goToLogin")}</Button>
         </Link>
       </div>
     );
@@ -338,7 +353,7 @@ export function SetupWizard() {
                     : "text-muted-foreground",
                 )}
               >
-                {item.label}
+                {t(item.labelKey)}
               </span>
               {index < STEPS.length - 1 && (
                 <span
@@ -357,36 +372,38 @@ export function SetupWizard() {
       {step === 0 && (
         <div className="space-y-5">
           <div className="space-y-1.5">
-            <Label htmlFor="setup-org">Organization name</Label>
+            <Label htmlFor="setup-org">{t("setup.orgName")}</Label>
             <Input
               id="setup-org"
               value={orgName}
               onChange={(event) => setOrgName(event.target.value)}
-              placeholder="e.g. Acme Inc."
+              placeholder={t("setup.orgNamePlaceholder")}
               autoFocus
               required
             />
           </div>
           <LogoUploader
-            label="Logo"
-            hint="Recommended: 200×200px PNG, under 512KB"
+            label={t("setup.logo")}
+            hint={t("setup.logoHint")}
             value={logoUrl}
             onUpload={setLogoUrl}
             onRemove={() => setLogoUrl(null)}
           />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="setup-website">Website (optional)</Label>
+              <Label htmlFor="setup-website">
+                {t("setup.websiteOptional")}
+              </Label>
               <Input
                 id="setup-website"
                 type="url"
                 value={website}
                 onChange={(event) => setWebsite(event.target.value)}
-                placeholder="https://acme.example.com"
+                placeholder={t("setup.websitePlaceholder")}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="setup-timezone">Timezone</Label>
+              <Label htmlFor="setup-timezone">{t("setup.timezone")}</Label>
               <Select
                 id="setup-timezone"
                 value={timezone}
@@ -400,26 +417,30 @@ export function SetupWizard() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="setup-language">Language</Label>
+              <Label htmlFor="setup-language">{t("setup.language")}</Label>
               <Select
                 id="setup-language"
                 value={language}
-                onChange={(event) => setLanguage(event.target.value)}
+                onChange={(event) => {
+                  setLanguage(event.target.value);
+                  // Reflect the selection in the wizard UI immediately.
+                  setUiLanguage(event.target.value);
+                }}
               >
                 {LANGUAGES.map((item) => (
                   <option key={item.value} value={item.value}>
-                    {item.label}
+                    {t(item.labelKey)}
                   </option>
                 ))}
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="setup-currency">Base currency</Label>
+              <Label htmlFor="setup-currency">{t("setup.baseCurrency")}</Label>
               <Select
                 id="setup-currency"
                 value={currency}
                 onChange={(event) => setCurrency(event.target.value)}
-                searchPlaceholder="Search currency or country…"
+                searchPlaceholder={t("setup.currencySearchPlaceholder")}
                 renderOption={(option) => {
                   const meta = getCurrencyMeta(option.value);
                   return meta ? <CountryFlag code={meta.flag} /> : null;
@@ -439,13 +460,12 @@ export function SetupWizard() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="setup-about">About organization</Label>
-            <Textarea
+            <Label htmlFor="setup-about">{t("setup.about")}</Label>
+            <RichTextEditor
               id="setup-about"
               value={about}
-              onChange={(event) => setAbout(event.target.value)}
-              rows={4}
-              placeholder="What does your organization do? A short company description…"
+              onChange={setAbout}
+              placeholder={t("setup.aboutPlaceholder")}
             />
           </div>
         </div>
@@ -454,20 +474,19 @@ export function SetupWizard() {
       {step === 1 && (
         <div className="space-y-5">
           <div className="space-y-1.5">
-            <Label htmlFor="setup-admin">Admin email</Label>
+            <Label htmlFor="setup-admin">{t("setup.adminEmail")}</Label>
             <Input
               id="setup-admin"
               type="email"
               value={adminEmail}
               onChange={(event) => setAdminEmail(event.target.value)}
-              placeholder="you@company.com"
+              placeholder={t("setup.adminEmailPlaceholder")}
               autoFocus
               required
             />
           </div>
           <p className="rounded-lg border border-border bg-background/50 p-3 text-xs text-muted-foreground">
-            This address receives the invite to manage the workspace. Admin
-            accounts get access to every organization created under it.
+            {t("setup.adminHint")}
           </p>
         </div>
       )}
@@ -475,7 +494,7 @@ export function SetupWizard() {
       {step === 2 && (
         <div className="space-y-5">
           <div className="space-y-1.5">
-            <Label htmlFor="setup-provider">Email provider</Label>
+            <Label htmlFor="setup-provider">{t("setup.emailProvider")}</Label>
             <Select
               id="setup-provider"
               value={provider}
@@ -521,22 +540,24 @@ export function SetupWizard() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="setup-sender-name">Sender name</Label>
+              <Label htmlFor="setup-sender-name">{t("setup.senderName")}</Label>
               <Input
                 id="setup-sender-name"
                 value={senderName}
                 onChange={(event) => setSenderName(event.target.value)}
-                placeholder="e.g. Acme HR"
+                placeholder={t("setup.senderNamePlaceholder")}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="setup-sender-email">Sender email</Label>
+              <Label htmlFor="setup-sender-email">
+                {t("setup.senderEmail")}
+              </Label>
               <Input
                 id="setup-sender-email"
                 type="email"
                 value={senderEmail}
                 onChange={(event) => setSenderEmail(event.target.value)}
-                placeholder="noreply@yourcompany.com"
+                placeholder={t("setup.senderEmailPlaceholder")}
                 required
               />
             </div>
@@ -547,15 +568,12 @@ export function SetupWizard() {
       {step === 3 && (
         <div className="space-y-5">
           <Section
-            title="Default color mode"
-            description="Applies across the dashboard; employees can still override it."
+            title={t("setup.defaultColorMode")}
+            description={t("setup.defaultColorModeHint")}
           >
             <ModeSelector value={draft.mode ?? "system"} onChange={setMode} />
           </Section>
-          <Section
-            title="Theme"
-            description="Pick a palette — you can start from one and customize it."
-          >
+          <Section title={t("setup.theme")} description={t("setup.themeHint")}>
             <ThemePicker
               selectedId={draft.themeId}
               customActive={customActive}
@@ -566,15 +584,15 @@ export function SetupWizard() {
           </Section>
           {customActive && (
             <Section
-              title="Custom palette"
-              description="Define your own colors — applied in both light and dark mode."
+              title={t("setup.customPalette")}
+              description={t("setup.customPaletteHint")}
             >
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {THEME_VARS.map((variable) => (
                   <ColorField
                     key={variable}
                     variable={variable}
-                    label={THEME_VAR_LABELS[variable]}
+                    label={t(`theme.varLabels.${variable}` as TranslationKey)}
                     value={
                       draft.custom?.[variable] ??
                       resolvePalette(draft).light[variable]
@@ -592,14 +610,14 @@ export function SetupWizard() {
         <div className="space-y-4">
           <div className="rounded-lg border border-border bg-background/50 p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Organization
+              {t("setup.steps.organization")}
             </p>
             <div className="mt-2 flex items-center gap-3">
               {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- data URLs can't use next/image
                 <img
                   src={logoUrl}
-                  alt="Logo"
+                  alt={t("setup.logo")}
                   className="size-10 rounded-lg border border-border object-contain"
                 />
               ) : (
@@ -612,14 +630,14 @@ export function SetupWizard() {
                   {orgName.trim() || "—"}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {website.trim() || "No website"} · {timezone} ·{" "}
-                  {LANGUAGES.find((item) => item.value === language)?.label ??
-                    language}
+                  {website.trim() || t("setup.noWebsite")} · {timezone} ·{" "}
+                  {selectedLanguageKey ? t(selectedLanguageKey) : language}
                 </p>
-                {about.trim() && (
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                    {about.trim()}
-                  </p>
+                {!isRichTextEmpty(about) && (
+                  <div
+                    className="rich-content mt-1 line-clamp-2 text-xs text-muted-foreground"
+                    dangerouslySetInnerHTML={{ __html: about }}
+                  />
                 )}
               </div>
             </div>
@@ -628,7 +646,7 @@ export function SetupWizard() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-border bg-background/50 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Base currency
+                {t("setup.baseCurrency")}
               </p>
               <p className="mt-2 flex items-center gap-2 font-semibold">
                 <CountryFlag code={getCurrencyMeta(currency)?.flag ?? ""} />
@@ -637,7 +655,7 @@ export function SetupWizard() {
             </div>
             <div className="rounded-lg border border-border bg-background/50 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Admin
+                {t("setup.steps.admin")}
               </p>
               <p className="mt-2 truncate font-semibold">{adminEmail}</p>
             </div>
@@ -645,7 +663,7 @@ export function SetupWizard() {
 
           <div className="rounded-lg border border-border bg-background/50 p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Email
+              {t("setup.steps.email")}
             </p>
             <p className="mt-2 font-semibold">
               {emailProvider.label.split(" — ")[0]}
@@ -657,7 +675,7 @@ export function SetupWizard() {
 
           <div className="rounded-lg border border-border bg-background/50 p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Branding &amp; theme
+              {t("setup.steps.branding")}
             </p>
             <div className="mt-2 flex items-center gap-3">
               <div className="flex -space-x-1.5">
@@ -674,7 +692,11 @@ export function SetupWizard() {
               <p className="font-semibold">
                 {themeName} ·{" "}
                 <span className="capitalize text-muted-foreground">
-                  {draft.mode ?? "system"}
+                  {draft.mode === "light"
+                    ? t("common.modeLight")
+                    : draft.mode === "dark"
+                      ? t("common.modeDark")
+                      : t("common.modeSystem")}
                 </span>
               </p>
             </div>
@@ -693,11 +715,11 @@ export function SetupWizard() {
           disabled={step === 0 || busy}
         >
           <ArrowLeft className="size-4" />
-          Back
+          {t("common.back")}
         </Button>
         {step < STEPS.length - 1 ? (
           <Button type="button" onClick={next}>
-            Next
+            {t("common.next")}
             <ArrowRight className="size-4" />
           </Button>
         ) : (
@@ -707,7 +729,7 @@ export function SetupWizard() {
             ) : (
               <Sparkles className="size-4" />
             )}
-            {busy ? "Setting up…" : "Create workspace"}
+            {busy ? t("setup.settingUp") : t("setup.createWorkspace")}
           </Button>
         )}
       </div>

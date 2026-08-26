@@ -16,6 +16,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import {
   getOnboardingProgress,
   type Employee,
@@ -34,6 +36,7 @@ export function OnboardingManager({
   plans: OnboardingPlan[];
   employees: Employee[];
 }) {
+  const { t } = useTranslations();
   const [items, setItems] = useState(plans);
   const [open, setOpen] = useState(false);
   const [sent, setSent] = useState(false);
@@ -73,15 +76,15 @@ export function OnboardingManager({
     event.preventDefault();
     const trimmedEmail = email.trim().toLowerCase();
     if (!fullName.trim()) {
-      setError("Full name is required.");
+      setError(t("errors.requiredField", { field: t("onboarding.fullName") }));
       return;
     }
     if (!trimmedEmail) {
-      setError("An email is required so the invite can be sent.");
+      setError(t("onboarding.emailRequired"));
       return;
     }
     if (employeeEmails.has(trimmedEmail)) {
-      setError("Someone with that email already works at the company.");
+      setError(t("onboarding.emailExists"));
       return;
     }
     setSaving(true);
@@ -121,9 +124,7 @@ export function OnboardingManager({
       setInviteLink(plan.inviteLink ?? null);
       setSent(true);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to send the invite.",
-      );
+      setError(err instanceof Error ? err.message : t("onboarding.sendFailed"));
     } finally {
       setSaving(false);
     }
@@ -140,10 +141,10 @@ export function OnboardingManager({
       if (!body?.ok) {
         throw new Error(body?.error ?? `Request failed (${response.status})`);
       }
-      setNotice(`Invite re-sent to ${plan.email}.`);
+      setNotice(t("onboarding.resendSent", { email: plan.email }));
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to re-send the invite.",
+        err instanceof Error ? err.message : t("onboarding.resendFailed"),
       );
     } finally {
       setBusyId(null);
@@ -155,14 +156,16 @@ export function OnboardingManager({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm font-medium text-muted-foreground">Invited</p>
+            <p className="text-sm font-medium text-muted-foreground">
+              {t("onboarding.statusInvited")}
+            </p>
             <p className="mt-1 text-2xl font-bold text-info">{invited}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm font-medium text-muted-foreground">
-              Active plans
+              {t("onboarding.activePlans")}
             </p>
             <p className="mt-1 text-2xl font-bold">{inProgress}</p>
           </CardContent>
@@ -170,7 +173,7 @@ export function OnboardingManager({
         <Card>
           <CardContent className="p-4">
             <p className="text-sm font-medium text-muted-foreground">
-              Tasks open
+              {t("onboarding.tasksOpen")}
             </p>
             <p className="mt-1 text-2xl font-bold">{openTasks}</p>
           </CardContent>
@@ -192,15 +195,14 @@ export function OnboardingManager({
         <CardHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <CardTitle>Onboarding</CardTitle>
+              <CardTitle>{t("onboarding.title")}</CardTitle>
               <CardDescription>
-                Invites for people who don&apos;t have an account yet — the rest
-                of their details are collected from the emailed link.
+                {t("onboarding.invitesDescription")}
               </CardDescription>
             </div>
             <Button onClick={openModal}>
               <UserPlus />
-              New onboarding
+              {t("onboarding.newOnboarding")}
             </Button>
           </div>
         </CardHeader>
@@ -209,17 +211,23 @@ export function OnboardingManager({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="py-2.5 pr-4 font-medium">New hire</th>
-                  <th className="hidden px-4 py-2.5 font-medium md:table-cell">
-                    Phone
+                  <th className="py-2.5 pr-4 font-medium">
+                    {t("onboarding.newHire")}
                   </th>
                   <th className="hidden px-4 py-2.5 font-medium md:table-cell">
-                    Country
+                    {t("onboarding.phone")}
                   </th>
-                  <th className="px-4 py-2.5 font-medium">Progress</th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="hidden px-4 py-2.5 font-medium md:table-cell">
+                    {t("employees.country")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("onboarding.progress")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("common.status")}
+                  </th>
                   <th className="py-2.5 pl-4 text-right font-medium">
-                    Actions
+                    {t("common.actions")}
                   </th>
                 </tr>
               </thead>
@@ -273,7 +281,9 @@ export function OnboardingManager({
                                 : "secondary"
                           }
                         >
-                          {plan.status}
+                          {t(
+                            `statusLabels.onboardingPlan.${plan.status}` as TranslationKey,
+                          )}
                         </Badge>
                       </td>
                       <td className="py-3 pl-4 text-right">
@@ -286,12 +296,12 @@ export function OnboardingManager({
                               disabled={busyId === plan.id}
                             >
                               <Send className="size-3.5" />
-                              Resend
+                              {t("onboarding.resendInvite")}
                             </Button>
                           )}
                           <Link href={`/onboarding/${plan.id}`}>
                             <Button variant="outline" size="sm">
-                              View details
+                              {t("common.viewDetails")}
                             </Button>
                           </Link>
                         </div>
@@ -305,7 +315,7 @@ export function OnboardingManager({
                       colSpan={6}
                       className="px-4 py-10 text-center text-sm text-muted-foreground"
                     >
-                      No onboarding plans yet — invite your first new hire.
+                      {t("onboarding.empty")}
                     </td>
                   </tr>
                 )}
@@ -318,15 +328,13 @@ export function OnboardingManager({
       <Modal
         open={open}
         onClose={() => !saving && setOpen(false)}
-        title={sent ? "Invite sent" : "Invite a new hire"}
-        description={
-          sent
-            ? undefined
-            : "They don't have an account yet — they'll receive an email with a link to complete the rest of their details."
+        title={
+          sent ? t("onboarding.inviteSent") : t("onboarding.inviteNewHire")
         }
+        description={sent ? undefined : t("onboarding.inviteDescription")}
         footer={
           sent ? (
-            <Button onClick={() => setOpen(false)}>Done</Button>
+            <Button onClick={() => setOpen(false)}>{t("common.done")}</Button>
           ) : (
             <>
               <Button
@@ -334,11 +342,11 @@ export function OnboardingManager({
                 onClick={() => setOpen(false)}
                 disabled={saving}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="submit" form="onboarding-form" disabled={saving}>
                 <Send />
-                {saving ? "Sending…" : "Send invite"}
+                {saving ? t("common.sending") : t("onboarding.sendInvite")}
               </Button>
             </>
           )
@@ -348,17 +356,15 @@ export function OnboardingManager({
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <CheckCircle2 className="size-10 text-success" />
             <div>
-              <p className="font-semibold">Invite sent</p>
+              <p className="font-semibold">{t("onboarding.inviteSent")}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {fullName} will receive an email at{" "}
-                <span className="font-medium text-foreground">{email}</span>{" "}
-                with a link to fill in the remaining details.
+                {t("onboarding.inviteSentDescription", { fullName, email })}
               </p>
             </div>
             {inviteLink && (
               <Link href={inviteLink}>
                 <Button variant="outline" size="sm">
-                  Preview the employee form
+                  {t("onboarding.previewForm")}
                 </Button>
               </Link>
             )}
@@ -367,33 +373,31 @@ export function OnboardingManager({
           <form id="onboarding-form" onSubmit={submit} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="onboard-name">Full name</Label>
+                <Label htmlFor="onboard-name">{t("onboarding.fullName")}</Label>
                 <Input
                   id="onboard-name"
                   value={fullName}
                   onChange={(event) => setFullName(event.target.value)}
-                  placeholder="e.g. Ada Lovelace"
+                  placeholder={t("onboarding.fullNamePlaceholder")}
                   autoFocus
                   required
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="onboard-email">Email</Label>
+                <Label htmlFor="onboard-email">{t("common.email")}</Label>
                 <Input
                   id="onboard-email"
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="ada@company.com"
+                  placeholder={t("onboarding.emailPlaceholder")}
                   required
                 />
               </div>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <p className="text-xs text-muted-foreground">
-              The employee fills in the remaining details (phone, address,
-              state, country, bank, ID, tax ID, health coverage and pension)
-              from the emailed link.
+              {t("onboarding.remainingDetailsHint")}
             </p>
           </form>
         )}

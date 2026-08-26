@@ -26,7 +26,6 @@ import {
   attendanceRecords,
   auditLogs,
   departments,
-  emailLogs,
   emailSettings,
   employeeDocuments,
   employees,
@@ -1557,6 +1556,13 @@ async function main() {
         round: 1,
         scheduledAt: new Date("2026-08-25T14:00:00.000Z"),
         interviewer: "Priya Sharma",
+        panelists: [
+          {
+            id: "00000000-0000-0000-0000-000000000101",
+            name: "Priya Sharma",
+            email: "priya.sharma@gente.dev",
+          },
+        ],
         feedback: null,
         status: "scheduled",
       },
@@ -1566,7 +1572,19 @@ async function main() {
         applicationId: APP_JAMES,
         round: 1,
         scheduledAt: new Date("2026-07-20T13:00:00.000Z"),
-        interviewer: "Ada Admin",
+        interviewer: "Priya Sharma, David Chen",
+        panelists: [
+          {
+            id: "00000000-0000-0000-0000-000000000101",
+            name: "Priya Sharma",
+            email: "priya.sharma@gente.dev",
+          },
+          {
+            id: "00000000-0000-0000-0000-000000000104",
+            name: "David Chen",
+            email: "david.chen@gente.dev",
+          },
+        ],
         feedback: "Strong systems thinking and clear communication.",
         status: "completed",
       },
@@ -1577,6 +1595,13 @@ async function main() {
         round: 2,
         scheduledAt: new Date("2026-07-22T15:00:00.000Z"),
         interviewer: "David Chen",
+        panelists: [
+          {
+            id: "00000000-0000-0000-0000-000000000104",
+            name: "David Chen",
+            email: "david.chen@gente.dev",
+          },
+        ],
         feedback: "Great technical depth — recommend hire.",
         status: "completed",
       },
@@ -2140,31 +2165,7 @@ async function main() {
       },
     ])
     .onConflictDoNothing({ target: auditLogs.id });
-
-  await db
-    .insert(emailLogs)
-    .values([
-      {
-        id: "00000000-0000-0000-0000-000000000871",
-        tenantId,
-        recipient: "admin@gente.dev",
-        templateKey: "welcome",
-        provider: "console",
-        status: "sent",
-        createdAt: new Date("2026-08-01T09:00:00.000Z"),
-      },
-      {
-        id: "00000000-0000-0000-0000-000000000872",
-        tenantId,
-        recipient: "marco.rossi@gente.dev",
-        templateKey: "payslip",
-        provider: "console",
-        status: "sent",
-        createdAt: new Date("2026-08-31T09:05:00.000Z"),
-      },
-    ])
-    .onConflictDoNothing({ target: emailLogs.id });
-  console.log("  ✓ audit + email logs");
+  console.log("  ✓ audit logs");
 
   await pool.end();
   console.log("Done. Sign in with OTP at /login using any seeded email.");

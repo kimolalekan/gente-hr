@@ -19,8 +19,13 @@ import {
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/server/auth";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
+import { getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 
-export const metadata = { title: "Performance" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("performance.title") };
+}
 
 /** Review row from `GET /api/performance/reviews` (member-scoped for members). */
 interface ReviewRow {
@@ -65,18 +70,19 @@ interface EmployeeRow {
 }
 
 /** Employee (member) view — their own reviews only. */
-function MyPerformance({
+async function MyPerformance({
   reviews,
   templates,
 }: {
   reviews: ReviewRow[];
   templates: TemplateRow[];
 }) {
+  const t = await getTranslator();
   return (
     <>
       <PageHeader
-        title="My performance"
-        description="Your reviews, ratings and feedback."
+        title={t("performance.myTitle")}
+        description={t("performance.myDescription")}
       />
 
       <ReviewsManager
@@ -91,6 +97,7 @@ function MyPerformance({
 
 export default async function PerformancePage() {
   const user = await getCurrentUser();
+  const t = await getTranslator();
   if (user?.role === "member") {
     const [reviews, templates] = await Promise.all([
       apiGet<Paginated<ReviewRow>>("/api/performance/reviews"),
@@ -124,13 +131,13 @@ export default async function PerformancePage() {
   return (
     <>
       <PageHeader
-        title="Performance reviews"
-        description="Review cycles, ratings and feedback."
+        title={t("performance.title")}
+        description={t("performance.description")}
       >
         <Link href="/performance/templates">
           <Button variant="outline">
             <FileText className="size-4" />
-            Templates
+            {t("performance.templatesNav")}
           </Button>
         </Link>
       </PageHeader>
@@ -139,7 +146,7 @@ export default async function PerformancePage() {
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <ClipboardList className="size-4" /> Open cycles
+              <ClipboardList className="size-4" /> {t("performance.openCycles")}
             </p>
             <p className="mt-1 text-2xl font-bold text-primary">{openCycles}</p>
           </CardContent>
@@ -147,7 +154,7 @@ export default async function PerformancePage() {
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Star className="size-4" /> Reviews
+              <Star className="size-4" /> {t("performance.reviewsCount")}
             </p>
             <p className="mt-1 text-2xl font-bold">{reviews.items.length}</p>
           </CardContent>
@@ -155,7 +162,7 @@ export default async function PerformancePage() {
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <CheckCircle2 className="size-4" /> Submitted
+              <CheckCircle2 className="size-4" /> {t("performance.submitted")}
             </p>
             <p className="mt-1 text-2xl font-bold text-success">{submitted}</p>
           </CardContent>
@@ -163,7 +170,7 @@ export default async function PerformancePage() {
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Gauge className="size-4" /> Average rating
+              <Gauge className="size-4" /> {t("performance.averageRating")}
             </p>
             <p className="mt-1 text-2xl font-bold">{average}</p>
           </CardContent>
@@ -172,9 +179,9 @@ export default async function PerformancePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Review cycles</CardTitle>
+          <CardTitle>{t("performance.cyclesTitle")}</CardTitle>
           <CardDescription>
-            Quarterly, half-yearly and annual cycles.
+            {t("performance.cyclesDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -193,7 +200,7 @@ export default async function PerformancePage() {
               <Badge
                 variant={cycle.status === "open" ? "success" : "secondary"}
               >
-                {cycle.status}
+                {t(`statusLabels.cycle.${cycle.status}` as TranslationKey)}
               </Badge>
             </div>
           ))}

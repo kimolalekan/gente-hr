@@ -14,15 +14,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
 import { apiGet, ApiClientError } from "@/lib/server/api-client";
+import type { TranslationKey } from "@/lib/i18n/types";
 import {
-  EXIT_REASON_LABELS,
   formatDate,
   type ExitReason,
   type OffboardingChecklistItem,
 } from "@/lib/hr-data";
 
-export const metadata = { title: "Offboarding" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("offboarding.title") };
+}
 
 interface OffboardingDetailRow {
   id: string;
@@ -55,6 +59,8 @@ export default async function OffboardingDetailPage({
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/");
 
+  const t = await getTranslator();
+  const locale = await getTenantLocale();
   const { id } = await params;
 
   let row: OffboardingDetailRow;
@@ -82,19 +88,22 @@ export default async function OffboardingDetailPage({
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
-            Offboarding
+            {t("offboarding.title")}
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">
-              Exit — {employee?.name ?? row.id}
+              {t("offboarding.exitTitle", {
+                name: employee?.name ?? row.id,
+              })}
             </h1>
             <Badge variant={row.status === "completed" ? "success" : "warning"}>
-              {row.status}
+              {t(`statusLabels.offboarding.${row.status}` as TranslationKey)}
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {EXIT_REASON_LABELS[reason] ?? row.reason} · last working day{" "}
-            {formatDate(row.lastWorkingDay)}
+            {t(`statusLabels.exitReason.${reason}` as TranslationKey)} ·{" "}
+            {t("offboarding.lastWorkingDay")}{" "}
+            {formatDate(row.lastWorkingDay, locale)}
           </p>
         </div>
         {employee && (
@@ -110,7 +119,7 @@ export default async function OffboardingDetailPage({
               }}
             />
             <Link href={`/employees/${employee.id}`}>
-              <Button variant="outline">View employee profile</Button>
+              <Button variant="outline">{t("employees.viewProfile")}</Button>
             </Link>
           </div>
         )}
@@ -120,15 +129,15 @@ export default async function OffboardingDetailPage({
         <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Exit checklist</CardTitle>
+              <CardTitle>{t("offboarding.exitChecklist")}</CardTitle>
               <CardDescription>
-                Tap items to mark them complete.
+                {t("offboarding.checklistTapHint")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Checklist
                 items={checklist}
-                label="Offboarding checklist"
+                label={t("offboarding.checklist")}
                 offboardingId={row.id}
               />
             </CardContent>
@@ -138,8 +147,10 @@ export default async function OffboardingDetailPage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Exit details</CardTitle>
-              <CardDescription>Process information.</CardDescription>
+              <CardTitle>{t("offboarding.exitDetails")}</CardTitle>
+              <CardDescription>
+                {t("offboarding.exitDetailsDescription")}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               {employee && (
@@ -155,20 +166,23 @@ export default async function OffboardingDetailPage({
               )}
               <div className="flex items-center gap-2 text-muted-foreground">
                 <CalendarX2 className="size-4 shrink-0" />
-                Last working day: {formatDate(row.lastWorkingDay)}
+                {t("offboarding.lastWorkingDay")}:{" "}
+                {formatDate(row.lastWorkingDay, locale)}
               </div>
               <div className="rounded-lg border border-border bg-background/50 p-3">
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <MessageSquareText className="size-3.5" /> Exit notes
+                  <MessageSquareText className="size-3.5" />{" "}
+                  {t("offboarding.exitNotes")}
                 </p>
                 <p className="mt-1 text-sm">
-                  {row.notes ?? "No notes recorded."}
+                  {row.notes ?? t("offboarding.noNotes")}
                 </p>
               </div>
               {row.exitInterviewNotes && (
                 <div className="rounded-lg border border-border bg-background/50 p-3">
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <MessageSquareText className="size-3.5" /> Exit interview
+                    <MessageSquareText className="size-3.5" />{" "}
+                    {t("offboarding.checklistItems.exitInterview")}
                   </p>
                   <p className="mt-1 text-sm">{row.exitInterviewNotes}</p>
                 </div>

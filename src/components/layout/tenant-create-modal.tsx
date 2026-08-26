@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
+import { useTranslations } from "@/lib/i18n/provider";
 import { TIMEZONES } from "@/components/setup/setup-wizard";
 import { CountryFlag } from "@/components/ui/country-flag";
 import { CURRENCY_OPTIONS, getCurrencyMeta } from "@/lib/currencies";
@@ -41,6 +42,7 @@ export function TenantCreateModal({
   onClose: () => void;
   onCreated: (tenant: CreatedTenant) => void;
 }) {
+  const { t } = useTranslations();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
@@ -74,11 +76,11 @@ export function TenantCreateModal({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!name.trim()) {
-      setError("Organization name is required.");
+      setError(t("tenant.orgNameRequired"));
       return;
     }
     if (adminEmail.trim() && !EMAIL_RE.test(adminEmail.trim())) {
-      setError("Enter a valid admin email, or leave it blank.");
+      setError(t("tenant.invalidAdminEmail"));
       return;
     }
     setBusy(true);
@@ -101,7 +103,7 @@ export function TenantCreateModal({
         data?: { id?: string; name?: string; slug?: string };
       } | null;
       if (!response.ok || !body?.ok) {
-        setError(body?.error ?? "Could not create the organization.");
+        setError(body?.error ?? t("tenant.couldNotCreate"));
         return;
       }
       onCreated({
@@ -112,7 +114,7 @@ export function TenantCreateModal({
       reset();
       onClose();
     } catch {
-      setError("Network error — please try again.");
+      setError(t("tenant.switchNetworkError"));
     } finally {
       setBusy(false);
     }
@@ -122,12 +124,12 @@ export function TenantCreateModal({
     <Modal
       open={open}
       onClose={handleClose}
-      title="New organization"
-      description="Create a company workspace. You'll be added as an admin and can switch to it right away."
+      title={t("tenant.modalTitle")}
+      description={t("tenant.modalDescription")}
       footer={
         <>
           <Button variant="outline" onClick={handleClose} disabled={busy}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" form="tenant-create-form" disabled={busy}>
             {busy ? (
@@ -135,7 +137,7 @@ export function TenantCreateModal({
             ) : (
               <Plus className="size-4" />
             )}
-            {busy ? "Creating…" : "Create organization"}
+            {busy ? t("tenant.creating") : t("tenant.createOrganization")}
           </Button>
         </>
       }
@@ -146,19 +148,19 @@ export function TenantCreateModal({
         className="space-y-4"
       >
         <div className="space-y-1.5">
-          <Label htmlFor="tenant-name">Organization name</Label>
+          <Label htmlFor="tenant-name">{t("tenant.orgName")}</Label>
           <Input
             id="tenant-name"
             value={name}
             onChange={(event) => handleNameChange(event.target.value)}
-            placeholder="e.g. Acme Inc."
+            placeholder={t("tenant.orgNamePlaceholder")}
             autoFocus
           />
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="tenant-slug">Slug</Label>
+            <Label htmlFor="tenant-slug">{t("tenant.slug")}</Label>
             <Input
               id="tenant-slug"
               value={slug}
@@ -166,11 +168,11 @@ export function TenantCreateModal({
                 setSlugTouched(true);
                 setSlug(event.target.value);
               }}
-              placeholder="auto-generated from the name"
+              placeholder={t("tenant.slugPlaceholder")}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="tenant-timezone">Timezone</Label>
+            <Label htmlFor="tenant-timezone">{t("common.timezone")}</Label>
             <Select
               id="tenant-timezone"
               value={timezone}
@@ -186,12 +188,12 @@ export function TenantCreateModal({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="tenant-currency">Base currency</Label>
+          <Label htmlFor="tenant-currency">{t("common.currency")}</Label>
           <Select
             id="tenant-currency"
             value={currency}
             onChange={(event) => setCurrency(event.target.value)}
-            searchPlaceholder="Search currency or country…"
+            searchPlaceholder={t("setup.currencySearchPlaceholder")}
             renderOption={(option) => {
               const meta = getCurrencyMeta(option.value);
               return meta ? <CountryFlag code={meta.flag} /> : null;
@@ -210,17 +212,16 @@ export function TenantCreateModal({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="tenant-admin-email">Admin email (optional)</Label>
+          <Label htmlFor="tenant-admin-email">{t("tenant.adminEmail")}</Label>
           <Input
             id="tenant-admin-email"
             type="email"
             value={adminEmail}
             onChange={(event) => setAdminEmail(event.target.value)}
-            placeholder="admin@newcompany.com"
+            placeholder={t("tenant.adminEmailPlaceholder")}
           />
           <p className="text-xs text-muted-foreground">
-            Who should run this organization? Leave blank and you&apos;ll be the
-            only admin for now.
+            {t("tenant.adminEmailHint")}
           </p>
         </div>
 

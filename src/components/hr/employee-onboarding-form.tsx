@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "@/lib/i18n/provider";
 import { COUNTRY_NAMES, REGIONS, getStatesFor } from "@/lib/regions";
 
 function Section({
@@ -41,13 +42,14 @@ function Field({
   label: string;
   optional?: boolean;
 }) {
+  const { t } = useTranslations();
   return (
     <div className={cn("space-y-1.5", className)}>
       <Label htmlFor={id}>
         {label}
         {optional && (
           <span className="ml-1 text-xs font-normal text-muted-foreground">
-            (optional)
+            ({t("common.optional")})
           </span>
         )}
       </Label>
@@ -92,6 +94,7 @@ export function EmployeeOnboardingForm({
   initialEmail?: string;
   initialToken?: string;
 }) {
+  const { t } = useTranslations();
   const [values, setValues] = useState(INITIAL);
   const [passportPhoto, setPassportPhoto] = useState<string>();
   const [signedOffer, setSignedOffer] = useState<string>();
@@ -112,9 +115,7 @@ export function EmployeeOnboardingForm({
         ? new URLSearchParams(window.location.search).get("token")
         : null);
     if (!token) {
-      setError(
-        "This link is missing its invite token — use the link from the invite email.",
-      );
+      setError(t("onboarding.missingToken"));
       return;
     }
     setSaving(true);
@@ -161,9 +162,7 @@ export function EmployeeOnboardingForm({
       setSubmitted(true);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to submit your details — please try again.",
+        err instanceof Error ? err.message : t("onboarding.submitFailed"),
       );
     } finally {
       setSaving(false);
@@ -177,8 +176,7 @@ export function EmployeeOnboardingForm({
         <div>
           <p className="text-lg font-semibold">Details submitted</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            Welcome aboard{initialName ? `, ${initialName}` : ""}! HR has been
-            notified and your onboarding checklist will begin shortly.
+            {t("onboarding.welcomeAboard", { name: initialName ?? "" })}
           </p>
         </div>
       </div>
@@ -202,26 +200,26 @@ export function EmployeeOnboardingForm({
       )}
 
       <Section
-        title="Contact"
-        description="How to reach you and where you're based."
+        title={t("employees.contact")}
+        description={t("onboarding.personalHint")}
       >
         <Field
           id="phone"
-          label="Phone"
+          label={t("common.phone")}
           type="tel"
-          placeholder="+44 20 7946 0958"
+          placeholder={t("employees.phonePlaceholder")}
           value={values.phone}
           onChange={update("phone")}
         />
         <Field
           id="address"
-          label="Address"
-          placeholder="Street, building…"
+          label={t("common.address")}
+          placeholder={t("common.streetAddress")}
           value={values.address}
           onChange={update("address")}
         />
         <div className="space-y-1.5">
-          <Label htmlFor="country">Country</Label>
+          <Label htmlFor="country">{t("employees.country")}</Label>
           <Select
             id="country"
             value={values.country}
@@ -232,8 +230,8 @@ export function EmployeeOnboardingForm({
                 state: "",
               }))
             }
-            placeholder="Select a country…"
-            searchPlaceholder="Search countries…"
+            placeholder={t("employees.selectCountry")}
+            searchPlaceholder={t("employees.searchCountries")}
             renderOption={(option) => {
               const region = REGIONS.find((item) => item.name === option.value);
               return region ? <CountryFlag code={region.iso2} /> : null;
@@ -247,7 +245,7 @@ export function EmployeeOnboardingForm({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="state">State</Label>
+          <Label htmlFor="state">{t("employees.state")}</Label>
           {(() => {
             const states = getStatesFor(values.country);
             if (states.length === 0) {
@@ -258,8 +256,8 @@ export function EmployeeOnboardingForm({
                   onChange={update("state")}
                   placeholder={
                     values.country
-                      ? "No states listed — type if needed"
-                      : "Select a country first…"
+                      ? t("employees.noStates")
+                      : t("employees.selectCountryFirst")
                   }
                   disabled={!values.country}
                 />
@@ -270,8 +268,8 @@ export function EmployeeOnboardingForm({
                 id="state"
                 value={values.state}
                 onChange={update("state")}
-                placeholder="Select a state…"
-                searchPlaceholder="Search states…"
+                placeholder={t("employees.selectState")}
+                searchPlaceholder={t("employees.searchStates")}
               >
                 {states.map((state) => (
                   <option key={state.stateCode} value={state.name}>
@@ -284,9 +282,14 @@ export function EmployeeOnboardingForm({
         </div>
       </Section>
 
-      <Section title="Personal" description="Identity and signed offer letter.">
+      <Section
+        title={t("onboarding.personal")}
+        description={t("onboarding.personalDescription")}
+      >
         <div className="space-y-1.5">
-          <Label htmlFor="passport-photo">Passport photograph</Label>
+          <Label htmlFor="passport-photo">
+            {t("onboarding.passportPhoto")}
+          </Label>
           <label
             htmlFor="passport-photo"
             className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-background/50 px-3 py-2.5 text-sm transition-colors hover:bg-muted/50"
@@ -299,7 +302,7 @@ export function EmployeeOnboardingForm({
               </span>
             ) : (
               <span className="text-muted-foreground">
-                Upload your passport photograph (JPG/PNG)
+                {t("onboarding.passportPhotoHint")}
               </span>
             )}
             <input
@@ -314,7 +317,9 @@ export function EmployeeOnboardingForm({
           </label>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="signed-offer">Signed offer letter</Label>
+          <Label htmlFor="signed-offer">
+            {t("onboarding.signedOfferLetter")}
+          </Label>
           <label
             htmlFor="signed-offer"
             className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-background/50 px-3 py-2.5 text-sm transition-colors hover:bg-muted/50"
@@ -327,7 +332,7 @@ export function EmployeeOnboardingForm({
               </span>
             ) : (
               <span className="text-muted-foreground">
-                Upload your signed offer letter (PDF)
+                {t("onboarding.offerLetterUpload")}
               </span>
             )}
             <input
@@ -343,116 +348,128 @@ export function EmployeeOnboardingForm({
         </div>
       </Section>
 
-      <Section title="Bank account" description="Where your salary is paid.">
+      <Section
+        title={t("employees.bankDetails")}
+        description={t("onboarding.bankDetailsHint")}
+      >
         <Field
           id="bank-name"
-          label="Bank name"
-          placeholder="e.g. Chase"
+          label={t("employees.bankName")}
+          placeholder={t("employees.bankNamePlaceholder")}
           value={values.bankName}
           onChange={update("bankName")}
         />
         <Field
           id="account-number"
-          label="Account number"
-          placeholder="e.g. 12345678"
+          label={t("employees.accountNumber")}
+          placeholder={t("employees.accountNumberPlaceholder")}
           value={values.accountNumber}
           onChange={update("accountNumber")}
         />
         <Field
           id="account-name"
-          label="Account name"
-          placeholder="Name on the account"
+          label={t("employees.accountName")}
+          placeholder={t("employees.nameOnAccount")}
           value={values.accountName}
           onChange={update("accountName")}
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field
             id="swift"
-            label="Swift number"
+            label={t("employees.swiftNumber")}
             optional
-            placeholder="e.g. CHASUS33"
+            placeholder={t("employees.swiftPlaceholder")}
             value={values.swift}
             onChange={update("swift")}
           />
           <Field
             id="routing"
-            label="Routing"
+            label={t("employees.routingNumber")}
             optional
-            placeholder="Routing number, e.g. 021000021"
+            placeholder={t("employees.routingPlaceholder")}
             value={values.routing}
             onChange={update("routing")}
           />
         </div>
       </Section>
 
-      <Section title="Government ID" description="Official identification.">
+      <Section
+        title={t("employees.governmentId")}
+        description={t("onboarding.officialId")}
+      >
         <Field
           id="id-name"
-          label="ID name"
-          placeholder="e.g. National ID"
+          label={t("employees.idName")}
+          placeholder={t("employees.idNamePlaceholder")}
           value={values.idName}
           onChange={update("idName")}
         />
         <Field
           id="id-value"
-          label="ID value"
-          placeholder="e.g. ID number"
+          label={t("employees.idValue")}
+          placeholder={t("employees.idValuePlaceholder")}
           value={values.idValue}
           onChange={update("idValue")}
         />
       </Section>
 
       <Section
-        title="Emergency contact"
-        description="Who to contact in an emergency."
+        title={t("employees.emergencyContact")}
+        description={t("employees.emergencyContactDescription")}
       >
         <Field
           id="ec-name"
-          label="Name"
-          placeholder="e.g. Jane Doe"
+          label={t("common.name")}
+          placeholder={t("employees.contactNamePlaceholder")}
           value={values.ecName}
           onChange={update("ecName")}
         />
         <Field
           id="ec-email"
-          label="Email"
+          label={t("common.email")}
           type="email"
-          placeholder="jane@example.com"
+          placeholder={t("employees.contactEmailPlaceholder")}
           value={values.ecEmail}
           onChange={update("ecEmail")}
         />
         <Field
           id="ec-phone"
-          label="Phone"
+          label={t("common.phone")}
           type="tel"
-          placeholder="+44 20 7946 0958"
+          placeholder={t("employees.phonePlaceholder")}
           value={values.ecPhone}
           onChange={update("ecPhone")}
         />
       </Section>
 
-      <Section title="Tax ID" description="Tax ID or number.">
+      <Section
+        title={t("employees.taxId")}
+        description={t("employees.taxIdDescription")}
+      >
         <Field
           id="tax-id"
-          label="Tax ID / Number"
-          placeholder="e.g. TIN number"
+          label={t("employees.taxId")}
+          placeholder={t("employees.taxIdPlaceholder")}
           value={values.taxId}
           onChange={update("taxId")}
         />
       </Section>
 
-      <Section title="Pension" description="Retirement savings provider.">
+      <Section
+        title={t("employees.pension")}
+        description={t("employees.pensionDescription")}
+      >
         <Field
           id="pension-provider"
-          label="Provider name"
-          placeholder="e.g. Stanbic IBTC Pension"
+          label={t("employees.providerName")}
+          placeholder={t("employees.pensionProviderPlaceholder")}
           value={values.pensionProvider}
           onChange={update("pensionProvider")}
         />
         <Field
           id="pension-id"
-          label="Pension ID"
-          placeholder="e.g. RSA number"
+          label={t("employees.pensionId")}
+          placeholder={t("employees.pensionIdPlaceholder")}
           value={values.pensionId}
           onChange={update("pensionId")}
         />
@@ -465,7 +482,7 @@ export function EmployeeOnboardingForm({
           ) : (
             <Send className="size-4" />
           )}
-          {saving ? "Submitting…" : "Submit details"}
+          {saving ? t("common.submitting") : t("onboarding.submitDetails")}
         </Button>
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}

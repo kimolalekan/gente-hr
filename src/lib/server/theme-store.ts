@@ -9,8 +9,8 @@
  * the per-call pool used here for simplicity).
  */
 import "server-only";
-import { eq } from "drizzle-orm";
-import { getTenantId, getUserId } from "./auth";
+import { asc, eq } from "drizzle-orm";
+import { getCurrentUser, getTenantId, getUserId } from "./auth";
 import {
   DEFAULT_TENANT_THEME,
   isThemeMode,
@@ -103,15 +103,19 @@ async function getTenantThemeDb(): Promise<TenantTheme> {
   const { Pool } = await import("pg");
   const { tenants } = await import("@db/schema");
 
-  const tenantId = await getTenantId();
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5 });
   try {
     const db = drizzle(pool);
-    const rows = await db
-      .select({ themeConfig: tenants.themeConfig })
-      .from(tenants)
-      .where(eq(tenants.id, tenantId))
-      .limit(1);
+    // Signed-in users see their own tenant's theme. Public pages (login/setup)
+    // have no session — `getTenantId()` would fall back to a hardcoded id that
+    // may not exist after a real setup run — so resolve the workspace's
+    // tenant (the first one) and use its branding theme.
+    const user = await getCurrentUser();
+    const base = db.select({ themeConfig: tenants.themeConfig }).from(tenants);
+    const query = user
+      ? base.where(eq(tenants.id, user.tenantId))
+      : base.orderBy(asc(tenants.createdAt));
+    const rows = await query.limit(1);
     const config = rows[0]?.themeConfig;
     return (
       config ?? {

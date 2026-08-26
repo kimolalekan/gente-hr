@@ -5,22 +5,30 @@ import { CheckCircle2, Loader2, Save, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import type { PayrollBreakdown, PayrollComponent } from "@/lib/hr-data";
 
 const SECTIONS: Array<{
   id: keyof PayrollBreakdown;
   title: string;
+  titleKey: TranslationKey;
   description: string;
+  descriptionKey: TranslationKey;
 }> = [
   {
     id: "earnings",
     title: "Earnings",
+    titleKey: "settings.payroll.earnings",
     description: "Additions that make up gross pay.",
+    descriptionKey: "settings.payroll.earningsDescription",
   },
   {
     id: "deductions",
     title: "Deductions",
+    titleKey: "settings.payroll.deductions",
     description: "Amounts deducted from gross pay.",
+    descriptionKey: "settings.payroll.deductionsDescription",
   },
 ];
 
@@ -33,6 +41,7 @@ export function PayrollBreakdownForm({
 }: {
   initialBreakdown: PayrollBreakdown;
 }) {
+  const { t } = useTranslations();
   const [breakdown, setBreakdown] = useState(() => ({
     earnings: initialBreakdown.earnings.map((component) => ({ ...component })),
     deductions: initialBreakdown.deductions.map((component) => ({
@@ -69,7 +78,7 @@ export function PayrollBreakdownForm({
       });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.ok) {
-        throw new Error(body?.error ?? "Failed to save payroll breakdown");
+        throw new Error(body?.error ?? t("settings.payroll.saveFailed"));
       }
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2500);
@@ -77,7 +86,7 @@ export function PayrollBreakdownForm({
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "Failed to save payroll breakdown",
+          : t("settings.payroll.saveFailed"),
       );
     } finally {
       setSaving(false);
@@ -87,9 +96,7 @@ export function PayrollBreakdownForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <p className="text-sm text-muted-foreground">
-        Toggle which components appear on payslips and edit their labels. The
-        summary figures (gross, deductions and net) always reflect the enabled
-        components.
+        {t("settings.payroll.breakdownHint")}
       </p>
 
       <div className="space-y-4">
@@ -100,9 +107,9 @@ export function PayrollBreakdownForm({
               key={section.id}
               className="rounded-lg border border-border bg-background/50 p-4"
             >
-              <p className="text-sm font-medium">{section.title}</p>
+              <p className="text-sm font-medium">{t(section.titleKey)}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {section.description}
+                {t(section.descriptionKey)}
               </p>
               <div className="mt-3 divide-y divide-border overflow-hidden rounded-md border border-border bg-background/40">
                 {components.map((component) => (
@@ -117,12 +124,16 @@ export function PayrollBreakdownForm({
                           label: event.target.value,
                         })
                       }
-                      aria-label={`${section.title} label`}
+                      aria-label={`${t(section.titleKey)} ${t(
+                        "settings.payroll.componentLabel",
+                      )}`}
                       className="h-8 max-w-xs"
                     />
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="text-xs text-muted-foreground">
-                        {component.enabled ? "Shown" : "Hidden"}
+                        {component.enabled
+                          ? t("settings.payroll.shown")
+                          : t("settings.payroll.hidden")}
                       </span>
                       <Switch
                         checked={component.enabled}
@@ -131,7 +142,9 @@ export function PayrollBreakdownForm({
                             enabled: checked,
                           })
                         }
-                        aria-label={`Show ${component.label || component.key}`}
+                        aria-label={t("settings.payroll.componentShowAria", {
+                          label: component.label || component.key,
+                        })}
                       />
                     </div>
                   </div>
@@ -149,12 +162,12 @@ export function PayrollBreakdownForm({
           ) : (
             <Save className="size-4" />
           )}
-          Save breakdown
+          {t("settings.payroll.saveBreakdown")}
         </Button>
         {saved && (
           <span className="flex items-center gap-1.5 text-sm text-success">
             <CheckCircle2 className="size-4" />
-            Saved
+            {t("common.saved")}
           </span>
         )}
         {error && (

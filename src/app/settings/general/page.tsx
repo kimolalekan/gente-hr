@@ -10,28 +10,35 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { apiGet } from "@/lib/server/api-client";
+import { getTranslator } from "@/lib/server/i18n";
 
-export const metadata = { title: "General settings" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("settings.general.title") };
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function GeneralSettingsPage() {
+  const t = await getTranslator();
   const company = await apiGet<CompanyProfile>("/api/settings/company");
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">General</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {t("settings.general.title")}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Company profile and workspace preferences.
+          {t("settings.general.description")}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Company profile</CardTitle>
+          <CardTitle>{t("settings.general.companyProfile")}</CardTitle>
           <CardDescription>
-            Basic information about your organization.
+            {t("settings.general.companyProfileDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -20,9 +20,15 @@ import {
 } from "@/components/ui/card";
 import { formatCurrency, formatDate } from "@/lib/hr-data";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
+import dayjs from "dayjs";
 
-export const metadata = { title: "Payroll" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("payroll.title") };
+}
 
 const MONTHS = [
   "January",
@@ -48,16 +54,15 @@ function nextPeriod(period: string): string {
 }
 
 function currentPeriod(): string {
-  const date = new Date();
-  return `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  return dayjs().endOf("month").format("MMM D");
 }
 
 /** "September 2026" → "Sep 1" — the day payroll runs. */
-function nextRunLabel(period: string): string {
+function nextRunLabel(period: string, locale: string): string {
   const [month, year] = period.split(" ");
   const index = MONTHS.indexOf(month);
   if (index === -1) return period;
-  return new Date(Number(year), index, 1).toLocaleDateString("en-US", {
+  return new Date(Number(year), index, 1).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
   });
@@ -110,7 +115,7 @@ interface PayrollPreviewData {
 }
 
 /** Employee (member) view — their own payslips and loans only. */
-function MyPayroll({
+async function MyPayroll({
   payslips,
   loans,
   employeeName,
@@ -119,6 +124,7 @@ function MyPayroll({
   loans: LoanRow[];
   employeeName?: string;
 }) {
+  const t = await getTranslator();
   const latest = payslips[0];
   const current = latest?.period;
   const periodCount = current
@@ -134,17 +140,17 @@ function MyPayroll({
   return (
     <>
       <PageHeader
-        title="My payroll"
+        title={t("payroll.myTitle")}
         description={
           employeeName
-            ? `Payslips and loans for ${employeeName}.`
-            : "Your payslips and loans."
+            ? t("payroll.myDescriptionNamed", { name: employeeName })
+            : t("payroll.myDescription")
         }
       >
         <Link href="/payroll/loans">
           <Button variant="outline">
             <Landmark className="size-4" />
-            My loans
+            {t("payroll.loans.myTitle")}
           </Button>
         </Link>
       </PageHeader>
@@ -153,37 +159,39 @@ function MyPayroll({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Wallet className="size-4" /> Latest net pay
+              <Wallet className="size-4" /> {t("payroll.latestNetPay")}
             </p>
             <p className="mt-1 text-2xl font-bold">
               {latest ? formatCurrency(latest.net) : "—"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {latest?.period ?? "No payslips yet"}
+              {latest?.period ?? t("payroll.payslips.empty")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Landmark className="size-4" /> Active loans
+              <Landmark className="size-4" /> {t("payroll.loans.activeLoans")}
             </p>
             <p className="mt-1 text-2xl font-bold">{loans.length}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {outstanding > 0
-                ? `${formatCurrency(outstanding)} outstanding`
-                : "Nothing outstanding"}
+                ? t("payroll.loans.outstandingValue", {
+                    amount: formatCurrency(outstanding),
+                  })
+                : t("payroll.loans.nothingOutstanding")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <FileText className="size-4" /> Payslips
+              <FileText className="size-4" /> {t("payroll.payslips.title")}
             </p>
             <p className="mt-1 text-2xl font-bold">{periodCount}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {current ?? "No payslips yet"}
+              {current ?? t("payroll.payslips.empty")}
             </p>
           </CardContent>
         </Card>
@@ -191,25 +199,35 @@ function MyPayroll({
 
       <Card>
         <CardHeader>
-          <CardTitle>My payslips</CardTitle>
-          <CardDescription>Recent payslips on file.</CardDescription>
+          <CardTitle>{t("payroll.payslips.myTitle")}</CardTitle>
+          <CardDescription>
+            {t("payroll.payslips.recentDescription")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {payslips.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No payslips available yet.
+              {t("payroll.payslips.noPayslipsAvailable")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                    <th className="py-2.5 pr-4 font-medium">Period</th>
-                    <th className="px-4 py-2.5 font-medium">Gross</th>
-                    <th className="px-4 py-2.5 font-medium">Net</th>
-                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="py-2.5 pr-4 font-medium">
+                      {t("payroll.period")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("payroll.gross")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("payroll.net")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("common.status")}
+                    </th>
                     <th className="py-2.5 pl-4 text-right font-medium">
-                      Details
+                      {t("common.details")}
                     </th>
                   </tr>
                 </thead>
@@ -234,13 +252,15 @@ function MyPayroll({
                             payslip.status === "paid" ? "success" : "warning"
                           }
                         >
-                          {payslip.status}
+                          {t(
+                            `statusLabels.payslip.${payslip.status}` as TranslationKey,
+                          )}
                         </Badge>
                       </td>
                       <td className="py-3 pl-4 text-right">
                         <Link href={`/payroll/payslips/${payslip.id}`}>
                           <Button variant="outline" size="sm">
-                            View
+                            {t("common.view")}
                           </Button>
                         </Link>
                       </td>
@@ -258,6 +278,8 @@ function MyPayroll({
 
 export default async function PayrollPage() {
   const user = await getCurrentUser();
+  const t = await getTranslator();
+  const locale = await getTenantLocale();
   if (user?.role === "member") {
     const [employee, payslips, loans] = await Promise.all([
       apiGet<MeEmployee>("/api/employees/me").catch(() => null),
@@ -293,7 +315,10 @@ export default async function PayrollPage() {
 
   return (
     <>
-      <PageHeader title="Payroll" description="Run, review and export payroll.">
+      <PageHeader
+        title={t("payroll.title")}
+        description={t("payroll.description")}
+      >
         <RunPayrollButton preview={previewProps} />
       </PageHeader>
 
@@ -301,13 +326,13 @@ export default async function PayrollPage() {
         <Link href="/payroll/loans">
           <Button variant="outline">
             <Landmark className="size-4" />
-            Loans
+            {t("payroll.loans.title")}
           </Button>
         </Link>
         <Link href="/payroll/payslips">
           <Button variant="outline">
             <FileText className="size-4" />
-            Payslips
+            {t("payroll.payslips.title")}
           </Button>
         </Link>
       </div>
@@ -316,76 +341,92 @@ export default async function PayrollPage() {
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Wallet className="size-4" /> This month
+              <Wallet className="size-4" /> {t("payroll.thisMonth")}
             </p>
             <p className="mt-1 text-2xl font-bold">
               {latest ? formatCurrency(latest.total) : "—"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {latest?.period ?? "No runs yet"}
+              {latest?.period ?? t("payroll.noRunsYet")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <TrendingUp className="size-4" /> YTD
+              <TrendingUp className="size-4" /> {t("payroll.ytd")}
             </p>
             <p className="mt-1 text-2xl font-bold">{formatCurrency(ytd)}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {runs.items.length > 0
-                ? `Across ${runs.items.length} processed run${
-                    runs.items.length === 1 ? "" : "s"
-                  }`
-                : "No runs processed yet"}
+                ? t("payroll.acrossRuns", {
+                    n: runs.items.length,
+                    s: runs.items.length === 1 ? "" : "s",
+                  })
+                : t("payroll.noRunsProcessed")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <CheckCircle2 className="size-4" /> Employees paid
+              <CheckCircle2 className="size-4" /> {t("payroll.employeesPaid")}
             </p>
             <p className="mt-1 text-2xl font-bold">
               {latest?.employees ?? "—"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {latest
-                ? `Across ${latest.employees} active roles`
-                : "No runs yet"}
+                ? t("payroll.acrossActiveRoles", {
+                    n: latest.employees,
+                    s: latest.employees === 1 ? "" : "s",
+                  })
+                : t("payroll.noRunsYet")}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <CalendarClock className="size-4" /> Next run
+              <CalendarClock className="size-4" /> {t("payroll.nextRun")}
             </p>
             <p className="mt-1 text-2xl font-bold">
-              {nextRunLabel(previewPeriod)}
+              {nextRunLabel(previewPeriod, locale)}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">Monthly cycle</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("payroll.monthlyCycle")}
+            </p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Payroll runs</CardTitle>
-          <CardDescription>History of processed periods.</CardDescription>
+          <CardTitle>{t("payroll.runsTitle")}</CardTitle>
+          <CardDescription>{t("payroll.runsDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="py-2.5 pr-4 font-medium">Period</th>
-                  <th className="px-4 py-2.5 font-medium">Processed</th>
-                  <th className="px-4 py-2.5 font-medium">Employees</th>
-                  <th className="px-4 py-2.5 font-medium">Total</th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="py-2.5 pr-4 font-medium">
+                    {t("payroll.period")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("payroll.statusProcessed")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("payroll.employees")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("payroll.total")}
+                  </th>
+                  <th className="px-4 py-2.5 font-medium">
+                    {t("common.status")}
+                  </th>
                   <th className="py-2.5 pl-4 text-right font-medium">
-                    Details
+                    {t("common.details")}
                   </th>
                 </tr>
               </thead>
@@ -397,7 +438,7 @@ export default async function PayrollPage() {
                   >
                     <td className="py-3 pr-4 font-medium">{run.period}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {formatDate(run.processedAt.slice(0, 10))}
+                      {formatDate(run.processedAt.slice(0, 10), locale)}
                     </td>
                     <td className="px-4 py-3">{run.employees}</td>
                     <td className="px-4 py-3">{formatCurrency(run.total)}</td>
@@ -411,13 +452,13 @@ export default async function PayrollPage() {
                               : "warning"
                         }
                       >
-                        {run.status}
+                        {t(`statusLabels.run.${run.status}` as TranslationKey)}
                       </Badge>
                     </td>
                     <td className="py-3 pl-4 text-right">
                       <Link href={`/payroll/${run.id}`}>
                         <Button variant="outline" size="sm">
-                          View details
+                          {t("common.viewDetails")}
                         </Button>
                       </Link>
                     </td>

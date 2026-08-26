@@ -21,25 +21,27 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
 import { parseRange } from "@/lib/report-dates";
 import { cn } from "@/lib/utils";
 import type { AttendanceRecord, AttendanceStatus } from "@/lib/hr-data";
 
-export const metadata = { title: "Attendance" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("attendance.title") };
+}
 
 const STATUS_META: Record<
   AttendanceStatus,
-  {
-    label: string;
-    variant: "success" | "warning" | "info" | "secondary" | "destructive";
-  }
+  { variant: "success" | "warning" | "info" | "secondary" | "destructive" }
 > = {
-  present: { label: "Present", variant: "success" },
-  late: { label: "Late", variant: "warning" },
-  remote: { label: "Remote", variant: "info" },
-  on_leave: { label: "On leave", variant: "secondary" },
-  absent: { label: "Absent", variant: "destructive" },
+  present: { variant: "success" },
+  late: { variant: "warning" },
+  remote: { variant: "info" },
+  on_leave: { variant: "secondary" },
+  absent: { variant: "destructive" },
 };
 
 /** Attendance row as returned by `GET /api/attendance`. */
@@ -105,8 +107,8 @@ function startOfWeekIso(): string {
   return dateToIso(date);
 }
 
-function dayLabel(date: string): string {
-  return new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
+function dayLabel(date: string, locale: string): string {
+  return new Date(`${date}T00:00:00`).toLocaleDateString(locale, {
     weekday: "short",
   });
 }
@@ -124,6 +126,8 @@ function toRecord(row: AttendanceRow): AttendanceRecord {
 
 /** Employee (member) view — their own attendance only. */
 async function MyAttendance() {
+  const locale = await getTenantLocale();
+  const t = await getTranslator();
   const { items } = await apiGet<Paginated<AttendanceRow>>("/api/attendance", {
     from: startOfWeekIso(),
     to: todayIso(),
@@ -135,8 +139,8 @@ async function MyAttendance() {
   return (
     <>
       <PageHeader
-        title="My attendance"
-        description="Check in daily and review your week."
+        title={t("attendance.myTitle")}
+        description={t("attendance.myDescription")}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -144,9 +148,12 @@ async function MyAttendance() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>This week</CardTitle>
+            <CardTitle>{t("common.thisWeek")}</CardTitle>
             <CardDescription>
-              {week.length} check-in{week.length === 1 ? "" : "s"} this week
+              {t("attendance.weekCount", {
+                n: week.length,
+                s: week.length === 1 ? "" : "s",
+              })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -154,12 +161,20 @@ async function MyAttendance() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                    <th className="py-2.5 pr-4 font-medium">Day</th>
-                    <th className="px-4 py-2.5 font-medium">Check-in</th>
-                    <th className="px-4 py-2.5 font-medium">Check-out</th>
-                    <th className="px-4 py-2.5 font-medium">Hours</th>
+                    <th className="py-2.5 pr-4 font-medium">
+                      {t("common.day")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("attendance.checkIn")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("attendance.checkOut")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("attendance.hours")}
+                    </th>
                     <th className="py-2.5 pl-4 text-right font-medium">
-                      Status
+                      {t("common.status")}
                     </th>
                   </tr>
                 </thead>
@@ -170,7 +185,7 @@ async function MyAttendance() {
                         colSpan={5}
                         className="py-6 text-center text-sm text-muted-foreground"
                       >
-                        No check-ins yet this week.
+                        {t("attendance.noCheckInsThisWeek")}
                       </td>
                     </tr>
                   ) : (
@@ -182,7 +197,7 @@ async function MyAttendance() {
                           className="border-b border-border last:border-0"
                         >
                           <td className="py-3 pr-4 text-xs font-medium">
-                            {dayLabel(record.date)}
+                            {dayLabel(record.date, locale)}
                           </td>
                           <td className="px-4 py-3 font-mono text-xs">
                             {record.checkIn ?? "—"}
@@ -198,7 +213,9 @@ async function MyAttendance() {
                               variant={status.variant}
                               className="text-[10px]"
                             >
-                              {status.label}
+                              {t(
+                                `statusLabels.attendance.${record.status}` as TranslationKey,
+                              )}
                             </Badge>
                           </td>
                         </tr>
@@ -225,6 +242,9 @@ export default async function AttendancePage({
     return <MyAttendance />;
   }
 
+  const locale = await getTenantLocale();
+  const t = await getTranslator();
+
   const { from: fromParam, to: toParam } = await searchParams;
   const { from, to } = parseRange(fromParam, toParam);
   const rangeParams = `from=${from}&to=${to}`;
@@ -243,7 +263,7 @@ export default async function AttendancePage({
       apiGet<Paginated<EmployeeRow>>("/api/employees", { pageSize: 500 }),
     ]);
 
-  const todayLabel = new Date().toLocaleDateString("en-US", {
+  const todayLabel = new Date().toLocaleDateString(locale, {
     weekday: "long",
     day: "numeric",
     month: "short",
@@ -272,8 +292,8 @@ export default async function AttendancePage({
   return (
     <>
       <PageHeader
-        title="Attendance"
-        description="Who's on site, remote, or away — today and this week."
+        title={t("attendance.title")}
+        description={t("attendance.description")}
       >
         <div className="flex flex-wrap items-center gap-3">
           <DateRangePicker from={from} to={to} />
@@ -282,7 +302,7 @@ export default async function AttendancePage({
             className={cn(buttonVariants({ variant: "outline" }))}
           >
             <FileDown />
-            Export
+            {t("reports.export")}
           </Link>
         </div>
       </PageHeader>
@@ -291,7 +311,7 @@ export default async function AttendancePage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <UserRound className="size-4" /> Present
+              <UserRound className="size-4" /> {t("attendance.statusPresent")}
             </p>
             <p className="mt-1 text-2xl font-bold text-success">
               {summary.present}
@@ -301,7 +321,7 @@ export default async function AttendancePage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Clock className="size-4" /> Late
+              <Clock className="size-4" /> {t("attendance.statusLate")}
             </p>
             <p className="mt-1 text-2xl font-bold text-warning">
               {summary.late}
@@ -311,7 +331,7 @@ export default async function AttendancePage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Home className="size-4" /> Remote
+              <Home className="size-4" /> {t("attendance.statusRemote")}
             </p>
             <p className="mt-1 text-2xl font-bold text-info">
               {summary.remote}
@@ -321,7 +341,7 @@ export default async function AttendancePage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <Plane className="size-4" /> On leave
+              <Plane className="size-4" /> {t("attendance.statusOnLeave")}
             </p>
             <p className="mt-1 text-2xl font-bold">{summary.on_leave}</p>
           </CardContent>
@@ -329,7 +349,8 @@ export default async function AttendancePage({
         <Card>
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <CalendarCheck className="size-4" /> Absent
+              <CalendarCheck className="size-4" />{" "}
+              {t("attendance.statusAbsent")}
             </p>
             <p className="mt-1 text-2xl font-bold text-destructive">
               {summary.absent}
@@ -341,26 +362,36 @@ export default async function AttendancePage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Today&apos;s attendance</CardTitle>
-            <CardDescription>{todayLabel} · all locations</CardDescription>
+            <CardTitle>{t("attendance.todayTitle")}</CardTitle>
+            <CardDescription>
+              {todayLabel} · {t("attendance.allLocations")}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                    <th className="py-2.5 pr-4 font-medium">Employee</th>
+                    <th className="py-2.5 pr-4 font-medium">
+                      {t("onboarding.employee")}
+                    </th>
                     <th className="hidden px-4 py-2.5 font-medium md:table-cell">
-                      Department
+                      {t("employees.department")}
                     </th>
-                    <th className="px-4 py-2.5 font-medium">Check-in</th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("attendance.checkIn")}
+                    </th>
                     <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
-                      Check-out
+                      {t("attendance.checkOut")}
                     </th>
-                    <th className="px-4 py-2.5 font-medium">Hours</th>
-                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("attendance.hours")}
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">
+                      {t("common.status")}
+                    </th>
                     <th className="py-2.5 pl-4 text-right font-medium">
-                      Details
+                      {t("common.details")}
                     </th>
                   </tr>
                 </thead>
@@ -400,12 +431,16 @@ export default async function AttendancePage({
                           {record.hours ? record.hours.toFixed(1) : "—"}
                         </td>
                         <td className="px-4 py-3">
-                          <Badge variant={meta.variant}>{meta.label}</Badge>
+                          <Badge variant={meta.variant}>
+                            {t(
+                              `statusLabels.attendance.${record.status}` as TranslationKey,
+                            )}
+                          </Badge>
                         </td>
                         <td className="py-3 pl-4 text-right">
                           <Link href={`/employees/${employee.id}`}>
                             <Button variant="outline" size="sm">
-                              View details
+                              {t("common.viewDetails")}
                             </Button>
                           </Link>
                         </td>
@@ -421,8 +456,10 @@ export default async function AttendancePage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>This week</CardTitle>
-              <CardDescription>On-site presence, %</CardDescription>
+              <CardTitle>{t("common.thisWeek")}</CardTitle>
+              <CardDescription>
+                {t("attendance.presencePercent")}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex h-32 items-end justify-between gap-2">
@@ -434,7 +471,9 @@ export default async function AttendancePage({
                     <div
                       className="w-full max-w-8 rounded-md bg-primary/80"
                       style={{ height: `${day.presentPct}%` }}
-                      title={`${day.presentPct}% present`}
+                      title={t("attendance.percentPresent", {
+                        pct: day.presentPct,
+                      })}
                     />
                     <span className="text-xs text-muted-foreground">
                       {day.day}
@@ -443,15 +482,17 @@ export default async function AttendancePage({
                 ))}
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                Average presence this week: {averagePresence}%
+                {t("attendance.averagePresence", { pct: averagePresence })}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>By department</CardTitle>
-              <CardDescription>Today&apos;s breakdown</CardDescription>
+              <CardTitle>{t("payroll.byDepartment")}</CardTitle>
+              <CardDescription>
+                {t("attendance.todayBreakdown")}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -464,7 +505,10 @@ export default async function AttendancePage({
                     <span className="font-medium">{row.department}</span>
                     <span className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span>
-                        {row.onSite}/{row.headcount} on site
+                        {t("attendance.onSite", {
+                          onSite: row.onSite,
+                          headcount: row.headcount,
+                        })}
                       </span>
                       <span className="font-medium text-foreground">
                         {row.presentPct}%

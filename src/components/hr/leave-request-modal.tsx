@@ -8,11 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import {
-  LEAVE_TYPE_LABELS,
-  type LeaveRequest,
-  type LeaveType,
-} from "@/lib/hr-data";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
+import type { LeaveRequest, LeaveType } from "@/lib/hr-data";
 
 const LEAVE_TYPES: LeaveType[] = ["vacation", "sick", "parental", "other"];
 
@@ -51,7 +49,14 @@ function isLeaveType(value: string): value is LeaveType {
 
 function toRequest(
   row: ApiLeaveRow,
-  fallback: { employeeId: string; type: LeaveType; start: string; end: string; days: number; reason?: string },
+  fallback: {
+    employeeId: string;
+    type: LeaveType;
+    start: string;
+    end: string;
+    days: number;
+    reason?: string;
+  },
 ): LeaveRequest {
   return {
     id: row.id ?? `lv_${Date.now().toString(36)}`,
@@ -87,6 +92,7 @@ export function LeaveRequestModal({
   employeeId: string;
   onCreated: (request: LeaveRequest) => void;
 }) {
+  const { t } = useTranslations();
   const [type, setType] = useState<LeaveType>("vacation");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
@@ -108,11 +114,11 @@ export function LeaveRequestModal({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!start || !end) {
-      setError("Select both a start and an end date.");
+      setError(t("leave.selectDates"));
       return;
     }
     if (end < start) {
-      setError("The end date must be on or after the start date.");
+      setError(t("leave.invalidDateRange"));
       return;
     }
     setBusy(true);
@@ -143,7 +149,7 @@ export function LeaveRequestModal({
         data?: ApiLeaveRow;
       } | null;
       if (!body?.ok) {
-        apiError = body?.error ?? "Could not submit the request";
+        apiError = body?.error ?? t("errors.submitFailed");
         throw new Error(apiError);
       }
       onCreated(toRequest(body.data ?? {}, fallback));
@@ -165,12 +171,12 @@ export function LeaveRequestModal({
     <Modal
       open={open}
       onClose={handleClose}
-      title="Request leave"
-      description="Book time off — pending approval from the People team."
+      title={t("leave.requestTitle")}
+      description={t("leave.modalDescription")}
       footer={
         <>
           <Button variant="outline" onClick={handleClose} disabled={busy}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" form="leave-request-form" disabled={busy}>
             {busy ? (
@@ -178,14 +184,18 @@ export function LeaveRequestModal({
             ) : (
               <Send className="size-4" />
             )}
-            {busy ? "Submitting…" : "Submit request"}
+            {busy ? t("common.submitting") : t("payroll.loans.submitRequest")}
           </Button>
         </>
       }
     >
-      <form id="leave-request-form" onSubmit={handleSubmit} className="space-y-4">
+      <form
+        id="leave-request-form"
+        onSubmit={handleSubmit}
+        className="space-y-4"
+      >
         <div className="space-y-1.5">
-          <Label htmlFor="leave-type">Leave type</Label>
+          <Label htmlFor="leave-type">{t("leave.type")}</Label>
           <Select
             id="leave-type"
             value={type}
@@ -196,7 +206,7 @@ export function LeaveRequestModal({
           >
             {LEAVE_TYPES.map((option) => (
               <option key={option} value={option}>
-                {LEAVE_TYPE_LABELS[option]}
+                {t(`statusLabels.leaveType.${option}` as TranslationKey)}
               </option>
             ))}
           </Select>
@@ -204,7 +214,7 @@ export function LeaveRequestModal({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="leave-start">Start date</Label>
+            <Label htmlFor="leave-start">{t("leave.startDate")}</Label>
             <DatePicker
               id="leave-start"
               value={start}
@@ -213,7 +223,7 @@ export function LeaveRequestModal({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="leave-end">End date</Label>
+            <Label htmlFor="leave-end">{t("leave.endDate")}</Label>
             <DatePicker
               id="leave-end"
               value={end}
@@ -225,17 +235,22 @@ export function LeaveRequestModal({
 
         <p className="text-xs text-muted-foreground">
           {days > 0
-            ? `${days} working day${days === 1 ? "" : "s"}.`
-            : "Pick your dates to see the duration."}
+            ? `${t("leave.workingDays", {
+                days,
+                s: days === 1 ? "" : "s",
+              })}.`
+            : t("leave.pickDatesHint")}
         </p>
 
         <div className="space-y-1.5">
-          <Label htmlFor="leave-reason">Reason (optional)</Label>
+          <Label htmlFor="leave-reason">
+            {t("leave.reason")} ({t("common.optional")})
+          </Label>
           <Input
             id="leave-reason"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="e.g. Family trip"
+            placeholder={t("leave.reasonPlaceholder")}
           />
         </div>
 

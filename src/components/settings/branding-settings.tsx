@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, RotateCcw, Save, XCircle } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
+import { useTranslations } from "@/lib/i18n/provider";
 import { PreviewPanel } from "@/components/theme/preview-panel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ interface ToastState {
 export function BrandingSettings() {
   const { theme, effectiveMode, isDrafting, preview, commit, resetTheme } =
     useTheme();
+  const { t } = useTranslations();
   const [draft, setDraft] = useState<TenantTheme>(theme);
   const [customEnabled, setCustomEnabled] = useState(
     theme.themeId === "custom",
@@ -72,19 +74,23 @@ export function BrandingSettings() {
     const ok = await commit(draft);
     showToast(
       ok ? "success" : "error",
-      ok ? "Theme saved" : "Failed to save theme",
+      ok
+        ? t("settings.branding.themeSaved")
+        : t("settings.branding.failedToSave"),
     );
-  }, [draft, commit, showToast]);
+  }, [draft, commit, showToast, t]);
 
   const saveMode = useCallback(
     async (mode: ThemeMode) => {
       const ok = await commit({ ...theme, mode });
       showToast(
         ok ? "success" : "error",
-        ok ? "Default mode updated" : "Failed to update mode",
+        ok
+          ? t("settings.branding.modeUpdated")
+          : t("settings.branding.failedToUpdateMode"),
       );
     },
-    [theme, commit, showToast],
+    [theme, commit, showToast, t],
   );
 
   const enableCustom = useCallback(() => {
@@ -128,19 +134,23 @@ export function BrandingSettings() {
       const ok = await commit({ ...draft, themeId: id });
       showToast(
         ok ? "success" : "error",
-        ok ? `${id} theme applied` : "Failed to save theme",
+        ok
+          ? t("settings.branding.themeApplied", { theme: id })
+          : t("settings.branding.failedToSave"),
       );
     },
-    [draft, commit, showToast, enableCustom],
+    [draft, commit, showToast, enableCustom, t],
   );
 
   const handleReset = useCallback(async () => {
     const ok = await resetTheme();
     showToast(
       ok ? "success" : "error",
-      ok ? "Theme reset to default" : "Failed to reset theme",
+      ok
+        ? t("settings.branding.themeReset")
+        : t("settings.branding.failedToReset"),
     );
-  }, [resetTheme, showToast]);
+  }, [resetTheme, showToast, t]);
 
   const changeColor = useCallback((variable: ThemeVar, value: string) => {
     setDraft((current) => ({
@@ -192,14 +202,14 @@ export function BrandingSettings() {
             logoUrl: current.logoUrl,
             faviconUrl: current.faviconUrl,
           }));
-          showToast("success", "Custom theme imported");
+          showToast("success", t("settings.branding.customThemeImported"));
         } catch {
-          showToast("error", "Invalid theme file");
+          showToast("error", t("settings.branding.invalidThemeFile"));
         }
       };
       reader.readAsText(file);
     },
-    [showToast],
+    [showToast, t],
   );
 
   const draftPalette = resolvePalette(draft);
@@ -210,11 +220,10 @@ export function BrandingSettings() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
-          Branding &amp; Theme
+          {t("settings.branding.title")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Define your company&apos;s visual identity — it applies across the
-          whole dashboard for every employee.
+          {t("settings.branding.description")}
         </p>
       </div>
 
@@ -222,15 +231,15 @@ export function BrandingSettings() {
         {/* ------------------------------ left column ----------------------------- */}
         <div className="min-w-0 space-y-6">
           <Section
-            title="Theme mode"
-            description="Default color mode for your company. Employees can override it from their own header toggle."
+            title={t("settings.branding.themeMode")}
+            description={t("settings.branding.themeModeHint")}
           >
             <ModeSelector value={draft.mode ?? "system"} onChange={saveMode} />
           </Section>
 
           <Section
-            title="Predefined themes"
-            description="Pick a professionally designed palette, or start from one and customize it below."
+            title={t("settings.branding.predefinedThemes")}
+            description={t("settings.branding.predefinedThemesHint")}
           >
             <ThemePicker
               selectedId={draft.themeId}
@@ -242,8 +251,8 @@ export function BrandingSettings() {
           </Section>
 
           <Section
-            title="Custom theme"
-            description="Create your own palette. Every change previews live in the panel on the right."
+            title={t("settings.branding.customTheme")}
+            description={t("settings.branding.customThemeHint")}
           >
             <CustomThemeEditor
               enabled={customEnabled}
@@ -269,20 +278,20 @@ export function BrandingSettings() {
           </Section>
 
           <Section
-            title="Logo & favicon"
-            description="Shown in the navigation, browser tab, and employee emails."
+            title={t("settings.branding.logoFavicon")}
+            description={t("settings.branding.logoFaviconHint")}
           >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <LogoUploader
-                label="Company logo"
-                hint="Recommended: 200×200px PNG, under 512KB"
+                label={t("settings.branding.companyLogo")}
+                hint={t("settings.branding.logoHint")}
                 value={draft.logoUrl}
                 onUpload={(url) => setDraft((d) => ({ ...d, logoUrl: url }))}
                 onRemove={() => setDraft((d) => ({ ...d, logoUrl: undefined }))}
               />
               <LogoUploader
-                label="Favicon"
-                hint="Recommended: 32×32px PNG, under 512KB"
+                label={t("settings.branding.favicon")}
+                hint={t("settings.branding.faviconHint")}
                 value={draft.faviconUrl}
                 onUpload={(url) => setDraft((d) => ({ ...d, faviconUrl: url }))}
                 onRemove={() =>
@@ -297,8 +306,10 @@ export function BrandingSettings() {
         {/* ----------------------------- right column ----------------------------- */}
         <div className="h-fit space-y-3 xl:sticky xl:top-8">
           <h3 className="text-sm font-medium text-muted-foreground">
-            Live preview{" "}
-            <span className="capitalize">· {effectiveMode} mode</span>
+            {t("settings.branding.livePreview")}{" "}
+            <span className="capitalize">
+              · {t("theme.modeLabel", { mode: effectiveMode })}
+            </span>
           </h3>
           <PreviewPanel />
         </div>
@@ -309,17 +320,17 @@ export function BrandingSettings() {
         {isDrafting && (
           <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <span className="size-2 rounded-full bg-warning" />
-            Unsaved changes
+            {t("settings.branding.unsavedChanges")}
           </span>
         )}
         <div className="flex-1" />
         <Button variant="outline" onClick={handleReset}>
           <RotateCcw />
-          Reset to default
+          {t("settings.branding.resetToDefault")}
         </Button>
         <Button onClick={saveDraft} disabled={!isDirty}>
           <Save />
-          Save changes
+          {t("settings.branding.saveChanges")}
         </Button>
       </div>
 

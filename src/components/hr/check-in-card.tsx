@@ -11,20 +11,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import type { AttendanceRecord, AttendanceStatus } from "@/lib/hr-data";
 
 const STATUS_META: Record<
   AttendanceStatus,
-  {
-    label: string;
-    variant: "success" | "warning" | "secondary" | "destructive";
-  }
+  { variant: "success" | "warning" | "secondary" | "destructive" }
 > = {
-  present: { label: "Present", variant: "success" },
-  late: { label: "Late", variant: "warning" },
-  remote: { label: "Remote", variant: "secondary" },
-  on_leave: { label: "On leave", variant: "secondary" },
-  absent: { label: "Absent", variant: "destructive" },
+  present: { variant: "success" },
+  late: { variant: "warning" },
+  remote: { variant: "secondary" },
+  on_leave: { variant: "secondary" },
+  absent: { variant: "destructive" },
 };
 
 function nowTime(): string {
@@ -84,6 +83,7 @@ export function CheckInCard({
 }: {
   initial?: AttendanceRecord | null;
 }) {
+  const { t } = useTranslations();
   const [record, setRecord] = useState<AttendanceRecord | null>(() =>
     isTodayRecord(initial) ? initial : null,
   );
@@ -127,11 +127,15 @@ export function CheckInCard({
         data?: ApiAttendanceRecord;
       } | null;
       if (!body?.ok || !body.data) {
-        apiError = body?.error ?? "Could not check in";
+        apiError = body?.error ?? t("errors.checkInFailed");
         throw new Error(apiError);
       }
       setRecord(toRecord(body.data));
-      setNotice(`Checked in at ${body.data.checkIn ?? nowTime()}`);
+      setNotice(
+        t("attendance.checkedInAt", {
+          time: body.data.checkIn ?? nowTime(),
+        }),
+      );
     } catch {
       if (apiError) {
         setError(apiError);
@@ -147,11 +151,13 @@ export function CheckInCard({
         hours: 0,
         status: "present",
       });
-      setNotice(`Checked in at ${at} (demo)`);
+      setNotice(
+        `${t("attendance.checkedInAt", { time: at })} ${t("attendance.demoSuffix")}`,
+      );
     } finally {
       setBusy(false);
     }
-  }, [initial]);
+  }, [initial, t]);
 
   const checkOut = useCallback(async () => {
     setBusy(true);
@@ -169,11 +175,15 @@ export function CheckInCard({
         data?: ApiAttendanceRecord;
       } | null;
       if (!body?.ok || !body.data) {
-        apiError = body?.error ?? "Could not check out";
+        apiError = body?.error ?? t("errors.checkOutFailed");
         throw new Error(apiError);
       }
       setRecord(toRecord(body.data));
-      setNotice(`Checked out at ${body.data.checkOut ?? nowTime()}`);
+      setNotice(
+        t("attendance.checkedOutAt", {
+          time: body.data.checkOut ?? nowTime(),
+        }),
+      );
     } catch {
       if (apiError) {
         setError(apiError);
@@ -188,35 +198,51 @@ export function CheckInCard({
         const hours = Math.round((oh + om / 60 - (ih + im / 60)) * 10) / 10;
         return { ...current, checkOut: at, hours: Math.max(0, hours) };
       });
-      setNotice(`Checked out at ${at} (demo)`);
+      setNotice(
+        `${t("attendance.checkedOutAt", { time: at })} ${t("attendance.demoSuffix")}`,
+      );
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [t]);
 
   const meta = STATUS_META[record?.status ?? "absent"];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Today</CardTitle>
-        <CardDescription>Your daily check-in.</CardDescription>
+        <CardTitle>{t("common.today")}</CardTitle>
+        <CardDescription>
+          {t("attendance.dailyCheckInDescription")}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Status</span>
-          <Badge variant={meta.variant}>{meta.label}</Badge>
+          <span className="text-sm text-muted-foreground">
+            {t("common.status")}
+          </span>
+          <Badge variant={meta.variant}>
+            {t(
+              `statusLabels.attendance.${record?.status ?? "absent"}` as TranslationKey,
+            )}
+          </Badge>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Check-in</span>
+          <span className="text-sm text-muted-foreground">
+            {t("attendance.checkIn")}
+          </span>
           <span className="font-mono text-sm">{record?.checkIn ?? "—"}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Check-out</span>
+          <span className="text-sm text-muted-foreground">
+            {t("attendance.checkOut")}
+          </span>
           <span className="font-mono text-sm">{record?.checkOut ?? "—"}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Hours</span>
+          <span className="text-sm text-muted-foreground">
+            {t("attendance.hours")}
+          </span>
           <span className="font-medium">
             {record && record.hours > 0 ? record.hours.toFixed(1) : "—"}
           </span>
@@ -248,11 +274,15 @@ export function CheckInCard({
             ) : (
               <LogIn className="size-4" />
             )}
-            {busy ? "Saving…" : checkedIn ? "Check out" : "Check in"}
+            {busy
+              ? t("common.saving")
+              : checkedIn
+                ? t("attendance.checkOut")
+                : t("attendance.checkIn")}
           </Button>
         ) : (
           <p className="text-center text-xs text-muted-foreground">
-            Day complete — see you tomorrow!
+            {t("attendance.dayComplete")}
           </p>
         )}
       </CardContent>

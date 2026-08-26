@@ -17,9 +17,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
 
-export const metadata = { title: "Leave" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("leave.title") };
+}
 
 interface LeaveCalendarData {
   month: string;
@@ -33,6 +37,8 @@ function currentMonth(): string {
 
 export default async function LeavePage() {
   const user = await getCurrentUser();
+  const locale = await getTenantLocale();
+  const t = await getTranslator();
 
   if (user?.role === "member") {
     const myEmployee = await apiGet<{ id: string }>("/api/employees/me").catch(
@@ -61,13 +67,13 @@ export default async function LeavePage() {
   ]);
   const monthLabel = new Date(
     `${calendar.month}-01T00:00:00`,
-  ).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  ).toLocaleDateString(locale, { month: "long", year: "numeric" });
 
   return (
     <>
       <PageHeader
-        title="Leave"
-        description="Review requests and track balances."
+        title={t("leave.title")}
+        description={t("leave.description")}
       ></PageHeader>
 
       <Tabs
@@ -75,14 +81,15 @@ export default async function LeavePage() {
         tabs={[
           {
             id: "calendar",
-            label: "Calendar",
+            label: t("common.calendar"),
             content: (
               <Card>
                 <CardHeader>
-                  <CardTitle>Leave calendar — {monthLabel}</CardTitle>
+                  <CardTitle>
+                    {t("leave.calendar")} — {monthLabel}
+                  </CardTitle>
                   <CardDescription>
-                    Who&apos;s away. Overlapping requests are flagged as
-                    conflicts.
+                    {t("leave.calendarDescription")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -93,13 +100,13 @@ export default async function LeavePage() {
           },
           {
             id: "requests",
-            label: "Requests",
+            label: t("leave.requests"),
             content: (
               <Card>
                 <CardHeader>
-                  <CardTitle>All requests</CardTitle>
+                  <CardTitle>{t("leave.allRequests")}</CardTitle>
                   <CardDescription>
-                    Every request this year — approve, extend or cancel.
+                    {t("leave.allRequestsDescription")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

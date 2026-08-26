@@ -12527,7 +12527,7 @@ export const countries = [
   {
     name: "Netherlands Antilles",
     iso3: "ANT",
-    iso2: "AN",
+    iso2: "BQ",
     states: [
       {
         name: "Bonaire",

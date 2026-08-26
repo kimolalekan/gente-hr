@@ -8,12 +8,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { apiGet } from "@/lib/server/api-client";
+import { getTranslator } from "@/lib/server/i18n";
 
-export const metadata = { title: "Employee config" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("settings.employeeConfig.title") };
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function EmployeeConfigPage() {
+  const t = await getTranslator();
   const config = await apiGet<
     Record<string, { enabled: boolean; required: Record<string, boolean> }>
   >("/api/settings/employee-config");
@@ -21,15 +26,14 @@ export default async function EmployeeConfigPage() {
   return (
     <>
       <PageHeader
-        title="Employee config"
-        description="Custom fields collected when creating a new employee."
+        title={t("settings.employeeConfig.title")}
+        description={t("settings.employeeConfig.description")}
       />
       <Card>
         <CardHeader>
-          <CardTitle>Profile fields</CardTitle>
+          <CardTitle>{t("settings.employeeConfig.profileFields")}</CardTitle>
           <CardDescription>
-            Bank, identification, emergency contact, tax ID, health coverage and
-            pension details.
+            {t("settings.employeeConfig.profileFieldsDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>

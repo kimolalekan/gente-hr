@@ -2,9 +2,13 @@ import { redirect } from "next/navigation";
 import { QuizzesManager } from "@/components/ats/quiz-manager";
 import { PageHeader } from "@/components/hr/page-header";
 import { getCurrentUser } from "@/lib/server/auth";
+import { getTranslator } from "@/lib/server/i18n";
 import { apiGet } from "@/lib/server/api-client";
 
-export const metadata = { title: "Quizzes" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("ats.quizzes.title") };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +22,7 @@ interface QuizRow {
 }
 
 export default async function QuizzesPage() {
+  const t = await getTranslator();
   const user = await getCurrentUser();
   if (user?.role === "member") redirect("/");
 
@@ -26,8 +31,8 @@ export default async function QuizzesPage() {
   return (
     <>
       <PageHeader
-        title="Quizzes"
-        description="Screening assessments you can attach to jobs."
+        title={t("ats.quizzes.title")}
+        description={t("ats.quizzes.description")}
       />
       <QuizzesManager quizzes={quizzes} />
     </>

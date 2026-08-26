@@ -5,7 +5,6 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { ActionButton } from "@/components/hr/action-button";
 import {
   AttendanceChart,
   DashboardHeader,
@@ -20,6 +19,7 @@ import {
 } from "@/components/dashboard/dashboard-shared";
 import type { SessionUser } from "@/lib/server/auth";
 import { getTenantTheme } from "@/lib/server/theme-store";
+import { getTranslator } from "@/lib/server/i18n";
 import { getPredefinedTheme } from "@/lib/theme-config";
 import { formatCurrency } from "@/lib/hr-data";
 
@@ -35,38 +35,44 @@ export async function AdminDashboard({
   recentEmployees: RecentEmployee[];
 }) {
   const theme = await getTenantTheme();
+  const t = await getTranslator();
   const themeName =
     theme.themeId === "custom"
-      ? "Custom theme"
+      ? t("settings.branding.customTheme")
       : (getPredefinedTheme(theme.themeId)?.name ?? "Default Blue");
 
   const stats: Stat[] = [
     {
-      label: "Total employees",
+      label: t("dashboard.totalEmployees"),
       value: String(metrics.employees),
-      delta: `${metrics.departments} departments`,
+      delta: t("dashboard.departmentCount", {
+        n: metrics.departments,
+        s: metrics.departments === 1 ? "" : "s",
+      }),
       icon: Users,
       tone: "primary",
     },
     {
-      label: "On leave today",
+      label: t("attendance.onLeaveToday"),
       value: String(metrics.onLeaveToday),
       icon: CalendarDays,
       tone: "warning",
     },
     {
-      label: "Pending approvals",
+      label: t("dashboard.pendingApprovals"),
       value: String(metrics.pendingLeave),
       icon: FileText,
       tone: "info",
     },
     {
-      label: "Payroll",
-      value: metrics.payrollTotal > 0 ? "Processed" : "—",
+      label: t("payroll.title"),
+      value: metrics.payrollTotal > 0 ? t("payroll.statusProcessed") : "—",
       delta:
         metrics.payrollTotal > 0
-          ? `Latest run · ${formatCurrency(metrics.payrollTotal)}`
-          : "No payroll run yet",
+          ? t("dashboard.latestRun", {
+              amount: formatCurrency(metrics.payrollTotal),
+            })
+          : t("dashboard.noPayrollRun"),
       icon: Wallet,
       tone: "success",
     },
@@ -75,13 +81,11 @@ export async function AdminDashboard({
   return (
     <>
       <DashboardHeader
-        greeting={`Good morning, ${user.name.split(" ")[0]}`}
-        subtitle="Here's what's happening at your company today."
-        actions={
-          <ActionButton variant="outline" doneLabel="Exported">
-            Export report
-          </ActionButton>
-        }
+        greeting={t("dashboard.greeting", {
+          name: user.name.split(" ")[0],
+        })}
+        subtitle={t("dashboard.subtitleAdmin")}
+        actions={<></>}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -96,24 +100,24 @@ export async function AdminDashboard({
           items={[
             {
               href: "/leave",
-              label: "Review pending leave",
+              label: t("dashboard.quickReviewLeave"),
               icon: ArrowUpRight,
               variant: "info",
             },
             {
               href: "/payroll",
-              label: "Run payroll preview",
+              label: t("dashboard.quickPayrollPreview"),
               icon: ArrowUpRight,
             },
             {
               href: "/employees",
-              label: "View employee directory",
+              label: t("dashboard.quickEmployeeDirectory"),
               icon: ArrowUpRight,
               variant: "success",
             },
             {
               href: "/settings/branding",
-              label: "Company branding & theme",
+              label: t("dashboard.quickBranding"),
               icon: FileText,
               variant: "outline",
             },

@@ -8,27 +8,31 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { apiGet } from "@/lib/server/api-client";
+import { getTranslator } from "@/lib/server/i18n";
 import type { PayrollBreakdown } from "@/lib/hr-data";
 
-export const metadata = { title: "Payroll" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("settings.payroll.title") };
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function PayrollSettingsPage() {
+  const t = await getTranslator();
   const breakdown = await apiGet<PayrollBreakdown>("/api/settings/payroll");
 
   return (
     <>
       <PageHeader
-        title="Payroll"
-        description="Configure how payslips are broken down into earnings and deductions."
+        title={t("settings.payroll.title")}
+        description={t("settings.payroll.description")}
       />
       <Card>
         <CardHeader>
-          <CardTitle>Payslip breakdown</CardTitle>
+          <CardTitle>{t("settings.payroll.payslipBreakdown")}</CardTitle>
           <CardDescription>
-            Choose which components appear on payslips and how each one is
-            labelled.
+            {t("settings.payroll.payslipBreakdownDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>

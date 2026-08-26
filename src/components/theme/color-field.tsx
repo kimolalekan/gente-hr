@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
-import { isHexColor, type ThemeVar } from '@/lib/theme-config';
+import { Input } from "@/components/ui/input";
+import { useTranslations } from "@/lib/i18n/provider";
+import { cn } from "@/lib/utils";
+import { isHexColor, type ThemeVar } from "@/lib/theme-config";
 
 /**
  * A color row: native color picker swatch + hex text field + variable name.
@@ -20,6 +21,7 @@ export function ColorField({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslations();
   const valid = isHexColor(value);
 
   return (
@@ -27,14 +29,14 @@ export function ColorField({
       <label className="relative size-9 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border shadow-sm">
         <input
           type="color"
-          aria-label={`Pick color for ${label}`}
-          value={valid ? value : '#000000'}
+          aria-label={t("theme.pickColorFor", { label })}
+          value={valid ? value : "#000000"}
           onChange={(event) => onChange(event.target.value)}
           className="absolute inset-0 size-full cursor-pointer opacity-0"
         />
         <span
           className="absolute inset-0 block"
-          style={{ backgroundColor: valid ? value : 'transparent' }}
+          style={{ backgroundColor: valid ? value : "transparent" }}
         />
       </label>
 
@@ -42,10 +44,14 @@ export function ColorField({
         <div className="flex items-center justify-between gap-2">
           <span className="truncate text-sm font-medium">{label}</span>
           {!valid && value.length > 0 && (
-            <span className="shrink-0 text-xs text-destructive">Invalid hex</span>
+            <span className="shrink-0 text-xs text-destructive">
+              {t("theme.invalidHex")}
+            </span>
           )}
         </div>
-        <p className="truncate font-mono text-xs text-muted-foreground">--{variable}</p>
+        <p className="truncate font-mono text-xs text-muted-foreground">
+          --{variable}
+        </p>
       </div>
 
       <Input
@@ -53,8 +59,11 @@ export function ColorField({
         onChange={(event) => onChange(event.target.value)}
         spellCheck={false}
         placeholder="#000000"
-        className={cn('w-28 shrink-0 font-mono uppercase', !valid && value.length > 0 && 'border-destructive')}
-        aria-label={`${label} hex value`}
+        className={cn(
+          "w-28 shrink-0 font-mono uppercase",
+          !valid && value.length > 0 && "border-destructive",
+        )}
+        aria-label={t("theme.hexValueAria", { label })}
       />
     </div>
   );

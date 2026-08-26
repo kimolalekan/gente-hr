@@ -1,8 +1,12 @@
 import { DepartmentsManager } from "@/components/hr/departments-manager";
 import { PageHeader } from "@/components/hr/page-header";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
+import { getTranslator } from "@/lib/server/i18n";
 
-export const metadata = { title: "Departments" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("settings.departments.title") };
+}
 
 interface DepartmentRow {
   id: string;
@@ -13,6 +17,7 @@ interface DepartmentRow {
 }
 
 export default async function DepartmentsPage() {
+  const t = await getTranslator();
   const page = await apiGet<Paginated<DepartmentRow>>("/api/departments", {
     pageSize: 500,
   });
@@ -20,8 +25,8 @@ export default async function DepartmentsPage() {
   return (
     <>
       <PageHeader
-        title="Departments"
-        description="Organizational units and their status."
+        title={t("settings.departments.title")}
+        description={t("settings.departments.description")}
       />
       <DepartmentsManager departments={page.items} />
     </>

@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getTranslator } from "@/lib/server/i18n";
 
 export const metadata = { title: "Page not found" };
 
 /** Custom 404 — also renders for pages the user isn't allowed to access. */
-export default function NotFound() {
+export default async function NotFound() {
+  const t = await getTranslator();
   return (
     <main className="flex min-h-dvh items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-sm">
@@ -26,18 +28,19 @@ export default function NotFound() {
           <p className="mt-4 text-4xl font-bold tracking-tight text-primary">
             404
           </p>
-          <h1 className="mt-1 text-lg font-semibold">Page not found</h1>
+          <h1 className="mt-1 text-lg font-semibold">
+            {t("errors.notFoundTitle")}
+          </h1>
           <p className="mx-auto mt-1.5 max-w-xs text-sm text-muted-foreground">
-            The page you&apos;re looking for doesn&apos;t exist or you
-            don&apos;t have access to it.
+            {t("errors.notFoundDescription")}
           </p>
           <div className="mt-6 flex flex-col gap-2">
             <Link href="/">
-              <Button className="w-full">Back to dashboard</Button>
+              <Button className="w-full">{t("common.backToDashboard")}</Button>
             </Link>
             <Link href="/login">
               <Button variant="outline" className="w-full">
-                Go to login
+                {t("auth.goToLogin")}
               </Button>
             </Link>
           </div>

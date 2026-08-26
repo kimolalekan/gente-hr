@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Ban, Check, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 import type { LeaveRequest, LeaveStatus } from "@/lib/hr-data";
 
 /** Raw leave row returned by the PATCH action endpoints. */
@@ -25,6 +27,7 @@ function isLeaveStatus(value: string | undefined): value is LeaveStatus {
  * request is pending ("active"); once decided, it explains the outcome.
  */
 export function LeaveRequestActions({ request }: { request: LeaveRequest }) {
+  const { t } = useTranslations();
   const [status, setStatus] = useState<LeaveStatus>(request.status);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,12 +46,12 @@ export function LeaveRequestActions({ request }: { request: LeaveRequest }) {
         data?: ApiLeaveRow;
       } | null;
       if (!body?.ok || !body.data) {
-        setError(body?.error ?? "Could not update the request");
+        setError(body?.error ?? t("errors.updateFailed"));
         return;
       }
       if (isLeaveStatus(body.data.status)) setStatus(body.data.status);
     } catch {
-      setError("Could not update the request");
+      setError(t("errors.updateFailed"));
     } finally {
       setBusy(null);
     }
@@ -58,11 +61,9 @@ export function LeaveRequestActions({ request }: { request: LeaveRequest }) {
     return (
       <div className="rounded-lg border border-border bg-background/50 p-3 text-sm">
         <p className="text-muted-foreground">
-          This request has been{" "}
-          <span className="font-medium capitalize text-foreground">
-            {status}
-          </span>
-          . No further actions are available.
+          {t("leave.noFurtherActions", {
+            status: t(`statusLabels.leaveStatus.${status}` as TranslationKey),
+          })}
         </p>
       </div>
     );
@@ -86,7 +87,7 @@ export function LeaveRequestActions({ request }: { request: LeaveRequest }) {
         ) : (
           <Check className="size-4" />
         )}
-        Approve
+        {t("leave.approve")}
       </Button>
       <div className="grid grid-cols-2 gap-2">
         <Button
@@ -95,7 +96,7 @@ export function LeaveRequestActions({ request }: { request: LeaveRequest }) {
           onClick={() => decide("reject")}
         >
           <X className="size-4" />
-          Reject
+          {t("leave.reject")}
         </Button>
         <Button
           variant="outline"
@@ -103,7 +104,7 @@ export function LeaveRequestActions({ request }: { request: LeaveRequest }) {
           onClick={() => decide("cancel")}
         >
           <Ban className="size-4" />
-          Cancel
+          {t("common.cancel")}
         </Button>
       </div>
     </div>

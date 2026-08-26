@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useTranslations } from "@/lib/i18n/provider";
 import { COUNTRY_NAMES, REGIONS, getStatesFor } from "@/lib/regions";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,7 @@ export function ApplyForm({
   questions,
   quiz,
 }: ApplyFormProps) {
+  const { t } = useTranslations();
   const [step, setStep] = useState<"details" | "quiz" | "done">("details");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export function ApplyForm({
   const handleContinue = (event: FormEvent) => {
     event.preventDefault();
     if (!form.name.trim() || !form.email.trim()) {
-      setError("Your name and email are required.");
+      setError(t("ats.apply.nameEmailRequired"));
       return;
     }
     setError(null);
@@ -98,9 +100,7 @@ export function ApplyForm({
         });
         const uploadBody = await uploadResponse.json();
         if (!uploadBody?.ok) {
-          throw new Error(
-            uploadBody?.error ?? "Could not upload your resume — try again.",
-          );
+          throw new Error(uploadBody?.error ?? t("ats.apply.uploadFailed"));
         }
         resumeUrl = uploadBody.data.url;
       }
@@ -131,7 +131,7 @@ export function ApplyForm({
       }
       setStep("done");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -146,10 +146,9 @@ export function ApplyForm({
     return (
       <div className="flex flex-col items-center gap-3 py-10 text-center">
         <CheckCircle2 className="size-10 text-success" />
-        <h2 className="text-xl font-bold">Application received</h2>
+        <h2 className="text-xl font-bold">{t("ats.apply.received")}</h2>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Thanks for applying to {jobTitle}. We&apos;ll review your application
-          and be in touch if there&apos;s a match.
+          {t("ats.apply.successMessage", { jobTitle })}
         </p>
       </div>
     );
@@ -166,7 +165,7 @@ export function ApplyForm({
             </p>
           )}
           <p className="mt-1 text-xs text-muted-foreground">
-            Answer each question — there are no wrong answers at this stage.
+            {t("ats.apply.quizHint")}
           </p>
         </div>
 
@@ -211,7 +210,7 @@ export function ApplyForm({
             onClick={() => setStep("details")}
             disabled={saving}
           >
-            Back
+            {t("common.back")}
           </Button>
           <Button type="submit" disabled={saving}>
             {saving ? (
@@ -219,7 +218,7 @@ export function ApplyForm({
             ) : (
               <Send className="size-4" />
             )}
-            {saving ? "Submitting…" : "Submit application"}
+            {saving ? t("common.submitting") : t("ats.apply.submit")}
           </Button>
         </div>
       </form>
@@ -231,39 +230,39 @@ export function ApplyForm({
   return (
     <form onSubmit={handleContinue} className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor="apply-name">Full name</Label>
+        <Label htmlFor="apply-name">{t("ats.apply.name")}</Label>
         <Input
           id="apply-name"
           value={form.name}
           onChange={update("name")}
-          placeholder="Your full name"
+          placeholder={t("ats.apply.namePlaceholder")}
           required
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="apply-email">Email</Label>
+        <Label htmlFor="apply-email">{t("ats.apply.email")}</Label>
         <Input
           id="apply-email"
           type="email"
           value={form.email}
           onChange={update("email")}
-          placeholder="you@example.com"
+          placeholder={t("ats.apply.emailPlaceholder")}
           required
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="apply-phone">Phone</Label>
+        <Label htmlFor="apply-phone">{t("ats.apply.phone")}</Label>
         <Input
           id="apply-phone"
           type="tel"
           value={form.phone}
           onChange={update("phone")}
-          placeholder="+234 800 000 0000"
+          placeholder={t("ats.apply.phonePlaceholder")}
         />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="apply-country">Country</Label>
+          <Label htmlFor="apply-country">{t("ats.apply.country")}</Label>
           <Select
             id="apply-country"
             value={form.country}
@@ -274,8 +273,8 @@ export function ApplyForm({
                 state: "",
               }))
             }
-            placeholder="Select a country…"
-            searchPlaceholder="Search countries…"
+            placeholder={t("employees.selectCountry")}
+            searchPlaceholder={t("employees.searchCountries")}
             renderOption={(option) => {
               const region = REGIONS.find((item) => item.name === option.value);
               return region ? <CountryFlag code={region.iso2} /> : null;
@@ -289,7 +288,7 @@ export function ApplyForm({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="apply-state">State / Province</Label>
+          <Label htmlFor="apply-state">{t("ats.apply.stateProvince")}</Label>
           {states.length === 0 ? (
             <Input
               id="apply-state"
@@ -297,8 +296,8 @@ export function ApplyForm({
               onChange={update("state")}
               placeholder={
                 form.country
-                  ? "No states listed — type if needed"
-                  : "Select a country first…"
+                  ? t("employees.noStates")
+                  : t("employees.selectCountryFirst")
               }
               disabled={!form.country}
             />
@@ -307,8 +306,8 @@ export function ApplyForm({
               id="apply-state"
               value={form.state}
               onChange={update("state")}
-              placeholder="Select a state…"
-              searchPlaceholder="Search states…"
+              placeholder={t("employees.selectState")}
+              searchPlaceholder={t("employees.searchStates")}
             >
               {states.map((state) => (
                 <option key={state.stateCode} value={state.name}>
@@ -320,7 +319,7 @@ export function ApplyForm({
         </div>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="apply-resume">Resume / CV</Label>
+        <Label htmlFor="apply-resume">{t("ats.apply.resume")}</Label>
         {resumeFile ? (
           <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/50 px-3 py-2 text-sm">
             <span className="flex min-w-0 items-center gap-2">
@@ -329,7 +328,7 @@ export function ApplyForm({
             </span>
             <button
               type="button"
-              aria-label="Remove resume"
+              aria-label={t("ats.apply.removeResume")}
               onClick={() => setResumeFile(null)}
               className="text-muted-foreground transition-colors hover:text-destructive"
             >
@@ -347,23 +346,25 @@ export function ApplyForm({
           />
         )}
         <p className="text-xs text-muted-foreground">
-          PDF, DOC/DOCX, TXT or image — up to 5MB.
+          {t("ats.apply.resumeHint")}
         </p>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="apply-cover">Cover letter</Label>
+        <Label htmlFor="apply-cover">{t("ats.applications.coverLetter")}</Label>
         <Textarea
           id="apply-cover"
           rows={5}
           value={form.coverLetter}
           onChange={update("coverLetter")}
-          placeholder="Tell us why you're a great fit…"
+          placeholder={t("ats.apply.coverLetterPlaceholder")}
         />
       </div>
 
       {questions.length > 0 && (
         <div className="space-y-3 rounded-lg border border-border bg-background/50 p-3">
-          <p className="text-sm font-medium">Screening questions</p>
+          <p className="text-sm font-medium">
+            {t("ats.apply.screeningQuestions")}
+          </p>
           {questions.map((question, index) => (
             <div key={index} className="space-y-1.5">
               <Label htmlFor={`apply-question-${index}`}>{question}</Label>
@@ -371,7 +372,7 @@ export function ApplyForm({
                 id={`apply-question-${index}`}
                 value={answers[question] ?? ""}
                 onChange={(event) => updateAnswer(question, event.target.value)}
-                placeholder="Your answer…"
+                placeholder={t("ats.apply.answerPlaceholder")}
               />
             </div>
           ))}
@@ -386,10 +387,10 @@ export function ApplyForm({
           <Send className="size-4" />
         )}
         {saving
-          ? "Submitting…"
+          ? t("common.submitting")
           : quiz && quiz.questions.length > 0
-            ? "Continue to assessment"
-            : "Submit application"}
+            ? t("ats.apply.continueToQuiz")
+            : t("ats.apply.submit")}
       </Button>
     </form>
   );

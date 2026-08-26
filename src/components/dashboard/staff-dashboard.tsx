@@ -25,6 +25,7 @@ import {
   type Stat,
 } from "@/components/dashboard/dashboard-shared";
 import type { SessionUser } from "@/lib/server/auth";
+import { getTranslator } from "@/lib/server/i18n";
 
 interface SelfServiceAction {
   href: string;
@@ -32,57 +33,6 @@ interface SelfServiceAction {
   description: string;
   icon: LucideIcon;
 }
-
-const ACTIONS: SelfServiceAction[] = [
-  {
-    href: "/attendance",
-    label: "Mark attendance",
-    description: "Check in / check out",
-    icon: CalendarCheck,
-  },
-  {
-    href: "/profile",
-    label: "My profile",
-    description: "Personal details & documents",
-    icon: UserRound,
-  },
-  {
-    href: "/leave",
-    label: "Request leave",
-    description: "Book time off & view balance",
-    icon: CalendarDays,
-  },
-  {
-    href: "/payroll/loans",
-    label: "My loans",
-    description: "Loans & repayment status",
-    icon: Wallet,
-  },
-  {
-    href: "/payroll/payslips",
-    label: "My payslips",
-    description: "Earnings & deductions",
-    icon: FileText,
-  },
-  {
-    href: "/notifications",
-    label: "Notifications",
-    description: "Updates and alerts",
-    icon: Bell,
-  },
-  {
-    href: "/performance",
-    label: "My reviews",
-    description: "Performance & feedback",
-    icon: Star,
-  },
-];
-
-const ROLE_LABELS: Record<SessionUser["role"], string> = {
-  admin: "Admin",
-  hr: "HR",
-  member: "Employee",
-};
 
 /** Leave balance row (member scope of `GET /api/leave/balances`). */
 export interface StaffLeaveBalance {
@@ -108,7 +58,7 @@ export interface StaffPayslip {
  * in employee's own stats and quick actions for attendance, leave, loans,
  * payslips, notifications, and reviews. Nothing org-wide is shown here.
  */
-export function StaffDashboard({
+export async function StaffDashboard({
   user,
   leaveBalance,
   attendancePct,
@@ -121,36 +71,99 @@ export function StaffDashboard({
   loans: StaffLoan[];
   payslips: StaffPayslip[];
 }) {
+  const t = await getTranslator();
+
+  const actions: SelfServiceAction[] = [
+    {
+      href: "/attendance",
+      label: t("dashboard.actionMarkAttendance"),
+      description: t("dashboard.actionCheckInOut"),
+      icon: CalendarCheck,
+    },
+    {
+      href: "/profile",
+      label: t("nav.myProfile"),
+      description: t("dashboard.actionProfileDetails"),
+      icon: UserRound,
+    },
+    {
+      href: "/leave",
+      label: t("dashboard.actionRequestLeave"),
+      description: t("dashboard.actionBookLeave"),
+      icon: CalendarDays,
+    },
+    {
+      href: "/payroll/loans",
+      label: t("payroll.loans.myTitle"),
+      description: t("dashboard.actionLoansStatus"),
+      icon: Wallet,
+    },
+    {
+      href: "/payroll/payslips",
+      label: t("payroll.payslips.myTitle"),
+      description: t("dashboard.actionPayslipsEarnings"),
+      icon: FileText,
+    },
+    {
+      href: "/notifications",
+      label: t("notifications.title"),
+      description: t("dashboard.actionNotificationsDesc"),
+      icon: Bell,
+    },
+    {
+      href: "/performance",
+      label: t("dashboard.actionMyReviews"),
+      description: t("dashboard.actionPerformanceDesc"),
+      icon: Star,
+    },
+  ];
+
+  const roleLabels: Record<SessionUser["role"], string> = {
+    admin: t("tenant.roleAdmin"),
+    hr: t("tenant.roleHr"),
+    member: t("onboarding.employee"),
+  };
+
   const stats: Stat[] = [
     {
-      label: "Leave balance",
+      label: t("dashboard.leaveBalance"),
       value: leaveBalance
-        ? `${leaveBalance.vacation.total - leaveBalance.vacation.used} days`
+        ? t("leave.daysCount", {
+            days: leaveBalance.vacation.total - leaveBalance.vacation.used,
+            s:
+              leaveBalance.vacation.total - leaveBalance.vacation.used === 1
+                ? ""
+                : "s",
+          })
         : "—",
       delta: leaveBalance
-        ? `Vacation · ${leaveBalance.vacation.used} used`
-        : "No balance on file",
+        ? t("dashboard.vacationUsed", { n: leaveBalance.vacation.used })
+        : t("dashboard.noBalanceOnFile"),
       icon: CalendarDays,
       tone: "info",
     },
     {
-      label: "Attendance this week",
+      label: t("dashboard.attendanceThisWeek"),
       value: `${attendancePct}%`,
-      delta: "Present · on track",
+      delta: t("dashboard.presentOnTrack"),
       icon: CalendarCheck,
       tone: "success",
     },
     {
-      label: "Active loans",
+      label: t("payroll.loans.activeLoans"),
       value: String(loans.filter((loan) => loan.status === "active").length),
-      delta: loans.length ? "Repayment on schedule" : "No active loans",
+      delta: loans.length
+        ? t("dashboard.repaymentOnSchedule")
+        : t("dashboard.noActiveLoans"),
       icon: Wallet,
       tone: "warning",
     },
     {
-      label: "Latest payslip",
+      label: t("dashboard.latestPayslip"),
       value: payslips[0]?.period ?? "—",
-      delta: payslips[0] ? "Available for download" : "No payslips yet",
+      delta: payslips[0]
+        ? t("dashboard.payslipAvailable")
+        : t("payroll.payslips.empty"),
       icon: FileText,
       tone: "primary",
     },
@@ -159,8 +172,10 @@ export function StaffDashboard({
   return (
     <>
       <DashboardHeader
-        greeting={`Good morning, ${user.name.split(" ")[0]}`}
-        subtitle="Here's your personal workspace — requests, attendance and pay."
+        greeting={t("dashboard.greeting", {
+          name: user.name.split(" ")[0],
+        })}
+        subtitle={t("dashboard.subtitleStaff")}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -172,12 +187,12 @@ export function StaffDashboard({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Quick actions</CardTitle>
-            <CardDescription>Self-service tasks</CardDescription>
+            <CardTitle>{t("dashboard.quickActions")}</CardTitle>
+            <CardDescription>{t("dashboard.selfServiceTasks")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {ACTIONS.map((action) => {
+              {actions.map((action) => {
                 const Icon = action.icon;
                 return (
                   <Link
@@ -205,8 +220,8 @@ export function StaffDashboard({
 
         <Card>
           <CardHeader>
-            <CardTitle>My profile</CardTitle>
-            <CardDescription>Your account at a glance</CardDescription>
+            <CardTitle>{t("nav.myProfile")}</CardTitle>
+            <CardDescription>{t("dashboard.accountAtAGlance")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
@@ -219,11 +234,13 @@ export function StaffDashboard({
               </div>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Role</span>
-              <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
+              <span className="text-muted-foreground">
+                {t("settings.users.role")}
+              </span>
+              <Badge variant="secondary">{roleLabels[user.role]}</Badge>
             </div>
             <Link href="/profile" className="block">
-              <Button className="w-full">View my profile</Button>
+              <Button className="w-full">{t("dashboard.viewMyProfile")}</Button>
             </Link>
           </CardContent>
         </Card>

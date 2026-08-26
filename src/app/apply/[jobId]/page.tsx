@@ -1,13 +1,17 @@
 import { notFound } from "next/navigation";
-import type { Metadata } from "next";
 import { Globe, Mail, MapPin, Phone } from "lucide-react";
 import { ApplyForm } from "@/components/ats/apply-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ApiClientError, apiGet } from "@/lib/server/api-client";
-import { EMPLOYMENT_TYPE_LABELS, formatCurrency } from "@/lib/hr-data";
+import { getTranslator } from "@/lib/server/i18n";
+import type { TranslationKey } from "@/lib/i18n/types";
+import { formatCurrency } from "@/lib/hr-data";
 
-export const metadata: Metadata = { title: "Apply" };
+export async function generateMetadata() {
+  const t = await getTranslator();
+  return { title: t("ats.apply.title") };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +50,7 @@ export default async function ApplyPage({
   params: Promise<{ jobId: string }>;
 }) {
   const { jobId } = await params;
+  const t = await getTranslator();
 
   let job: PublicJob;
   try {
@@ -54,7 +59,7 @@ export default async function ApplyPage({
     if (error instanceof ApiClientError && error.status === 404) notFound();
     // 409 (closed) and any other error render the closed state below.
     job = {
-      title: "This job is no longer accepting applications",
+      title: t("ats.apply.closed"),
       department: null,
       location: null,
       employmentType: "",
@@ -80,7 +85,7 @@ export default async function ApplyPage({
       <div className="w-full max-w-lg">
         <Card className="overflow-hidden">
           <div className="border-b border-border bg-muted/40 p-6">
-            <Badge variant="success">We&apos;re hiring</Badge>
+            <Badge variant="success">{t("ats.apply.hiring")}</Badge>
             <h1 className="mt-3 text-2xl font-bold tracking-tight">
               {job.title}
             </h1>
@@ -88,11 +93,15 @@ export default async function ApplyPage({
               {[
                 job.department,
                 job.location,
-                EMPLOYMENT_TYPE_LABELS[job.employmentType],
+                job.employmentType
+                  ? t(
+                      `statusLabels.employmentType.${job.employmentType}` as TranslationKey,
+                    )
+                  : "",
                 salaryRange,
               ]
                 .filter(Boolean)
-                .join(" · ") || "Join our team"}
+                .join(" · ") || t("ats.apply.joinUs")}
             </p>
           </div>
           <CardContent className="p-6">
@@ -106,7 +115,7 @@ export default async function ApplyPage({
             {job.company && (
               <div className="mb-6 border-t border-border pt-5">
                 <h2 className="text-sm font-semibold">
-                  About {job.company.name}
+                  {t("ats.apply.aboutCompany", { company: job.company.name })}
                 </h2>
                 {job.company.about && (
                   <div
