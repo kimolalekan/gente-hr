@@ -21,7 +21,9 @@ WORKDIR /app
 
 # ─── Dependencies ────────────────────────────────────────────────────────────
 FROM base AS deps
-COPY package.json pnpm-lock.yaml ./
+# The workspace file carries the `overrides`/`allowBuilds` config that the
+# lockfile was generated with — pnpm 11 fails a frozen install without it.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # ─── Builder ─────────────────────────────────────────────────────────────────
@@ -48,6 +50,7 @@ COPY --from=builder /app/server.js ./server.js
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/db ./db
+COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 # Seeder imports DEFAULT_TENANT_THEME from src/lib/theme-config at runtime.
 COPY --from=builder /app/src ./src
 
