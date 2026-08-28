@@ -402,7 +402,6 @@
     "dailyCheckInDescription": "Votre pointage quotidien.",
     "checkedInAt": "Arrivée pointée à {time}",
     "checkedOutAt": "Sortie pointée à {time}",
-    "demoSuffix": "(démo)",
     "dayComplete": "Journée terminée — à demain !",
     "onLeaveToday": "En congé aujourd'hui",
     "thisWeekTitle": "Présence cette semaine",

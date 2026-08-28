@@ -402,7 +402,6 @@
     "dailyCheckInDescription": "Your daily check-in.",
     "checkedInAt": "Checked in at {time}",
     "checkedOutAt": "Checked out at {time}",
-    "demoSuffix": "(demo)",
     "dayComplete": "Day complete — see you tomorrow!",
     "onLeaveToday": "On leave today",
     "thisWeekTitle": "Attendance this week",

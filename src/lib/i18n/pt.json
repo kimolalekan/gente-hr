@@ -402,7 +402,6 @@
     "dailyCheckInDescription": "Seu registro diário.",
     "checkedInAt": "Entrada registrada às {time}",
     "checkedOutAt": "Saída registrada às {time}",
-    "demoSuffix": "(demo)",
     "dayComplete": "Dia concluído — até amanhã!",
     "onLeaveToday": "De licença hoje",
     "thisWeekTitle": "Presença nesta semana",

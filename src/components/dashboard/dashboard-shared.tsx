@@ -145,7 +145,11 @@ export async function AttendanceChart({
                       ? "w-full max-w-10 rounded-md bg-primary"
                       : "w-full max-w-10 rounded-md bg-primary/20"
                   }
-                  style={{ height: `${Math.max(4, bar.presentPct)}%` }}
+                  style={{
+                    // Explicit px: the column is content-sized (`items-end`),
+                    // so a % height has no definite parent and collapses to 0.
+                    height: `${Math.max(4, Math.round((bar.presentPct / 100) * 104))}px`,
+                  }}
                   title={t("attendance.percentPresent", {
                     pct: bar.presentPct,
                   })}

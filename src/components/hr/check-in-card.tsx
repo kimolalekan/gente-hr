@@ -75,8 +75,8 @@ function isTodayRecord(
 
 /**
  * Daily check-in card for the signed-in employee. Persists via
- * `POST /api/attendance/check-in` / `check-out`; when the API is unreachable
- * (e.g. no database), it falls back to local demo state.
+ * `POST /api/attendance/check-in` / `check-out`; API failures surface as
+ * errors — no local demo state.
  */
 export function CheckInCard({
   initial,
@@ -137,27 +137,13 @@ export function CheckInCard({
         }),
       );
     } catch {
-      if (apiError) {
-        setError(apiError);
-        return;
-      }
-      // Fallback: demo state so the UI stays usable without a database.
-      const at = nowTime();
-      setRecord({
-        employeeId: initial?.employeeId ?? "",
-        date: todayIso(),
-        checkIn: at,
-        checkOut: "",
-        hours: 0,
-        status: "present",
-      });
-      setNotice(
-        `${t("attendance.checkedInAt", { time: at })} ${t("attendance.demoSuffix")}`,
-      );
+      // No local demo fallback — surface the failure so the user knows the
+      // check-in was not recorded.
+      setError(apiError ?? t("common.networkError"));
     } finally {
       setBusy(false);
     }
-  }, [initial, t]);
+  }, [t]);
 
   const checkOut = useCallback(async () => {
     setBusy(true);
@@ -185,22 +171,9 @@ export function CheckInCard({
         }),
       );
     } catch {
-      if (apiError) {
-        setError(apiError);
-        return;
-      }
-      // Fallback: demo state when the API is unreachable.
-      const at = nowTime();
-      setRecord((current) => {
-        if (!current?.checkIn) return current;
-        const [ih, im] = current.checkIn.split(":").map(Number);
-        const [oh, om] = at.split(":").map(Number);
-        const hours = Math.round((oh + om / 60 - (ih + im / 60)) * 10) / 10;
-        return { ...current, checkOut: at, hours: Math.max(0, hours) };
-      });
-      setNotice(
-        `${t("attendance.checkedOutAt", { time: at })} ${t("attendance.demoSuffix")}`,
-      );
+      // No local demo fallback — surface the failure so the user knows the
+      // check-out was not recorded.
+      setError(apiError ?? t("common.networkError"));
     } finally {
       setBusy(false);
     }

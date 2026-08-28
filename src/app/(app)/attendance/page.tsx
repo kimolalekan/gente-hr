@@ -470,7 +470,11 @@ export default async function AttendancePage({
                   >
                     <div
                       className="w-full max-w-8 rounded-md bg-primary/80"
-                      style={{ height: `${day.presentPct}%` }}
+                      style={{
+                        // Explicit px: the column is content-sized (`items-end`),
+                        // so a % height has no definite parent and collapses to 0.
+                        height: `${Math.max(4, Math.round((day.presentPct / 100) * 100))}px`,
+                      }}
                       title={t("attendance.percentPresent", {
                         pct: day.presentPct,
                       })}

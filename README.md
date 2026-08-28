@@ -7,6 +7,12 @@ A complete HR management system for companies of any size. One installation serv
 
 ---
 
+## Demo
+
+<img src="./screenshot1.png" />
+<br />
+<img src="./screenshot2.png" />
+
 ## What It Does
 
 Manage your entire people workflow in one place:
