@@ -1,9 +1,9 @@
 {
-  "name": "gente",
+  "name": "gente-hr",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "Gente HR, simple multi tenant HR management system",
+  "description": "A complete HR management system for companies of any size. One installation serves multiple companies with their own branding, language, and settings.",
   "scripts": {
     "dev": "next dev -p 4001",
     "build": "next build",
