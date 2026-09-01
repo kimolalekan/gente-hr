@@ -138,9 +138,6 @@ export function EmployeeDirectory({
                 <th className="hidden px-4 py-3 font-medium md:table-cell">
                   {t("employees.department")}
                 </th>
-                <th className="hidden px-4 py-3 font-medium lg:table-cell">
-                  {t("employees.location")}
-                </th>
                 <th className="px-4 py-3 font-medium">{t("common.status")}</th>
                 <th className="px-4 py-3 text-right font-medium">
                   {t("common.actions")}
@@ -173,9 +170,6 @@ export function EmployeeDirectory({
                     </td>
                     <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                       {employee.department ?? "—"}
-                    </td>
-                    <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
-                      {formatAddress(employee.address) || "—"}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={status.variant}>

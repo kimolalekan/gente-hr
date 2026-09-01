@@ -1,25 +1,29 @@
-# Dependencies / build output
+# ── Dependencies / build output ──────────────────────────────
 node_modules
 .next
+out
+build
 *.tsbuildinfo
+.pnpm-store
 
-# Git & CI
+# ── Git / CI ─────────────────────────────────────────────────
 .git
+.gitignore
 .github
 
-# Local environment & secrets
+# ── Environment & secrets ────────────────────────────────────
+# Never bake local env files into the image; keep the example only.
 .env
 .env.*
 !.env.example
 
-# Tests / tooling output
+# ── Tests / tooling ──────────────────────────────────────────
+e2e
 playwright-report
 test-results
 coverage
+.eslintcache
 
-# Misc
-.DS_Store
+# ── Logs / OS ────────────────────────────────────────────────
 *.log
-Dockerfile
-.dockerignore
-docker-compose.yml
+.DS_Store

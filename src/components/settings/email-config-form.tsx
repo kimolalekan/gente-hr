@@ -23,7 +23,8 @@ export interface CredentialField {
   key: string;
   label: string;
   labelKey?: TranslationKey;
-  type?: "password" | "text";
+  /** "boolean" renders a toggle switch (value stored as "true" | "false"). */
+  type?: "password" | "text" | "boolean";
   placeholder?: string;
   required?: boolean;
   hint?: string;
@@ -157,6 +158,53 @@ export const PROVIDERS: ProviderDef[] = [
     ],
   },
   {
+    value: "smtp",
+    label: "SMTP — direct server delivery",
+    labelKey: "settings.email.providers.smtp.label",
+    description:
+      "Send through any SMTP server — Gmail, Outlook, or your own relay.",
+    descriptionKey: "settings.email.providers.smtp.description",
+    credentials: [
+      {
+        key: "host",
+        label: "Host",
+        labelKey: "settings.email.providers.smtp.credentials.host.label",
+        placeholder: "smtp.example.com",
+        required: true,
+      },
+      {
+        key: "port",
+        label: "Port",
+        labelKey: "settings.email.providers.smtp.credentials.port.label",
+        placeholder: "587",
+        required: true,
+      },
+      {
+        key: "username",
+        label: "Username",
+        labelKey: "settings.email.providers.smtp.credentials.username.label",
+        placeholder: "user@example.com",
+        required: true,
+      },
+      {
+        key: "password",
+        label: "Password",
+        labelKey: "settings.email.providers.smtp.credentials.password.label",
+        type: "password",
+        placeholder: "••••••••",
+        required: true,
+      },
+      {
+        key: "secure",
+        label: "Secure connection (TLS)",
+        labelKey: "settings.email.providers.smtp.credentials.secure.label",
+        type: "boolean",
+        hint: "Use SSL/TLS from the start (port 465); leave off for STARTTLS on 587.",
+        hintKey: "settings.email.providers.smtp.credentials.secure.hint",
+      },
+    ],
+  },
+  {
     value: "console",
     label: "Console — development logging",
     labelKey: "settings.email.providerConsole",
@@ -272,6 +320,16 @@ export function EmailConfigForm({
         [values.provider]: {
           ...current[values.provider],
           [field.key]: event.target.value,
+        },
+      }));
+
+  const updateCredentialBoolean =
+    (field: CredentialField) => (checked: boolean) =>
+      setCredentials((current) => ({
+        ...current,
+        [values.provider]: {
+          ...current[values.provider],
+          [field.key]: String(checked),
         },
       }));
 
@@ -440,17 +498,31 @@ export function EmailConfigForm({
                       </span>
                     )}
                   </Label>
-                  <Input
-                    id={`cred-${field.key}`}
-                    type={field.type ?? "text"}
-                    value={credentials[values.provider][field.key]}
-                    onChange={updateCredential(field)}
-                    placeholder={
-                      initial.credentials[field.key] ?? field.placeholder
-                    }
-                    required={field.required}
-                    autoComplete="off"
-                  />
+                  {field.type === "boolean" ? (
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
+                      <Switch
+                        checked={
+                          credentials[values.provider][field.key] === "true"
+                        }
+                        onCheckedChange={updateCredentialBoolean(field)}
+                        aria-label={
+                          field.labelKey ? t(field.labelKey) : field.label
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <Input
+                      id={`cred-${field.key}`}
+                      type={field.type ?? "text"}
+                      value={credentials[values.provider][field.key]}
+                      onChange={updateCredential(field)}
+                      placeholder={
+                        initial.credentials[field.key] ?? field.placeholder
+                      }
+                      required={field.required}
+                      autoComplete="off"
+                    />
+                  )}
                   {field.hint && (
                     <p className="text-xs text-muted-foreground">
                       {field.hintKey ? t(field.hintKey) : field.hint}

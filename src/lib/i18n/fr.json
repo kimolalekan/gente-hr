@@ -1186,6 +1186,28 @@
               "hint": "Nécessaire uniquement si vous passez par le SMTP de Brevo."
             }
           }
+        },
+        "smtp": {
+          "label": "SMTP — envoi direct via un serveur",
+          "description": "Envoyez via n'importe quel serveur SMTP — Gmail, Outlook ou votre propre relais.",
+          "credentials": {
+            "host": {
+              "label": "Hôte"
+            },
+            "port": {
+              "label": "Port"
+            },
+            "username": {
+              "label": "Nom d'utilisateur"
+            },
+            "password": {
+              "label": "Mot de passe"
+            },
+            "secure": {
+              "label": "Connexion sécurisée (TLS)",
+              "hint": "Utilisez SSL/TLS dès la connexion (port 465) ; désactivé pour STARTTLS sur le 587."
+            }
+          }
         }
       },
       "templateNames": {

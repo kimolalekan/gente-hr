@@ -33,7 +33,7 @@ flowchart TB
     end
 
     subgraph External["External"]
-        Provider["Email provider — Resend / ZeptoMail / Mailgun / Brevo / console"]
+        Provider["Email provider — Resend / ZeptoMail / Mailgun / Brevo / SMTP / console"]
         Inbox["Candidate & employee inboxes"]
     end
 
@@ -240,8 +240,9 @@ takeaways are captured.
 
 A tenant-level email service abstraction (`src/lib/server/email.ts`):
 
-- Providers: **Resend**, **ZeptoMail**, **Mailgun**, **Brevo**, and a
-  **console** provider for development.
+- Providers: **Resend**, **ZeptoMail**, **Mailgun**, **Brevo**, **SMTP**
+  (host/port/username/password, TLS toggle), and a **console** provider for
+  development.
 - Per-provider credential fields stored on the tenant's `email_settings`
   (secrets never returned by the API).
 - Templates: OTP verification, welcome, leave requests/approvals, payslip

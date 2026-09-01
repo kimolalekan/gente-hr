@@ -2,6 +2,7 @@
 
 A complete HR management system for companies of any size. One installation serves multiple companies with their own branding, language, and settings.
 
+[![Version](https://img.shields.io/github/package-json/v/kimolalekan/gente-hr)](https://github.com/kimolalekan/gente-hr/blob/main/package.json)
 [![Docker build](https://github.com/kimolalekan/gente-hr/actions/workflows/docker.yml/badge.svg)](https://github.com/kimolalekan/gente-hr/actions/workflows/docker.yml)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ed?logo=docker&logoColor=white)](https://github.com/kimolalekan/gente-hr/pkgs/container/gente-hr)
 
@@ -63,7 +64,7 @@ Manage your entire people workflow in one place:
 - Linux, macOS, or Windows
 - **Node.js 24+ (LTS)** and **pnpm 11+** installed
 - **PostgreSQL 16+** database
-- **Email API** from zeptomail, mailgun, or resend
+- **Email API** from zeptomail, mailgun, resend, or any SMTP server
 
 ### Installation Steps:
 
@@ -164,7 +165,7 @@ See `docs.md` → Deployment for details.
 
 **Email**
 
-- Configure email provider (Resend, Mailgun, Brevo, etc.)
+- Configure email provider (Resend, Mailgun, Brevo, SMTP, etc.)
 - Test email delivery
 
 **Users**

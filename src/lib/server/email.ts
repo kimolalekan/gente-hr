@@ -6,6 +6,7 @@
  * - zeptomail → Zoho ZeptoMail API (api token)
  * - mailgun   → Mailgun API (key + sending domain)
  * - brevo     → Brevo/Sendinblue API (v3 transactional key)
+ * - smtp      → any SMTP server (host/port/username/password via nodemailer)
  * - console   → development logging (default when no provider/credentials)
  * Any provider failure falls back to the console so callers never hard-fail.
  *
@@ -13,6 +14,7 @@
  * see `email-template.ts`.
  */
 import "server-only";
+import nodemailer from "nodemailer";
 import {
   buildBrandedEmailHtml,
   DEFAULT_EMAIL_COLORS,
@@ -25,7 +27,7 @@ export interface OtpEmailInput {
   expiresInMinutes: number;
   /** Tenant brand shown in the header (logo + org name). */
   branding?: EmailBranding;
-  /** Provider key from the tenant's email settings (resend|zeptomail|mailgun|brevo). */
+  /** Provider key from the tenant's email settings (resend|zeptomail|mailgun|brevo|smtp). */
   provider?: string;
   /** Tenant's saved provider credentials. */
   credentials?: Record<string, string>;
@@ -45,7 +47,7 @@ export interface HtmlEmailInput {
   replyTo?: string | null;
   /** iCalendar invite payload → attached as invite.ics. */
   ics?: string;
-  /** Provider key: resend | zeptomail | mailgun | brevo | console. */
+  /** Provider key: resend | zeptomail | mailgun | brevo | smtp | console. */
   provider?: string;
   /** Tenant's saved provider credentials (apiKey / apiToken / domain …). */
   credentials?: Record<string, string>;
@@ -236,6 +238,40 @@ async function sendViaBrevo(input: HtmlEmailInput): Promise<void> {
   );
 }
 
+/** Send through a raw SMTP server via nodemailer (host/port/username/password). */
+async function sendViaSmtp(input: HtmlEmailInput): Promise<void> {
+  const { host, port, username, password, secure } = input.credentials ?? {};
+  if (!host || !port) {
+    throw new Error("SMTP host and port are required");
+  }
+  const portNumber = Number(port) || 587;
+  const fromName = input.fromName ?? "Gente HR";
+  const fromEmail = input.fromEmail ?? "noreply@gente.dev";
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port: portNumber,
+    // Port 465 is implicit TLS; anything else negotiates STARTTLS.
+    secure: secure === "true" || portNumber === 465,
+    auth: username ? { user: username, pass: password ?? "" } : undefined,
+  });
+  try {
+    await transporter.sendMail({
+      from: `${fromName} <${fromEmail}>`,
+      to: input.to,
+      cc: input.cc?.length ? input.cc : undefined,
+      replyTo: input.replyTo ?? undefined,
+      subject: input.subject,
+      html: input.html,
+      ...(input.ics
+        ? { icalEvent: { filename: "invite.ics", content: input.ics } }
+        : {}),
+    });
+  } finally {
+    transporter.close();
+  }
+}
+
 function sendViaConsole(input: OtpEmailInput): void {
   const branding = input.branding ?? { name: "Gente HR", logoUrl: null };
   const line = "─".repeat(46);
@@ -282,6 +318,10 @@ export async function sendHtmlEmail(
     if (provider === "brevo") {
       await sendViaBrevo(input);
       return { channel: "email", provider: "brevo" };
+    }
+    if (provider === "smtp") {
+      await sendViaSmtp(input);
+      return { channel: "email", provider: "smtp" };
     }
   } catch (error) {
     console.warn(

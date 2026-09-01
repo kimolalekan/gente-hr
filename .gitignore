@@ -1,26 +1,40 @@
-# dependencies
+# ── Dependencies ─────────────────────────────────────────────
 node_modules/
+.pnpm-store/
 
-# next.js
+# ── Next.js build output ─────────────────────────────────────
 .next/
 out/
 build/
 next-env.d.ts
 
-# env
+# ── Environment & secrets ────────────────────────────────────
+# Local env files — only the .env.example template is committed.
 .env
-.env.local
-.env*.local
+.env.*
+!.env.example
 
-# typescript
+# ── TypeScript ───────────────────────────────────────────────
 *.tsbuildinfo
 
-# playwright
+# ── Testing ──────────────────────────────────────────────────
 /test-results/
 /playwright-report/
 /blob-report/
 /.playwright-browsers/
+coverage/
 
-# misc
+# ── Logs & tooling caches ────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# ── Editor / OS ──────────────────────────────────────────────
 .DS_Store
-.pnpm-store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

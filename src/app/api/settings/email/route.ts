@@ -15,7 +15,14 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PROVIDERS = ["resend", "zeptomail", "mailgun", "brevo", "console"];
+const PROVIDERS = [
+  "resend",
+  "zeptomail",
+  "mailgun",
+  "brevo",
+  "smtp",
+  "console",
+];
 const DEFAULT_SENDER_NAME = "Gente HR";
 const DEFAULT_SENDER_EMAIL = "noreply@gente.dev";
 const DEFAULT_BATCH_LIMIT = 200;
@@ -25,10 +32,14 @@ function maskCredentials(
 ): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(credentials)) {
+    // Boolean toggles (e.g. SMTP `secure`) aren't secrets — keep them intact
+    // so the settings form can render the switch correctly.
     out[key] =
-      typeof value === "string" && value.length > 4
-        ? `••••••${value.slice(-4)}`
-        : "••••••";
+      value === "true" || value === "false"
+        ? value
+        : typeof value === "string" && value.length > 4
+          ? `••••••${value.slice(-4)}`
+          : "••••••";
   }
   return out;
 }

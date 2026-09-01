@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { CURRENCY_OPTIONS, getCurrencyMeta } from "@/lib/currencies";
 import {
   DEFAULT_TENANT_THEME,
@@ -221,6 +222,13 @@ export function SetupWizard() {
       setCredentials((current) => ({
         ...current,
         [provider]: { ...current[provider], [field.key]: event.target.value },
+      }));
+
+  const updateCredentialBoolean =
+    (field: CredentialField) => (checked: boolean) =>
+      setCredentials((current) => ({
+        ...current,
+        [provider]: { ...current[provider], [field.key]: String(checked) },
       }));
 
   /* --------------------------------- done --------------------------------- */
@@ -522,15 +530,25 @@ export function SetupWizard() {
                     </span>
                   )}
                 </Label>
-                <Input
-                  id={`setup-cred-${field.key}`}
-                  type={field.type ?? "text"}
-                  value={credentials[provider][field.key]}
-                  onChange={updateCredential(field)}
-                  placeholder={field.placeholder}
-                  required={field.required}
-                  autoComplete="off"
-                />
+                {field.type === "boolean" ? (
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
+                    <Switch
+                      checked={credentials[provider][field.key] === "true"}
+                      onCheckedChange={updateCredentialBoolean(field)}
+                      aria-label={field.label}
+                    />
+                  </div>
+                ) : (
+                  <Input
+                    id={`setup-cred-${field.key}`}
+                    type={field.type ?? "text"}
+                    value={credentials[provider][field.key]}
+                    onChange={updateCredential(field)}
+                    placeholder={field.placeholder}
+                    required={field.required}
+                    autoComplete="off"
+                  />
+                )}
                 {field.hint && (
                   <p className="text-xs text-muted-foreground">{field.hint}</p>
                 )}
