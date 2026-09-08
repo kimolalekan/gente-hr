@@ -277,6 +277,22 @@ export const EMAIL_TEMPLATES: Record<
     subject: "Leave extended",
     body: (colors) => P("Your leave request has been extended.", colors),
   },
+  procurement_approved: {
+    subject: "Procurement request approved",
+    body: (colors) =>
+      P(
+        "Your procurement request has been approved. The winning vendor will be contacted to proceed.",
+        colors,
+      ),
+  },
+  procurement_declined: {
+    subject: "Procurement request declined",
+    body: (colors) =>
+      P(
+        "Your procurement request was declined. Please reach out to your manager if you have questions.",
+        colors,
+      ),
+  },
   onboarding_invite: {
     subject: "Complete your onboarding at {org}",
     body: (colors) =>

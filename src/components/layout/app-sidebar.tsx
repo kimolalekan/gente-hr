@@ -12,6 +12,7 @@ import {
   LogIn,
   LogOut,
   Settings,
+  ShoppingCart,
   Star,
   UserRound,
   Users,
@@ -60,6 +61,12 @@ const NAV: NavItem[] = [
   { id: "payroll", labelKey: "nav.payroll", icon: Wallet, href: "/payroll" },
   { id: "leave", labelKey: "nav.leave", icon: CalendarDays, href: "/leave" },
   {
+    id: "procurement",
+    labelKey: "nav.procurement",
+    icon: ShoppingCart,
+    href: "/procurements",
+  },
+  {
     id: "performance",
     labelKey: "nav.performance",
     icon: Star,
@@ -89,6 +96,7 @@ const ROLE_NAV_IDS: Record<SessionUser["role"], string[]> = {
     "attendance",
     "payroll",
     "leave",
+    "procurement",
     "performance",
     "onboarding",
     "offboarding",
@@ -101,12 +109,20 @@ const ROLE_NAV_IDS: Record<SessionUser["role"], string[]> = {
     "attendance",
     "payroll",
     "leave",
+    "procurement",
     "performance",
     "onboarding",
     "offboarding",
     "reports",
   ],
-  member: ["overview", "attendance", "leave", "payroll", "performance"],
+  member: [
+    "overview",
+    "attendance",
+    "leave",
+    "procurement",
+    "payroll",
+    "performance",
+  ],
 };
 
 function isActive(pathname: string, href: string): boolean {

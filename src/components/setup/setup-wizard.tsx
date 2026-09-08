@@ -300,7 +300,7 @@ export function SetupWizard() {
   const themeName =
     draft.themeId === "custom"
       ? t("setup.customTheme")
-      : (getPredefinedTheme(draft.themeId)?.name ?? "Default Blue");
+      : (getPredefinedTheme(draft.themeId)?.name ?? "Royal Purple");
 
   const selectedLanguageKey = LANGUAGES.find(
     (item) => item.value === language,

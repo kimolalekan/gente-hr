@@ -45,7 +45,8 @@ export interface TenantTheme {
 }
 
 export const DEFAULT_TENANT_THEME: TenantTheme = {
-  themeId: "default",
+  // Royal Purple is the out-of-the-box theme for new workspaces.
+  themeId: "purple",
   mode: "system",
 };
 
@@ -88,9 +89,13 @@ export function normalizeHex(value: string): string | null {
  * Resolve the full light/dark palette for a tenant theme. Custom themes merge
  * the user's hex values over the default palette and apply to both modes.
  */
+/** Palette used when a theme id can't be resolved (e.g. custom themes with
+ * only a few overrides) — the stock default theme's palette. */
 export function resolvePalette(theme: TenantTheme): ThemePaletteMap {
   const base =
-    getPredefinedTheme(theme.themeId)?.palette ?? PREDEFINED_THEMES[0].palette;
+    getPredefinedTheme(theme.themeId)?.palette ??
+    getPredefinedTheme(DEFAULT_TENANT_THEME.themeId)?.palette ??
+    PREDEFINED_THEMES[0].palette;
   if (theme.themeId !== "custom") return base;
 
   const light: ThemePalette = { ...base.light };
@@ -127,7 +132,9 @@ export function resolveEffectiveMode(
 export function sanitizeThemeConfig(input: unknown): TenantTheme {
   const raw = (input ?? {}) as Record<string, unknown>;
 
-  const themeId: ThemeId = isThemeId(raw.themeId) ? raw.themeId : "default";
+  const themeId: ThemeId = isThemeId(raw.themeId)
+    ? raw.themeId
+    : DEFAULT_TENANT_THEME.themeId;
   const mode: ThemeMode = isThemeMode(raw.mode) ? raw.mode : "system";
 
   const custom: Partial<Record<ThemeVar, string>> = {};

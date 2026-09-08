@@ -45,6 +45,7 @@ import {
   payrollRuns,
   payslips,
   performanceTemplates,
+  procurementRequests,
   quizzes,
   reviewCycles,
   reviews,
@@ -2138,6 +2139,67 @@ async function main() {
     ])
     .onConflictDoNothing({ target: loans.id });
   console.log("  ✓ loans (2)");
+
+  /* ---- Procurement ------------------------------------------------------ */
+  await db
+    .insert(procurementRequests)
+    .values([
+      {
+        // Pending — Marco Rossi requested new design-monitor quotes.
+        id: "00000000-0000-0000-0000-000000000901",
+        tenantId,
+        title: "Design team monitors",
+        description:
+          "Replacing three ageing monitors for the design team. Comparing two quotes before purchase.",
+        vendors: [
+          { id: "v1", name: "OfficeTech Supplies", amount: 1450 },
+          { id: "v2", name: "Workplace Direct", amount: 1320 },
+        ],
+        approvedVendorIndex: null,
+        status: "PENDING",
+        requestedById: "00000000-0000-0000-0000-000000000102", // Marco Rossi
+        approvedById: null,
+        createdAt: new Date("2026-08-28T09:15:00.000Z"),
+      },
+      {
+        // Approved — Priya Sharma requested an offsite venue, awarded to v2.
+        id: "00000000-0000-0000-0000-000000000902",
+        tenantId,
+        title: "Quarterly offsite venue",
+        description:
+          "Venue for the Q3 all-hands offsite (~40 people, full day).",
+        vendors: [
+          { id: "v1", name: "The Riverside Loft", amount: 4800 },
+          { id: "v2", name: "Skyline Conference Centre", amount: 3950 },
+          { id: "v3", name: "Harbour House Events", amount: 5100 },
+        ],
+        approvedVendorIndex: 1,
+        status: "APPROVED",
+        requestedById: "00000000-0000-0000-0000-000000000101", // Priya Sharma
+        approvedById: adminUserId,
+        createdAt: new Date("2026-08-10T10:00:00.000Z"),
+        updatedAt: new Date("2026-08-12T14:30:00.000Z"),
+      },
+      {
+        // Declined — Aisha Bello's software proposal was turned down.
+        id: "00000000-0000-0000-0000-000000000903",
+        tenantId,
+        title: "Project-management software licence",
+        description: "Annual licence for a team-wide project-management tool.",
+        vendors: [
+          { id: "v1", name: "TaskFlow Inc.", amount: 7200 },
+          { id: "v2", name: "PlaniSoft", amount: 8600 },
+        ],
+        approvedVendorIndex: null,
+        status: "DECLINED",
+        requestedById: "00000000-0000-0000-0000-000000000112", // Aisha Bello
+        approvedById: hrUserId,
+        createdAt: new Date("2026-08-05T08:00:00.000Z"),
+        updatedAt: new Date("2026-08-06T11:45:00.000Z"),
+      },
+    ])
+    .onConflictDoNothing({ target: procurementRequests.id });
+  console.log("  ✓ procurement (3)");
 
   /* ---- Audit + email logs ------------------------------------------------ */
   await db

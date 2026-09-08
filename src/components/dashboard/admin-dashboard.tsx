@@ -39,7 +39,7 @@ export async function AdminDashboard({
   const themeName =
     theme.themeId === "custom"
       ? t("settings.branding.customTheme")
-      : (getPredefinedTheme(theme.themeId)?.name ?? "Default Blue");
+      : (getPredefinedTheme(theme.themeId)?.name ?? "Royal Purple");
 
   const stats: Stat[] = [
     {

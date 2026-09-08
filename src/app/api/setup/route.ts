@@ -9,7 +9,11 @@ import {
   recordEmail,
   route,
 } from "@/lib/server/api";
-import { sanitizeThemeConfig, type TenantTheme } from "@/lib/theme-config";
+import {
+  sanitizeThemeConfig,
+  DEFAULT_TENANT_THEME,
+  type TenantTheme,
+} from "@/lib/theme-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,7 +87,7 @@ export const POST = route(async (request: Request) => {
       }
 
       // (c) Tenant row: theme sanitized + defaults merged, settings from org.
-      const themeDefaults: TenantTheme = { themeId: "default", mode: "system" };
+      const themeDefaults: TenantTheme = { ...DEFAULT_TENANT_THEME };
       const rawTheme = {
         ...(theme && typeof theme === "object"
           ? (theme as Record<string, unknown>)

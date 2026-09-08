@@ -13,6 +13,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import type { TenantTheme, ThemeMode } from "../src/lib/theme-config";
+import type { ProcurementVendor } from "../src/lib/procurement";
 
 /**
  * Full Gente HR schema — every tenant-scoped table carries `tenant_id` so
@@ -45,7 +46,7 @@ export const tenants = pgTable("tenants", {
   themeConfig: jsonb("theme_config")
     .$type<TenantTheme>()
     .notNull()
-    .default({ themeId: "default", mode: "system" }),
+    .default({ themeId: "purple", mode: "system" }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -843,6 +844,45 @@ export const payslips = pgTable(
 );
 
 /* ------------------------------------------------------------------ */
+/* Procurement                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Procurement requests. Requesters list competing vendor quotes (stored as a
+ * JSONB array — the request row carries the full vendor list); an admin/HR
+ * approver awards the request to one vendor via `approvedVendorIndex`.
+ * Status values are stored uppercase per the API contract:
+ * PENDING → APPROVED | DECLINED.
+ */
+export const procurementRequests = pgTable(
+  "procurement_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    vendors: jsonb("vendors").$type<ProcurementVendor[]>().notNull(),
+    approvedVendorIndex: integer("approved_vendor_index"),
+    status: text("status").notNull().default("PENDING"), // PENDING | APPROVED | DECLINED
+    requestedById: uuid("requested_by_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "restrict" }),
+    approvedById: uuid("approved_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("procurement_requests_tenant_idx").on(table.tenantId)],
+);
+
+/* ------------------------------------------------------------------ */
 /* Notifications                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -985,3 +1025,4 @@ export type AuditLog = typeof auditLogs.$inferSelect;
 export type EmailSetting = typeof emailSettings.$inferSelect;
 export type FileRecord = typeof files.$inferSelect;
 export type PerformanceTemplate = typeof performanceTemplates.$inferSelect;
+export type ProcurementRequestRow = typeof procurementRequests.$inferSelect;

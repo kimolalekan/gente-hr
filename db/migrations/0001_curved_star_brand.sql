@@ -1,0 +1,1 @@
+ALTER TABLE "tenants" ALTER COLUMN "theme_config" SET DEFAULT '{"themeId":"purple","mode":"system"}'::jsonb;
