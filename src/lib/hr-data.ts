@@ -513,10 +513,19 @@ export const AUDIT_CATEGORY_LABELS: Record<AuditLog["category"], string> = {
 /* Formatters                                                          */
 /* ------------------------------------------------------------------ */
 
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
+/**
+ * Format an amount (whole currency units) in the given ISO 4217 currency
+ * code. Callers must pass the tenant's currency (`getTenantCurrency()` on the
+ * server, or a prop for client components) — no hardcoded currency.
+ */
+export function formatCurrency(
+  value: number,
+  currency: string,
+  locale = "en-US",
+): string {
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "USD",
+    currency,
     maximumFractionDigits: 0,
   }).format(value);
 }

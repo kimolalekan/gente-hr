@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import type { Employee, EmployeeStatus } from "@/lib/hr-data";
 import {
-  formatCurrency,
+  formatCurrency as formatMoney,
   mergeSalaryBreakdown,
   salaryGross,
   SALARY_KEYS,
@@ -133,6 +133,7 @@ export function EmployeeEditForm({
   managerOptions,
   departments,
   payrollBreakdown,
+  currency,
 }: {
   employee: EditableEmployee;
   /** Full employee list — used to resolve the manager picker. */
@@ -141,9 +142,11 @@ export function EmployeeEditForm({
   departments: string[];
   /** Configured payslip breakdown — drives the salary breakdown inputs. */
   payrollBreakdown: PayrollBreakdown;
+  currency: string;
 }) {
   const router = useRouter();
   const { t } = useTranslations();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

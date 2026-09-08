@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency, type Loan } from "@/lib/hr-data";
+import { formatCurrency as formatMoney, type Loan } from "@/lib/hr-data";
 import { useTranslations } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/types";
 
@@ -38,13 +38,16 @@ export function MyLoans({
   initialLoans,
   from,
   to,
+  currency,
 }: {
   employeeId: string;
   initialLoans: Loan[];
   from: string;
   to: string;
+  currency: string;
 }) {
   const { t } = useTranslations();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
   const [loans, setLoans] = useState(initialLoans);
   const [open, setOpen] = useState(false);
 
@@ -164,7 +167,7 @@ export function MyLoans({
                         </td>
                         <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                           {loan.status === "paid"
-                            ? "$0"
+                            ? formatCurrency(0)
                             : formatCurrency(remaining)}
                         </td>
                         <td className="px-4 py-3">
@@ -195,6 +198,7 @@ export function MyLoans({
         open={open}
         onClose={() => setOpen(false)}
         employeeId={employeeId}
+        currency={currency}
         onCreated={(loan) => setLoans((current) => [loan, ...current])}
       />
     </>

@@ -18,9 +18,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency, formatDate } from "@/lib/hr-data";
+import { formatCurrency as formatMoney, formatDate } from "@/lib/hr-data";
 import { getCurrentUser } from "@/lib/server/auth";
-import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import {
+  getTenantCurrency,
+  getTenantLocale,
+  getTranslator,
+} from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
 import dayjs from "dayjs";
@@ -125,6 +129,8 @@ async function MyPayroll({
   employeeName?: string;
 }) {
   const t = await getTranslator();
+  const currency = await getTenantCurrency();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
   const latest = payslips[0];
   const current = latest?.period;
   const periodCount = current
@@ -279,7 +285,9 @@ async function MyPayroll({
 export default async function PayrollPage() {
   const user = await getCurrentUser();
   const t = await getTranslator();
+  const currency = await getTenantCurrency();
   const locale = await getTenantLocale();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
   if (user?.role === "member") {
     const [employee, payslips, loans] = await Promise.all([
       apiGet<MeEmployee>("/api/employees/me").catch(() => null),
@@ -319,7 +327,7 @@ export default async function PayrollPage() {
         title={t("payroll.title")}
         description={t("payroll.description")}
       >
-        <RunPayrollButton preview={previewProps} />
+        <RunPayrollButton preview={previewProps} currency={currency} />
       </PageHeader>
 
       <div className="flex flex-wrap gap-2">

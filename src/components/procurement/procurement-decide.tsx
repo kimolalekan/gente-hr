@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/hr-data";
+import { formatCurrency as formatMoney } from "@/lib/hr-data";
 import type { ProcurementVendor } from "@/lib/procurement";
 import { useTranslations } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -25,12 +25,15 @@ export function ProcurementDecide({
   id,
   vendors,
   status,
+  currency,
 }: {
   id: string;
   vendors: ProcurementVendor[];
   status: string;
+  currency: string;
 }) {
   const { t } = useTranslations();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
   const router = useRouter();
   const [selected, setSelected] = useState<number | null>(null);
   const [busy, setBusy] = useState<"approve" | "decline" | null>(null);

@@ -23,9 +23,13 @@ import {
 } from "@/components/ui/card";
 import { apiGet } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
-import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import {
+  getTenantCurrency,
+  getTenantLocale,
+  getTranslator,
+} from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
-import { formatCurrency } from "@/lib/hr-data";
+import { formatCurrency as formatMoney } from "@/lib/hr-data";
 import { parseRange } from "@/lib/report-dates";
 import { cn } from "@/lib/utils";
 
@@ -68,7 +72,9 @@ export default async function ReportsPage({
   if (user?.role === "member") redirect("/");
 
   const locale = await getTenantLocale();
+  const currency = await getTenantCurrency();
   const t = await getTranslator();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
 
   const { from: fromParam, to: toParam } = await searchParams;
   const { from, to } = parseRange(fromParam, toParam);

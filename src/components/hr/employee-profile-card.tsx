@@ -24,7 +24,7 @@ import { useTranslations } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/types";
 import {
   formatAddress,
-  formatCurrency,
+  formatCurrency as formatMoney,
   formatDate,
   type Employee,
   type EmployeeStatus,
@@ -60,12 +60,15 @@ function tenureYears(joinedAt: string): number {
 export function EmployeeProfileCard({
   employee,
   readOnly = false,
+  currency,
 }: {
   employee: Employee;
   readOnly?: boolean;
+  currency: string;
 }) {
   const locale = useLocale();
   const { t } = useTranslations();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
   const status =
     STATUS_META[employee.status as ProfileStatus] ?? STATUS_META.active;
   const years = tenureYears(employee.joinedAt);

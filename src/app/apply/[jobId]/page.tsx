@@ -42,6 +42,7 @@ interface PublicJob {
   quiz: QuizForCandidate | null;
   status: string;
   company: CompanyInfo | null;
+  currency: string;
 }
 
 export default async function ApplyPage({
@@ -70,13 +71,20 @@ export default async function ApplyPage({
       quiz: null,
       status: "closed",
       company: null,
+      currency: "",
     };
   }
 
   const salaryRange =
     job.salaryMin != null || job.salaryMax != null
-      ? `${job.salaryMin != null ? formatCurrency(job.salaryMin) : "—"} – ${
-          job.salaryMax != null ? formatCurrency(job.salaryMax) : "—"
+      ? `${
+          job.salaryMin != null
+            ? formatCurrency(job.salaryMin, job.currency)
+            : "—"
+        } – ${
+          job.salaryMax != null
+            ? formatCurrency(job.salaryMax, job.currency)
+            : "—"
         }`
       : null;
 

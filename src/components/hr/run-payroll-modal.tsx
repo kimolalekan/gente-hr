@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
-import { formatCurrency } from "@/lib/hr-data";
+import { formatCurrency as formatMoney } from "@/lib/hr-data";
 import { useTranslations } from "@/lib/i18n/provider";
 
 export interface PayrollPreview {
@@ -25,8 +25,15 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * loans) and asks for an email to send the payroll PDF to. Submits to
  * `POST /api/payroll/runs` and refreshes the runs list on success.
  */
-export function RunPayrollButton({ preview }: { preview: PayrollPreview }) {
+export function RunPayrollButton({
+  preview,
+  currency,
+}: {
+  preview: PayrollPreview;
+  currency: string;
+}) {
   const { t } = useTranslations();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");

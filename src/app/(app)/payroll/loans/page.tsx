@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  formatCurrency,
+  formatCurrency as formatMoney,
   type Loan,
   type LoanStatus,
   type LoanType,
@@ -22,7 +22,7 @@ import {
 import { parseRange } from "@/lib/report-dates";
 import { getCurrentUser } from "@/lib/server/auth";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
-import { getTranslator } from "@/lib/server/i18n";
+import { getTenantCurrency, getTranslator } from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
 
 export async function generateMetadata() {
@@ -104,6 +104,8 @@ export default async function LoansPage({
   const user = await getCurrentUser();
   const isMember = user?.role === "member";
   const t = await getTranslator();
+  const currency = await getTenantCurrency();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
 
   const { from: fromParam, to: toParam } = await searchParams;
   const { from, to } = parseRange(fromParam, toParam);
@@ -125,6 +127,7 @@ export default async function LoansPage({
         initialLoans={loans.map(toLoan)}
         from={from}
         to={to}
+        currency={currency}
       />
     );
   }
@@ -244,7 +247,7 @@ export default async function LoansPage({
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                         {loan.status === "paid"
-                          ? "$0"
+                          ? formatCurrency(0)
                           : formatCurrency(remaining)}
                       </td>
                       <td className="px-4 py-3">

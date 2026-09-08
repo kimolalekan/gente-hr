@@ -9,7 +9,7 @@ import {
   type Paginated,
 } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
-import { getTranslator } from "@/lib/server/i18n";
+import { getTenantCurrency, getTranslator } from "@/lib/server/i18n";
 import type { Employee, PayrollBreakdown } from "@/lib/hr-data";
 
 export async function generateMetadata() {
@@ -30,6 +30,7 @@ export default async function EditEmployeePage({
   // through their profile instead.
   const user = await getCurrentUser();
   if (!user || user.role === "member") redirect("/");
+  const currency = await getTenantCurrency();
 
   let employee: EditableEmployee;
   try {
@@ -55,6 +56,7 @@ export default async function EditEmployeePage({
       managerOptions={managerPage.items}
       departments={departmentPage.items.map((item) => item.name)}
       payrollBreakdown={payrollBreakdown}
+      currency={currency}
     />
   );
 }

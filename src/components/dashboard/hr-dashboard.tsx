@@ -18,8 +18,8 @@ import {
   type Stat,
 } from "@/components/dashboard/dashboard-shared";
 import type { SessionUser } from "@/lib/server/auth";
-import { getTranslator } from "@/lib/server/i18n";
-import { formatCurrency } from "@/lib/hr-data";
+import { getTenantCurrency, getTranslator } from "@/lib/server/i18n";
+import { formatCurrency as formatMoney } from "@/lib/hr-data";
 
 /**
  * HR dashboard: full operational view (employees, leave, attendance, payroll,
@@ -38,6 +38,8 @@ export async function HrDashboard({
   recentEmployees: RecentEmployee[];
 }) {
   const t = await getTranslator();
+  const currency = await getTenantCurrency();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
   const stats: Stat[] = [
     {
       label: t("dashboard.totalEmployees"),

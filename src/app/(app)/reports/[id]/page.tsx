@@ -13,8 +13,12 @@ import {
 } from "@/components/ui/card";
 import { ApiClientError, apiGet } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
-import { formatCurrency } from "@/lib/hr-data";
-import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import { formatCurrency as formatMoney } from "@/lib/hr-data";
+import {
+  getTenantCurrency,
+  getTenantLocale,
+  getTranslator,
+} from "@/lib/server/i18n";
 import { parseRange } from "@/lib/report-dates";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +40,7 @@ function formatCell(
   key: string,
   reportId: string,
   locale: string,
+  currency: string,
 ): string {
   if (value === null || value === undefined) return "—";
   if (/date/i.test(key) && typeof value === "string") {
@@ -49,7 +54,7 @@ function formatCell(
     }
   }
   if (reportId === "payroll" && key === "total" && typeof value === "number") {
-    return formatCurrency(value);
+    return formatMoney(value, currency);
   }
   return String(value);
 }
@@ -76,6 +81,7 @@ export default async function ReportDetailPage({
   if (user?.role === "member") redirect("/");
 
   const locale = await getTenantLocale();
+  const currency = await getTenantCurrency();
   const t = await getTranslator();
 
   let data: ReportDetail;
@@ -133,7 +139,7 @@ export default async function ReportDetailPage({
                 {humanizeKey(key)}
               </p>
               <p className="mt-1 text-2xl font-bold">
-                {formatCell(value, key, report.id, locale)}
+                {formatCell(value, key, report.id, locale, currency)}
               </p>
             </CardContent>
           </Card>
@@ -184,7 +190,13 @@ export default async function ReportDetailPage({
                           key={column}
                           className="py-3 pr-4 text-muted-foreground last:text-right"
                         >
-                          {formatCell(row[column], column, report.id, locale)}
+                          {formatCell(
+                            row[column],
+                            column,
+                            report.id,
+                            locale,
+                            currency,
+                          )}
                         </td>
                       ))}
                     </tr>

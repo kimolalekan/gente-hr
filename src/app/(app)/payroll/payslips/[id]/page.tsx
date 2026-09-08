@@ -11,10 +11,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/hr-data";
+import { formatCurrency as formatMoney } from "@/lib/hr-data";
 import { getCurrentUser } from "@/lib/server/auth";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
-import { getTranslator } from "@/lib/server/i18n";
+import { getTenantCurrency, getTranslator } from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +64,8 @@ export default async function PayslipDetailPage({
   if (!payslip) notFound();
 
   const t = await getTranslator();
+  const currency = await getTenantCurrency();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
 
   // Employees can only open their own payslips (the API also enforces this).
   if (user?.role === "member") {

@@ -17,14 +17,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  formatCurrency,
+  formatCurrency as formatMoney,
   formatDate,
   type LoanStatus,
   type LoanType,
 } from "@/lib/hr-data";
 import { getCurrentUser } from "@/lib/server/auth";
 import { apiGet } from "@/lib/server/api-client";
-import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import {
+  getTenantCurrency,
+  getTenantLocale,
+  getTranslator,
+} from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
 
 export async function generateMetadata() {
@@ -91,7 +95,9 @@ export default async function LoanDetailPage({
   if (!loan) notFound();
 
   const t = await getTranslator();
+  const currency = await getTenantCurrency();
   const locale = await getTenantLocale();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
 
   // Employees can only open their own loans (the API also enforces this).
   if (user?.role === "member") {
@@ -195,7 +201,9 @@ export default async function LoanDetailPage({
               {t("payroll.loans.outstandingShort")}
             </p>
             <p className="mt-1 text-2xl font-bold text-primary">
-              {loan.status === "paid" ? "$0" : formatCurrency(remaining)}
+              {loan.status === "paid"
+                ? formatCurrency(0)
+                : formatCurrency(remaining)}
             </p>
           </CardContent>
         </Card>

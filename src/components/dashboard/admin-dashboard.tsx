@@ -19,9 +19,9 @@ import {
 } from "@/components/dashboard/dashboard-shared";
 import type { SessionUser } from "@/lib/server/auth";
 import { getTenantTheme } from "@/lib/server/theme-store";
-import { getTranslator } from "@/lib/server/i18n";
+import { getTenantCurrency, getTranslator } from "@/lib/server/i18n";
 import { getPredefinedTheme } from "@/lib/theme-config";
-import { formatCurrency } from "@/lib/hr-data";
+import { formatCurrency as formatMoney } from "@/lib/hr-data";
 
 export async function AdminDashboard({
   user,
@@ -35,7 +35,9 @@ export async function AdminDashboard({
   recentEmployees: RecentEmployee[];
 }) {
   const theme = await getTenantTheme();
+  const currency = await getTenantCurrency();
   const t = await getTranslator();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
   const themeName =
     theme.themeId === "custom"
       ? t("settings.branding.customTheme")

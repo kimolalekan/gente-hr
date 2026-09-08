@@ -11,7 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmployeeProfileCard } from "@/components/hr/employee-profile-card";
 import { getCurrentUser } from "@/lib/server/auth";
-import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import {
+  getTenantCurrency,
+  getTenantLocale,
+  getTranslator,
+} from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
 import {
   apiGet,
@@ -19,7 +23,7 @@ import {
   type Paginated,
 } from "@/lib/server/api-client";
 import {
-  formatCurrency,
+  formatCurrency as formatMoney,
   formatDate,
   type AttendanceStatus,
   type Employee,
@@ -135,7 +139,9 @@ export default async function EmployeeDetailPage({
 }) {
   const { id } = await params;
   const locale = await getTenantLocale();
+  const currency = await getTenantCurrency();
   const t = await getTranslator();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
 
   // Employees only see their own profile — the directory is admin/HR.
   const user = await getCurrentUser();
@@ -220,6 +226,7 @@ export default async function EmployeeDetailPage({
       <EmployeeProfileCard
         employee={employee}
         readOnly={user?.role === "member"}
+        currency={currency}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

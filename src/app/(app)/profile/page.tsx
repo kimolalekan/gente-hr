@@ -12,7 +12,11 @@ import { EmployeeProfileCard } from "@/components/hr/employee-profile-card";
 import { ApiClientError, apiGet } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
 import { formatDate, type Employee } from "@/lib/hr-data";
-import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import {
+  getTenantCurrency,
+  getTenantLocale,
+  getTranslator,
+} from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
 
 export async function generateMetadata() {
@@ -60,6 +64,7 @@ export default async function ProfilePage() {
   if (user.role !== "member") redirect("/");
 
   const locale = await getTenantLocale();
+  const currency = await getTenantCurrency();
   const t = await getTranslator();
 
   let me: MyEmployee;
@@ -115,7 +120,7 @@ export default async function ProfilePage() {
 
   return (
     <>
-      <EmployeeProfileCard employee={employee} readOnly />
+      <EmployeeProfileCard employee={employee} readOnly currency={currency} />
 
       <Card>
         <CardHeader>

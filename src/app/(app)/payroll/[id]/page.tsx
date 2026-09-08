@@ -11,10 +11,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatCurrency, formatDate } from "@/lib/hr-data";
+import { formatCurrency as formatMoney, formatDate } from "@/lib/hr-data";
 import { getCurrentUser } from "@/lib/server/auth";
 import { apiGet } from "@/lib/server/api-client";
-import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import {
+  getTenantCurrency,
+  getTenantLocale,
+  getTranslator,
+} from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
 
 export async function generateMetadata() {
@@ -61,7 +65,9 @@ export default async function PayrollRunPage({
   if (!run) notFound();
 
   const t = await getTranslator();
+  const currency = await getTenantCurrency();
   const locale = await getTenantLocale();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
 
   const { entries, totals } = run;
   const byDepartment = entries.reduce<

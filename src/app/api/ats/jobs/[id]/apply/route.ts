@@ -34,6 +34,7 @@ export const GET = route(
           status: jobs.status,
           companyName: tenants.name,
           companySettings: tenants.settings,
+          currency: tenants.currency,
         })
         .from(jobs)
         .innerJoin(tenants, eq(jobs.tenantId, tenants.id))
@@ -63,6 +64,7 @@ export const GET = route(
         questions: job.questions ?? [],
         quiz: quiz ? quizForCandidate(quiz) : null,
         status: job.status,
+        currency: job.currency,
         company: {
           name: job.companyName,
           website: typeof settings.website === "string" ? settings.website : "",

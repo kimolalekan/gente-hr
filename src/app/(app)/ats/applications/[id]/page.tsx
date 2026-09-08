@@ -25,10 +25,14 @@ import {
 } from "@/components/ui/card";
 import { ApiClientError, apiGet } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
-import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import {
+  getTenantCurrency,
+  getTenantLocale,
+  getTranslator,
+} from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
 import {
-  formatCurrency,
+  formatCurrency as formatMoney,
   formatDate,
   type ApplicationStage,
   type InterviewStatus,
@@ -133,6 +137,8 @@ export default async function ApplicationDetailPage({
 
   const t = await getTranslator();
   const locale = await getTenantLocale();
+  const currency = await getTenantCurrency();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
   const { id } = await params;
   let application: ApplicationDetail;
   try {

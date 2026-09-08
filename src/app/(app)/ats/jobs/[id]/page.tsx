@@ -17,11 +17,15 @@ import {
   type Paginated,
 } from "@/lib/server/api-client";
 import { getCurrentUser } from "@/lib/server/auth";
-import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import {
+  getTenantCurrency,
+  getTenantLocale,
+  getTranslator,
+} from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
 import {
   APPLICATION_STAGE_LABELS,
-  formatCurrency,
+  formatCurrency as formatMoney,
   formatDate,
   type Application,
   type JobStatus,
@@ -62,6 +66,8 @@ export default async function JobDetailPage({
   if (user?.role === "member") redirect("/");
 
   const locale = await getTenantLocale();
+  const currency = await getTenantCurrency();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
 
   const { id } = await params;
   let job: JobDetail;

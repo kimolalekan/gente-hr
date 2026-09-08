@@ -7,7 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
-import { formatCurrency, type Loan, type LoanType } from "@/lib/hr-data";
+import {
+  formatCurrency as formatMoney,
+  type Loan,
+  type LoanType,
+} from "@/lib/hr-data";
 import { useTranslations } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/types";
 
@@ -89,14 +93,17 @@ export function LoanRequestModal({
   open,
   onClose,
   employeeId,
+  currency,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   employeeId: string;
+  currency: string;
   onCreated: (loan: Loan) => void;
 }) {
   const { t } = useTranslations();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
   const [type, setType] = useState<LoanType>("personal");
   const [amount, setAmount] = useState("");
   const [termMonths, setTermMonths] = useState(12);

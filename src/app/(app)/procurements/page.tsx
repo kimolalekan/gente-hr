@@ -12,9 +12,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { Procurement, ProcurementStatus } from "@/lib/procurement";
-import { formatCurrency, formatDate } from "@/lib/hr-data";
+import { formatCurrency as formatMoney, formatDate } from "@/lib/hr-data";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
-import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
+import {
+  getTenantCurrency,
+  getTenantLocale,
+  getTranslator,
+} from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
 
 export async function generateMetadata() {
@@ -51,14 +55,19 @@ function quoteTotal(procurement: Procurement): number {
 /** Procurement requests list — admin/HR: every tenant request; member: own. */
 export default async function ProcurementsPage() {
   const t = await getTranslator();
+  const currency = await getTenantCurrency();
   const locale = await getTenantLocale();
+  const formatCurrency = (value: number) => formatMoney(value, currency);
 
   const data = await apiGet<Paginated<Procurement>>("/api/procurements");
   const procurements = data.items;
 
   return (
     <>
-      <PageHeader title={t("procurement.title")} description={t("procurement.description")}>
+      <PageHeader
+        title={t("procurement.title")}
+        description={t("procurement.description")}
+      >
         <Link href="/procurements/new">
           <Button>
             <Plus className="size-4" />
