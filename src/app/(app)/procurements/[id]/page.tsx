@@ -4,12 +4,14 @@ import {
   ArrowLeft,
   FileText,
   Paperclip,
+  Pencil,
   ShoppingCart,
   UserRound,
 } from "lucide-react";
 import { ProcurementDecide } from "@/components/procurement/procurement-decide";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -81,11 +83,6 @@ export default async function ProcurementDetailPage({
       ? procurement.status === "PENDING"
       : false;
 
-  const total = procurement.vendors.reduce(
-    (sum, vendor) => sum + vendor.amount,
-    0,
-  );
-
   return (
     <>
       <Link
@@ -105,12 +102,16 @@ export default async function ProcurementDetailPage({
             {statusLabel(procurement.status, t)}
           </Badge>
         </div>
-        <p className="text-sm text-muted-foreground">
-          {t("procurement.totalAmount")}:{" "}
-          <span className="font-semibold text-foreground">
-            {formatCurrency(total)}
-          </span>
-        </p>
+        <div className="flex items-center gap-3">
+          {procurement.status === "PENDING" && (
+            <Link href={`/procurements/${procurement.id}/edit`}>
+              <Button variant="outline" size="sm">
+                <Pencil className="size-3.5" />
+                {t("common.edit")}
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="mt-6 space-y-4">

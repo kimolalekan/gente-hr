@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useTranslations } from "@/lib/i18n/provider";
+import type { Procurement, ProcurementVendor } from "@/lib/procurement";
 
 const ALLOWED_DOC_TYPES = [
   "application/pdf",
@@ -46,24 +47,29 @@ function toInt(value: string): number | null {
 }
 
 /**
- * Create-a-procurement form. Members request on their own behalf; admin/HR
- * pick the requesting employee. Vendor quotes are entered inline, with an
- * optional document per vendor uploaded to `/api/files`.
+ * Procurement request form — used for creating and, while a request is still
+ * pending, editing it. Members request on their own behalf; admin/HR pick the
+ * requesting employee when creating (never changed on edit). Vendor quotes are
+ * entered inline, with an optional document per vendor uploaded to `/api/files`.
  */
 export function ProcurementForm({
   canChooseRequester,
   requesterId,
   requesterName,
   employees,
+  initial = null,
 }: {
   canChooseRequester: boolean;
   requesterId: string | null;
   requesterName: string | null;
   employees: EmployeeOption[];
+  /** When set, the form edits this pending request instead of creating one. */
+  initial?: Procurement | null;
 }) {
   const { t } = useTranslations();
   const router = useRouter();
-  const counter = useRef(0);
+  const isEdit = initial !== null;
+  const counter = useRef(initial?.vendors.length ?? 0);
 
   const defaultSelection =
     requesterId && employees.some((employee) => employee.id === requesterId)
@@ -71,9 +77,20 @@ export function ProcurementForm({
       : "";
   const [requester, setRequester] = useState(defaultSelection);
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [vendors, setVendors] = useState<VendorDraft[]>([]);
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [vendors, setVendors] = useState<VendorDraft[]>(() =>
+    (initial?.vendors ?? []).map(
+      (vendor: ProcurementVendor, index: number) => ({
+        key: `v_${index + 1}`,
+        name: vendor.name,
+        amount: String(vendor.amount),
+        fileId: vendor.doc ?? null,
+        fileName: null,
+        uploading: false,
+      }),
+    ),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -192,27 +209,33 @@ export function ProcurementForm({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch("/api/procurements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim() || undefined,
-          vendors: vendors.map((vendor) => ({
-            name: vendor.name.trim(),
-            amount: toInt(vendor.amount),
-            ...(vendor.fileId ? { doc: vendor.fileId } : {}),
-          })),
-          ...(canChooseRequester ? { employeeId: requester } : {}),
-        }),
-      });
+      const response = await fetch(
+        isEdit ? `/api/procurements/${initial!.id}` : "/api/procurements",
+        {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: title.trim(),
+            description: description.trim() || undefined,
+            vendors: vendors.map((vendor) => ({
+              name: vendor.name.trim(),
+              amount: toInt(vendor.amount),
+              ...(vendor.fileId ? { doc: vendor.fileId } : {}),
+            })),
+            ...(!isEdit && canChooseRequester ? { employeeId: requester } : {}),
+          }),
+        },
+      );
       const body = (await response.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
         data?: { id?: string };
       } | null;
       if (!body?.ok || !body.data?.id) {
-        setError(body?.error ?? t("procurement.submitFailed"));
+        setError(
+          body?.error ??
+            (isEdit ? t("errors.updateFailed") : t("procurement.submitFailed")),
+        );
         return;
       }
       router.push(`/procurements/${body.data.id}`);
@@ -230,7 +253,7 @@ export function ProcurementForm({
       <div className="mb-5 flex flex-col items-start justify-between gap-2 sm:flex-row">
         <div className="flex items-center gap-3">
           <Link
-            href="/procurements"
+            href={isEdit ? `/procurements/${initial!.id}` : "/procurements"}
             aria-label={t("procurement.title")}
             className="inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted/60"
           >
@@ -238,25 +261,21 @@ export function ProcurementForm({
           </Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              {t("procurement.newRequestTitle")}
+              {t(
+                isEdit
+                  ? "procurement.editTitle"
+                  : "procurement.newRequestTitle",
+              )}
             </h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {t("procurement.newRequestDescription")}
+              {t(
+                isEdit
+                  ? "procurement.editDescription"
+                  : "procurement.newRequestDescription",
+              )}
             </p>
           </div>
         </div>
-        <Button
-          type="submit"
-          form="procurement-form"
-          disabled={busy || uploading}
-        >
-          {busy ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Save className="size-4" />
-          )}
-          {t("common.submit")}
-        </Button>
       </div>
 
       {error && (
@@ -469,6 +488,26 @@ export function ProcurementForm({
             )}
           </CardContent>
         </Card>
+
+        <div className="flex items-center justify-end gap-2">
+          <Link
+            href={isEdit ? `/procurements/${initial!.id}` : "/procurements"}
+          >
+            <Button type="button" variant="outline" disabled={busy}>
+              {t("common.cancel")}
+            </Button>
+          </Link>
+          <Button type="submit" disabled={busy || uploading}>
+            {busy ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}
+            {busy
+              ? t("common.submitting")
+              : t(isEdit ? "common.save" : "common.submit")}
+          </Button>
+        </div>
       </form>
     </>
   );

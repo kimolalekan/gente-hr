@@ -1078,7 +1078,6 @@
     "statusApproved": "Aprovada",
     "statusDeclined": "Recusada",
     "awarded": "Adjudicado",
-    "totalAmount": "Total cotado",
     "viewDoc": "Ver documento",
     "noDoc": "Sem documento",
     "approvalCardTitle": "Decisão",
@@ -1088,7 +1087,9 @@
     "approve": "Aprovar",
     "decline": "Recusar",
     "approveError": "Selecione um fornecedor antes de aprovar.",
-    "decidedNotice": "Esta solicitação já foi decidida."
+    "decidedNotice": "Esta solicitação já foi decidida.",
+    "editTitle": "Editar compra",
+    "editDescription": "Atualize os detalhes e as cotações de fornecedores antes que a solicitação seja decidida."
   },
   "reports": {
     "title": "Relatórios",

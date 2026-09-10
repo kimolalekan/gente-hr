@@ -12,13 +12,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { Procurement, ProcurementStatus } from "@/lib/procurement";
-import { formatCurrency as formatMoney, formatDate } from "@/lib/hr-data";
+import { formatDate } from "@/lib/hr-data";
 import { apiGet, type Paginated } from "@/lib/server/api-client";
-import {
-  getTenantCurrency,
-  getTenantLocale,
-  getTranslator,
-} from "@/lib/server/i18n";
+import { getTenantLocale, getTranslator } from "@/lib/server/i18n";
 import type { TranslationKey } from "@/lib/i18n/types";
 
 export async function generateMetadata() {
@@ -48,16 +44,10 @@ function statusLabel(
   return t(key);
 }
 
-function quoteTotal(procurement: Procurement): number {
-  return procurement.vendors.reduce((sum, vendor) => sum + vendor.amount, 0);
-}
-
 /** Procurement requests list — admin/HR: every tenant request; member: own. */
 export default async function ProcurementsPage() {
   const t = await getTranslator();
-  const currency = await getTenantCurrency();
   const locale = await getTenantLocale();
-  const formatCurrency = (value: number) => formatMoney(value, currency);
 
   const data = await apiGet<Paginated<Procurement>>("/api/procurements");
   const procurements = data.items;
@@ -110,9 +100,6 @@ export default async function ProcurementsPage() {
                     <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
                       {t("procurement.vendors")}
                     </th>
-                    <th className="px-4 py-2.5 font-medium">
-                      {t("procurement.totalAmount")}
-                    </th>
                     <th className="hidden px-4 py-2.5 font-medium sm:table-cell">
                       {t("common.date")}
                     </th>
@@ -150,9 +137,6 @@ export default async function ProcurementsPage() {
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                         {procurement.vendors.length}
-                      </td>
-                      <td className="px-4 py-3 font-medium">
-                        {formatCurrency(quoteTotal(procurement))}
                       </td>
                       <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
                         {formatDate(procurement.createdAt.slice(0, 10), locale)}

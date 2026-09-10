@@ -11,7 +11,6 @@ import { Select } from "@/components/ui/select";
 import { useTranslations } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/types";
 import {
-  formatAddress,
   type Employee,
   type EmployeeAddress,
   type EmployeeStatus,

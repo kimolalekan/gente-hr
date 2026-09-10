@@ -1078,7 +1078,6 @@
     "statusApproved": "Approuvée",
     "statusDeclined": "Refusée",
     "awarded": "Attribué",
-    "totalAmount": "Total des devis",
     "viewDoc": "Voir le document",
     "noDoc": "Aucun document",
     "approvalCardTitle": "Décision",
@@ -1088,7 +1087,9 @@
     "approve": "Approuver",
     "decline": "Refuser",
     "approveError": "Sélectionnez un fournisseur avant d'approuver.",
-    "decidedNotice": "Cette demande a déjà été tranchée."
+    "decidedNotice": "Cette demande a déjà été tranchée.",
+    "editTitle": "Modifier l'achat",
+    "editDescription": "Modifiez les détails et les devis avant que la demande soit tranchée."
   },
   "reports": {
     "title": "Rapports",

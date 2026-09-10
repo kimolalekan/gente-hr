@@ -1078,7 +1078,6 @@
     "statusApproved": "Approved",
     "statusDeclined": "Declined",
     "awarded": "Awarded",
-    "totalAmount": "Total quoted",
     "viewDoc": "View document",
     "noDoc": "No document",
     "approvalCardTitle": "Decision",
@@ -1088,7 +1087,9 @@
     "approve": "Approve",
     "decline": "Decline",
     "approveError": "Select a vendor before approving.",
-    "decidedNotice": "This request has already been decided."
+    "decidedNotice": "This request has already been decided.",
+    "editTitle": "Edit procurement",
+    "editDescription": "Update the details and vendor quotes before the request is decided."
   },
   "reports": {
     "title": "Reports",
