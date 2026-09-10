@@ -246,7 +246,7 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "The latest payroll run has been processed. Payslips are available for all employees.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/payroll`, "View payroll", colors),
   },
   leave_requested: {
     subject: "Leave request submitted",
@@ -254,12 +254,13 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "Your leave request has been submitted and is awaiting approval. You'll be notified once it's decided.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/leave`, "View request", colors),
   },
   leave_approved: {
     subject: "Leave approved",
     body: (colors) =>
-      P("Your leave request has been approved. Enjoy your time off!", colors),
+      P("Your leave request has been approved. Enjoy your time off!", colors) +
+      Button(`${emailBaseUrl()}/leave`, "View leave", colors),
   },
   leave_rejected: {
     subject: "Leave request not approved",
@@ -267,15 +268,19 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "Your leave request was not approved. Please reach out to your manager if you have questions.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/leave`, "View request", colors),
   },
   leave_cancelled: {
     subject: "Leave cancelled",
-    body: (colors) => P("Your leave request has been cancelled.", colors),
+    body: (colors) =>
+      P("Your leave request has been cancelled.", colors) +
+      Button(`${emailBaseUrl()}/leave`, "View request", colors),
   },
   leave_extended: {
     subject: "Leave extended",
-    body: (colors) => P("Your leave request has been extended.", colors),
+    body: (colors) =>
+      P("Your leave request has been extended.", colors) +
+      Button(`${emailBaseUrl()}/leave`, "View leave", colors),
   },
   procurement_approved: {
     subject: "Procurement request approved",
@@ -283,7 +288,7 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "Your procurement request has been approved. The winning vendor will be contacted to proceed.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/procurements`, "View request", colors),
   },
   procurement_declined: {
     subject: "Procurement request declined",
@@ -291,7 +296,7 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "Your procurement request was declined. Please reach out to your manager if you have questions.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/procurements`, "View request", colors),
   },
   onboarding_invite: {
     subject: "Complete your onboarding at {org}",
@@ -312,7 +317,7 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "Your onboarding is complete. Welcome aboard — we're glad to have you at {org}!",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/`, "Open Gente", colors),
   },
   offboarding_started: {
     subject: "Offboarding started",
@@ -320,7 +325,7 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "An offboarding process has been started for you. HR will guide you through the next steps.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/`, "Open Gente", colors),
   },
   offboarding_complete: {
     subject: "Offboarding complete",
@@ -328,15 +333,15 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "Your offboarding is complete. Thank you for your time at {org} — we wish you all the best.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/`, "Open Gente", colors),
   },
   interview_invite: {
     subject: "Interview scheduled with {org}",
     body: (colors) =>
       P(
-        "An interview has been scheduled for your application. A calendar invite with the date, time and interviewers is attached to this email.",
+        "An interview has been scheduled for your application. A calendar invite with the date, time and interviewers is attached to this email. Reply to this email if you need to reschedule.",
         colors,
-      ) + Button(`${emailBaseUrl()}/ats`, "View your application", colors),
+      ),
   },
   loan_approved: {
     subject: "Loan approved",
@@ -344,7 +349,7 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "Your loan request has been approved. The amount will be reflected in your upcoming payroll.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/payroll/loans`, "View loans", colors),
   },
   review_started: {
     subject: "Performance review started",
@@ -352,7 +357,7 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "A performance review has been started for you. Please complete your self-assessment before the deadline.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/performance`, "Open review", colors),
   },
   review_submitted: {
     subject: "Review submitted",
@@ -360,7 +365,7 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "Your review has been submitted and is now with the reviewer for feedback.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/performance`, "View review", colors),
   },
   review_deadline_extended: {
     subject: "Review deadline extended",
@@ -368,7 +373,7 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "The deadline for your performance review has been extended. You now have more time to complete it.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/performance`, "View review", colors),
   },
   email_test: {
     subject: "Test email from {org}",
@@ -376,7 +381,7 @@ export const EMAIL_TEMPLATES: Record<
       P(
         "This is a test email from your Gente HR email configuration. If you're reading this, delivery is working.",
         colors,
-      ),
+      ) + Button(`${emailBaseUrl()}/`, "Open Gente", colors),
   },
 };
 
